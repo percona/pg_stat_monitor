@@ -79,9 +79,10 @@ add_percona_yum_repo(){
       wget http://jenkins.percona.com/yum-repo/percona-dev.repo
       mv -f percona-dev.repo /etc/yum.repos.d/
     fi
-    yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+#    yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+    yum -y install https://repo.percona.com/yum/testing/7/RPMS/noarch/percona-release-1.0-14.noarch.rpm
     percona-release disable all
-    percona-release enable ppg-11 release
+    percona-release enable ppg-11.6 testing
     return
 }
 
@@ -94,11 +95,14 @@ EOL
     sed -i "s:@@DIST@@:$OS_NAME:g" /etc/apt/sources.list.d/percona-dev.list
   fi
   wget -qO - http://jenkins.percona.com/apt-repo/8507EFA5.pub | apt-key add -
-  wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
-  dpkg -i percona-release_latest.generic_all.deb
+#  wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+#  dpkg -i percona-release_latest.generic_all.deb
+  wget https://repo.percona.com/apt/pool/testing/p/percona-release/percona-release_1.0-14.generic_all.deb
+  dpkg -i percona-release_1.0-14.generic_all.deb
   percona-release disable all
   rm -f percona-release_latest.generic_all.deb
-  percona-release enable ppg-11 release
+  percona-release enable ppg-11.6 testing
+  percona-release enable tools experimental
   return
 }
 
@@ -224,9 +228,9 @@ install_deps() {
           apt-get --allow-unauthenticated update
       fi
       apt-get update || true
-      INSTALL_LIST="build-essential percona-postgresql-11 debconf debhelper clang-7 devscripts dh-exec dh-systemd git wget libkrb5-dev libssl-dev percona-postgresql-common percona-postgresql-server-dev-all"
+      INSTALL_LIST="build-essential percona-postgresql-11 percona-postgresql-client-11 debconf debhelper clang-7 devscripts dh-exec dh-systemd git wget libkrb5-dev libssl-dev percona-postgresql-common percona-postgresql-server-dev-all"
       DEBIAN_FRONTEND=noninteractive apt-get -y --allow-unauthenticated install ${INSTALL_LIST}
-      INSTALL_LIST="build-essential debconf debhelper devscripts dh-exec dh-systemd git wget libxml-checker-perl libxml-libxml-perl libio-socket-ssl-perl libperl-dev libssl-dev libxml2-dev txt2man zlib1g-dev libpq-dev"
+      INSTALL_LIST="build-essential debconf debhelper devscripts dh-exec dh-systemd git wget libxml-checker-perl libxml-libxml-perl libio-socket-ssl-perl libperl-dev libssl-dev libxml2-dev txt2man zlib1g-dev libpq-dev sysstat"
       until DEBIAN_FRONTEND=noninteractive apt-get -y --allow-unauthenticated install ${INSTALL_LIST}; do
         sleep 1
         echo "waiting"
@@ -469,7 +473,7 @@ RPM_RELEASE=1
 DEB_RELEASE=1
 REVISION=0
 BRANCH="master"
-REPO="https://github.com/Percona-Lab/pg_stat_monitor.git"
+REPO="https://github.com/percona/pg_stat_monitor.git"
 PRODUCT=percona-pg-stat-monitor
 DEBUG=0
 parse_arguments PICK-ARGS-FROM-ARGV "$@"

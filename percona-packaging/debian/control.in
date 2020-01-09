@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Percona Development Team <info@percona.com>
 Build-Depends:
  debhelper (>= 9),
- percona-postgresql-server-dev-all (>= 153~),
+ percona-postgresql-server-dev-all (>= 11.6-2~),
 
 Package: percona-pg-stat-monitor
 Architecture: any

@@ -12,7 +12,7 @@ License:        Apache 2.0
 Source0:        %{sname}-%{pgstatmonmajver}.%{pgstatmonmidver}.%{pgstatmonminver}.tar.gz
 URL:            https://github.com/Percona-Lab/pg_stat_monitor
 BuildRequires:  percona-postgresql11-devel
-Requires:       postgresql-server
+Requires:       percona-postgresql11-server
 
 
 %description
