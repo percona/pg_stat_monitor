@@ -129,6 +129,9 @@ static uint64 locate_query(uint64 bucket_id, uint64 queryid, char * query);
 
 static uint64 get_query_id(pgssJumbleState *jstate, Query *query);
 
+/*recursively get table name in query tree*/
+static void tablenames_walker(Query *query, char *tables_name, bool *isfirst);
+
 /*
  * Module load callback
  */
@@ -234,7 +237,7 @@ static void
 pgss_post_parse_analyze(ParseState *pstate, Query *query)
 {
 	pgssJumbleState jstate;
-	char			tables_name[MAX_REL_LEN] = {0};
+	//char			tables_name[MAX_REL_LEN] = {0};
 
 	if (prev_post_parse_analyze_hook)
 		prev_post_parse_analyze_hook(pstate, query);
@@ -258,7 +261,7 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query)
 	}
 
 	query->queryId = get_query_id(&jstate, query);
-	if (query->rtable)
+	/*if (query->rtable)
 	{
 		ListCell *lc;
 		bool first = true;
@@ -290,7 +293,7 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query)
 			}
 		}
 		hash_alloc_object_entry(query->queryId, tables_name);
-	}
+	}*/
 
 	/*
 	 * If we are unlucky enough to get a hash of zero, use 1 instead, to
@@ -2172,6 +2175,17 @@ static PlannedStmt *pgss_planner_hook(Query *parse, int opt, ParamListInfo param
 #endif
 {
 	PlannedStmt *result;
+	char	tables_name[MAX_REL_LEN] = {0};
+	bool	isfirst = true;
+	tablenames_walker(parse, tables_name, &isfirst);
+	/*	
+	 *	if the isfirst still is true that means rtable is NULL, 
+	 *	no need to create hash entry for a empty object
+	 */
+	if(!isfirst)
+	{
+		hash_alloc_object_entry(parse->queryId, tables_name);
+	}
 #if PG_VERSION_NUM >= 130000
 	if (PGSM_TRACK_PLANNING && query_string
 		&& parse->queryId != UINT64CONST(0))
@@ -2372,3 +2386,51 @@ IsSystemInitialized(void)
 	return (system_init && IsHashInitialize());
 }
 
+static void
+tablenames_walker(Query *query, char *tables_name, bool *isfirst)
+{
+	if (query->rtable)
+	{
+		ListCell *lc;
+		char	temp_table_name[MAX_REL_LEN] = {0};
+		foreach(lc, query->rtable)
+		{
+			RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
+			if (rte->rtekind == RTE_RELATION)
+			{
+				char *relname = get_rel_name(rte->relid);
+				char *relspacename = get_namespace_name(get_rel_namespace(rte->relid));
+				if (relname)
+				{
+					if (relspacename)
+					{
+						snprintf(temp_table_name, MAX_REL_LEN, "%s.%s", relspacename, relname);
+					}
+					else
+					{
+						snprintf(temp_table_name, MAX_REL_LEN, "%s", relname);
+					}
+
+					/*table name is already in the string*/
+					if(strstr(tables_name,temp_table_name) != NULL)
+						continue;
+
+					if(*isfirst)
+					{
+						snprintf(tables_name, MAX_REL_LEN, "%s", temp_table_name);
+						*isfirst = false;
+					}
+					else
+					{
+						snprintf(tables_name, MAX_REL_LEN, "%s,%s", tables_name, temp_table_name);
+					}
+				}
+			}
+			if (rte->rtekind == RTE_SUBQUERY)
+			{
+				Assert(rte->subquery != NULL);
+				tablenames_walker(rte->subquery, tables_name, isfirst);
+			}
+		}
+	}
+}

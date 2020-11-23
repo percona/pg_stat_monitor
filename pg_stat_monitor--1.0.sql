@@ -153,6 +153,6 @@ $$
 LANGUAGE SQL PARALLEL SAFE;
 
 GRANT SELECT ON pg_stat_monitor_settings TO PUBLIC;
-*/
+
 -- Don't want this to be available to non-superusers.
 REVOKE ALL ON FUNCTION pg_stat_monitor_reset() FROM PUBLIC;
