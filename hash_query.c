@@ -16,7 +16,9 @@
 
 static pgssSharedState *pgss;
 static HTAB *pgss_hash;
-static HTAB *pgss_object_hash;
+static HTAB *pgss_query_hash;
+
+
 
 static HTAB* hash_init(const char *hash_name, int key_size, int entry_size, int hash_size);
 
@@ -40,7 +42,7 @@ pgss_startup(void)
 
 	pgss = NULL;
 	pgss_hash = NULL;
-	pgss_object_hash = NULL;
+	pgss_query_hash = NULL;
 
 	/*
 	* Create or attach to the shared memory state, including hash table
@@ -56,7 +58,7 @@ pgss_startup(void)
 		ResetSharedState(pgss);
 	}
 
-	pgss->query_buf_size_bucket = PGSM_QUERY_BUF_SIZE / PGSM_MAX_BUCKETS;
+	pgss->query_buf_size_bucket = MAX_QUERY_BUF / PGSM_MAX_BUCKETS;
 
 	for (i = 0; i < PGSM_MAX_BUCKETS; i++)
 	{
@@ -65,8 +67,8 @@ pgss_startup(void)
 		memset(buf, 0, sizeof (uint64));
 	}
 
-	pgss_hash = hash_init("pg_stat_monitor: Queries hashtable", sizeof(pgssHashKey), sizeof(pgssEntry),PGSM_MAX);
-	pgss_object_hash = hash_init("pg_stat_monitor: Object hashtable", sizeof(pgssObjectHashKey), sizeof(pgssObjectEntry), PGSM_OBJECT_CACHE);
+	pgss_hash = hash_init("pg_stat_monitor: bucket hashtable", sizeof(pgssHashKey), sizeof(pgssEntry), MAX_BUCKET_ENTRIES);
+	pgss_query_hash = hash_init("pg_stat_monitor: query hashtable", sizeof(pgssQueryHashKey), sizeof(pgssQueryEntry),500000);
 
 	LWLockRelease(AddinShmemInitLock);
 
@@ -83,14 +85,22 @@ pgsm_get_bucket_size(void)
 	return pgss->query_buf_size_bucket;
 }
 
-pgssSharedState* pgsm_get_ss(void)
+pgssSharedState*
+pgsm_get_ss(void)
 {
 	return pgss;
 }
 
-HTAB* pgsm_get_hash(void)
+HTAB*
+pgsm_get_hash(void)
 {
 	return pgss_hash;
+}
+
+HTAB*
+pgsm_get_query_hash(void)
+{
+	return pgss_query_hash;
 }
 
 /*
@@ -102,8 +112,6 @@ HTAB* pgsm_get_hash(void)
 void
 pgss_shmem_shutdown(int code, Datum arg)
 {
-	printf("--%s", __FUNCTION__);
-
 	/* Don't try to dump during a crash. */
 	if (code)
 		return;
@@ -120,10 +128,13 @@ hash_memsize(void)
 	Size	size;
 
 	size = MAXALIGN(sizeof(pgssSharedState));
-	size = add_size(size, hash_estimate_size(PGSM_MAX, sizeof(pgssEntry)));
+	size = MAXALIGN(MAX_QUERY_BUF);
+	size = add_size(size, hash_estimate_size(MAX_BUCKET_ENTRIES, sizeof(pgssEntry)));
+	size = add_size(size, hash_estimate_size(500000, sizeof(pgssQueryEntry)));
 
 	return size;
 }
+
 
 pgssEntry *
 hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key,int encoding)
@@ -131,13 +142,7 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key,int encoding)
 	pgssEntry	*entry = NULL;
 	bool		found = false;
 
-	if (pgss->bucket_entry[pgss->current_wbucket] >= (PGSM_MAX / PGSM_MAX_BUCKETS))
-	{
-		pgss->bucket_overflow[pgss->current_wbucket]++;
-		return NULL;
-	}
-
-	if (hash_get_num_entries(pgss_hash)  >= PGSM_MAX)
+	if (hash_get_num_entries(pgss_hash) >= MAX_BUCKET_ENTRIES)
 		return NULL;
 
 	/* Find or create an entry with desired hash code */
@@ -155,7 +160,30 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key,int encoding)
 		/* ... and don't forget the query text metadata */
 		entry->encoding = encoding;
 	}
+	if (entry == NULL)
+		elog(FATAL, "%s", "Ibrar");
 	return entry;
+}
+
+/*
+ * Deallocate least-used entries.
+ *
+ * Caller must hold an exclusive lock on pgss->lock.
+ */
+void
+hash_query_entry_dealloc(int bucket)
+{
+	HASH_SEQ_STATUS 	hash_seq;
+	pgssQueryEntry      *entry;
+
+	printf ("--%d--", hash_get_num_entries(pgss_hash));
+	hash_seq_init(&hash_seq, pgss_query_hash);
+	while ((entry = hash_seq_search(&hash_seq)) != NULL)
+	{
+		if (entry->key.bucket_id == bucket)
+			entry = hash_search(pgss_query_hash, &entry->key, HASH_REMOVE, NULL);
+	}
+	printf ("--%d", hash_get_num_entries(pgss_hash));
 }
 
 /*
@@ -169,13 +197,13 @@ hash_entry_dealloc(int bucket)
 	HASH_SEQ_STATUS hash_seq;
 	pgssEntry		*entry;
 
-	pgss->bucket_entry[bucket] = 0;
-
 	hash_seq_init(&hash_seq, pgss_hash);
 	while ((entry = hash_seq_search(&hash_seq)) != NULL)
 	{
 		if (entry->key.bucket_id == bucket || bucket < 0)
+		{
 			entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
+		}
 	}
 }
 
@@ -185,6 +213,7 @@ hash_entry_dealloc(int bucket)
 void
 hash_entry_reset()
 {
+	pgssSharedState *pgss   = pgsm_get_ss();
 	HASH_SEQ_STATUS		hash_seq;
 	pgssEntry			*entry;
 
@@ -199,80 +228,41 @@ hash_entry_reset()
 	LWLockRelease(pgss->lock);
 }
 
-void
-hash_alloc_object_entry(uint64 queryid, char *objects)
+/* Caller must accuire lock */
+bool
+hash_create_query_entry(uint64 bucket_id, uint64 queryid)
 {
-    pgssObjectEntry *entry = NULL;
-    bool            found;
-    pgssObjectHashKey key;
+    pgssQueryHashKey    key;
+	pgssQueryEntry      *entry =  NULL;
+	bool                found;
 
-	LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
     key.queryid = queryid;
-    entry = (pgssObjectEntry *) hash_search(pgss_object_hash, &key, HASH_ENTER, &found);
-    if (!found)
-    {
-        SpinLockAcquire(&entry->mutex);
-        snprintf(entry->tables_name, MAX_REL_LEN, "%s", objects);
-        SpinLockRelease(&entry->mutex);
-    }
-	LWLockRelease(pgss->lock);
+	key.bucket_id = bucket_id;
+
+	entry = (pgssQueryEntry *) hash_search(pgss_query_hash, &key, HASH_ENTER, &found);
+	return (entry != NULL);
 }
 
-/* De-alocate memory */
-void
-hash_dealloc_object_entry(uint64 queryid, char *objects)
+/* Caller must accuire lock */
+bool
+hash_find_query_entry(uint64 bucket_id, uint64 queryid)
 {
-    pgssObjectHashKey       key;
-    pgssObjectEntry         *entry;
+    pgssQueryHashKey    key;
+	pgssQueryEntry      *entry =  NULL;
+	bool                found;
 
     key.queryid = queryid;
-
-	LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
-    entry = (pgssObjectEntry *) hash_search(pgss_object_hash, &key, HASH_FIND, NULL);
-    if (entry != NULL)
-    {
-        snprintf(objects, MAX_REL_LEN, "%s", entry->tables_name);
-        hash_search(pgss_object_hash, &entry->key, HASH_REMOVE, NULL);
-    }
-    LWLockRelease(pgss->lock);
-}
-
-pgssEntry*
-hash_create_query_entry(unsigned int queryid,
-                        unsigned int userid,
-                        unsigned int dbid,
-                        unsigned int bucket_id,
-                        unsigned int ip)
-{
-    pgssHashKey     key;
-    pgssEntry       *entry =  NULL;
-    int             encoding = GetDatabaseEncoding();
-
-    key.queryid = queryid;
-    key.userid = userid;
-    key.dbid = dbid;
-    key.bucket_id = bucket_id;
-	key.ip = ip;
+	key.bucket_id = bucket_id;
 
     /* Lookup the hash table entry with shared lock. */
-    LWLockAcquire(pgss->lock, LW_SHARED);
-    entry = (pgssEntry *) hash_search(pgss_hash, &key, HASH_FIND, NULL);
-    if(!entry)
-    {
-        LWLockRelease(pgss->lock);
-        LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
-
-        /* OK to create a new hashtable entry */
-        entry = hash_entry_alloc(pgss, &key, encoding);
-    }
-    return entry;
+	entry = (pgssQueryEntry *) hash_search(pgss_query_hash, &key, HASH_FIND, &found);
+    return ((entry != NULL) && found);
 }
 
 bool
 IsHashInitialize(void)
 {
 	return (pgss != NULL &&
-			pgss_hash != NULL &&
-			pgss_object_hash !=NULL);
+			pgss_hash != NULL);
 }
 

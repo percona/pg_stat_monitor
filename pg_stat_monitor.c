@@ -16,7 +16,9 @@
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION "0.6.0"
+#define BUILD_VERSION                   "0.6.0"
+#define PG_STAT_STATEMENTS_COLS         41  /* maximum of above */
+#define PGSM_TEXT_FILE                  "/tmp/pg_stat_monitor_query"
 
 /*---- Initicalization Function Declarations ----*/
 void _PG_init(void);
@@ -32,13 +34,14 @@ static int	plan_nested_level = 0;
 static int	exec_nested_level = 0;
 #endif
 
+FILE *qfile;
 static bool system_init = false;
 static struct rusage  rusage_start;
 static struct rusage  rusage_end;
 static unsigned char *pgss_qbuf[MAX_BUCKETS];
 
-
 static bool IsSystemInitialized(void);
+static void dump_queries_buffer(int bucket_id, unsigned char *buf, int buf_len);
 
 /* Saved hook values in case of unload */
 static planner_hook_type planner_hook_next = NULL;
@@ -51,6 +54,7 @@ static ProcessUtility_hook_type prev_ProcessUtility = NULL;
 static emit_log_hook_type prev_emit_log_hook = NULL;
 void pgsm_emit_log_hook(ErrorData *edata);
 static shmem_startup_hook_type prev_shmem_startup_hook = NULL;
+static ExecutorCheckPerms_hook_type prev_ExecutorCheckPerms_hook = NULL;
 
 PG_FUNCTION_INFO_V1(pg_stat_monitor_version);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_reset);
@@ -60,7 +64,10 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_settings);
 
 static uint pg_get_client_addr(void);
-static Datum array_get_datum(int arr[]);
+static int pg_get_application_name(char* application_name);
+static PgBackendStatus *pg_get_backend_status(void);
+static Datum textarray_get_datum(char arr[][CMD_LEN], int len);
+static Datum intarray_get_datum(int32 arr[], int len);
 
 #if PG_VERSION_NUM >= 130000
 static PlannedStmt * pgss_planner_hook(Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams);
@@ -74,6 +81,7 @@ static void pgss_ExecutorStart(QueryDesc *queryDesc, int eflags);
 static void pgss_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count, bool execute_once);
 static void pgss_ExecutorFinish(QueryDesc *queryDesc);
 static void pgss_ExecutorEnd(QueryDesc *queryDesc);
+static bool pgss_ExecutorCheckPerms(List *rt, bool abort);
 
 #if PG_VERSION_NUM >= 130000
 static void pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
@@ -124,8 +132,9 @@ static int comp_location(const void *a, const void *b);
 
 static uint64 get_next_wbucket(pgssSharedState *pgss);
 
-static void store_query(uint64 queryid, const char *query, uint64 query_len);
-static uint64 locate_query(uint64 bucket_id, uint64 queryid, char * query);
+static void store_query(int bucket_id, uint64 queryid, const char *query, uint64 query_len);
+static uint64 read_query(unsigned char *buf, uint64 queryid, char * query);
+int read_query_buffer(int bucket_id, uint64 queryid, char *query_txt);
 
 static uint64 get_query_id(pgssJumbleState *jstate, Query *query);
 
@@ -138,6 +147,8 @@ static void tablenames_walker(Query *query, char *tables_name, bool *isfirst);
 void
 _PG_init(void)
 {
+	int i;
+
 	elog(DEBUG2, "pg_stat_monitor: %s()", __FUNCTION__);
 	/*
 	 * In order to create our shared memory area, we have to be loaded via
@@ -152,6 +163,13 @@ _PG_init(void)
 
 	/* Inilize the GUC variables */
 	init_guc();
+
+	for (i = 0; i < PGSM_MAX_BUCKETS; i++)
+	{
+		char file_name[1024];
+		sprintf(file_name, "%s.%d", PGSM_TEXT_FILE, i);
+		unlink(file_name);
+	}
 
 	EmitWarningsOnPlaceholders("pg_stat_monitor");
 
@@ -183,6 +201,8 @@ _PG_init(void)
 	planner_hook_next       		= planner_hook;
 	planner_hook            		= pgss_planner_hook;
 	emit_log_hook                   = pgsm_emit_log_hook;
+	prev_ExecutorCheckPerms_hook 	= ExecutorCheckPerms_hook;
+	ExecutorCheckPerms_hook			= pgss_ExecutorCheckPerms;
 
 	system_init = true;
 }
@@ -228,7 +248,6 @@ pg_stat_monitor_version(PG_FUNCTION_ARGS)
 	PG_RETURN_TEXT_P(cstring_to_text(BUILD_VERSION));
 }
 
-#define PG_STAT_STATEMENTS_COLS         40  /* maximum of above */
 
 /*
  * Post-parse-analysis hook: mark query with a queryId
@@ -237,7 +256,6 @@ static void
 pgss_post_parse_analyze(ParseState *pstate, Query *query)
 {
 	pgssJumbleState jstate;
-	//char			tables_name[MAX_REL_LEN] = {0};
 
 	if (prev_post_parse_analyze_hook)
 		prev_post_parse_analyze_hook(pstate, query);
@@ -261,40 +279,6 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query)
 	}
 
 	query->queryId = get_query_id(&jstate, query);
-	/*if (query->rtable)
-	{
-		ListCell *lc;
-		bool first = true;
-		foreach(lc, query->rtable)
-		{
-			RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
-			if (rte->rtekind == RTE_RELATION)
-			{
-				char *relname = get_rel_name(rte->relid);
-				char *relspacename = get_namespace_name(get_rel_namespace(rte->relid));
-				if (relname)
-				{
-					if (first)
-					{
-						if (relspacename)
-							snprintf(tables_name, MAX_REL_LEN, "%s.%s", relspacename, relname);
-						else
-							snprintf(tables_name, MAX_REL_LEN, "%s", relname);
-						first = false;
-					}
-					else
-					{
-						if (relspacename)
-							snprintf(tables_name, MAX_REL_LEN, "%s,%s.%s", tables_name, relspacename, relname);
-						else
-							snprintf(tables_name, MAX_REL_LEN, "%s,%s", tables_name, relname);
-					}
-				}
-			}
-		}
-		hash_alloc_object_entry(query->queryId, tables_name);
-	}*/
-
 	/*
 	 * If we are unlucky enough to get a hash of zero, use 1 instead, to
 	 * prevent confusion with the utility-statement case.
@@ -329,6 +313,7 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query)
 static void
 pgss_ExecutorStart(QueryDesc *queryDesc, int eflags)
 {
+
 	getrusage(RUSAGE_SELF, &rusage_start);
 
 	if (prev_ExecutorStart)
@@ -454,6 +439,52 @@ pgss_ExecutorEnd(QueryDesc *queryDesc)
 
 }
 
+static bool
+pgss_ExecutorCheckPerms(List *rt, bool abort)
+{
+	ListCell		*lr;
+	pgssSharedState *pgss = pgsm_get_ss();
+	int				i = 0;
+	int				j = 0;
+
+	LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
+	memset(pgss->cmdTag, 0x0, sizeof(pgss->cmdTag));
+
+	foreach(lr, rt)
+    {
+		bool found = false;
+        RangeTblEntry *rte = lfirst(lr);
+        if (rte->rtekind != RTE_RELATION)
+            continue;
+
+		if (i < REL_LST)
+		{
+			for(j = 0; j < i; j++)
+			{
+				if (pgss->relations[j] == rte->relid)
+					found = true;
+			}
+			if (!found)
+				pgss->relations[i++] = rte->relid;
+		}
+		if (rte->requiredPerms & ACL_INSERT) snprintf(pgss->cmdTag[0],CMD_LEN,"%s", "INSERT");
+        if (rte->requiredPerms & ACL_UPDATE) snprintf(pgss->cmdTag[1],CMD_LEN,"%s", "UPDATE");
+        if (rte->requiredPerms & ACL_DELETE) snprintf(pgss->cmdTag[2],CMD_LEN,"%s", "DELETE");
+        if (rte->requiredPerms & ACL_SELECT) snprintf(pgss->cmdTag[3],CMD_LEN,"%s", "SELECT");
+        if (rte->requiredPerms & ACL_TRUNCATE) snprintf(pgss->cmdTag[4],CMD_LEN,"%s", "TRUNCATE");
+        if (rte->requiredPerms & ACL_REFERENCES) snprintf(pgss->cmdTag[5],CMD_LEN,"%s", "REFERENCES");
+        if (rte->requiredPerms & ACL_TRIGGER) snprintf(pgss->cmdTag[6],CMD_LEN,"%s", "TRIGGER");
+        if (rte->requiredPerms & ACL_EXECUTE) snprintf(pgss->cmdTag[7],CMD_LEN,"%s", "EXECUTE");
+        if (rte->requiredPerms & ACL_CREATE) snprintf(pgss->cmdTag[8],CMD_LEN,"%s", "CREATE");
+	}
+	LWLockRelease(pgss->lock);
+
+    if (prev_ExecutorCheckPerms_hook)
+        return prev_ExecutorCheckPerms_hook(rt, abort);
+
+    return true;
+}
+
 /*
  * ProcessUtility hook
  */
@@ -543,6 +574,7 @@ static void pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		}
 #endif
+
 		PG_END_TRY();
 		INSTR_TIME_SET_CURRENT(duration);
 		INSTR_TIME_SUBTRACT(duration, start);
@@ -639,36 +671,61 @@ pgss_hash_string(const char *str, int len)
 											len, 0));
 }
 
-static uint
-pg_get_client_addr(void)
+static PgBackendStatus*
+pg_get_backend_status(void)
 {
-	char	remote_host[NI_MAXHOST];
-	int		num_backends = pgstat_fetch_stat_numbackends();
-	int		ret;
-	int		i;
+	LocalPgBackendStatus *local_beentry;
+	int		             num_backends = pgstat_fetch_stat_numbackends();
+	int                  i;
 
-	memset(remote_host, 0x0, NI_MAXHOST);
 	for (i = 1; i <= num_backends; i++)
 	{
-		LocalPgBackendStatus *local_beentry;
 		PgBackendStatus *beentry;
 
 		local_beentry = pgstat_fetch_stat_local_beentry(i);
 		beentry = &local_beentry->backendStatus;
 
 		if (beentry->st_procpid == MyProcPid)
-		{
-			ret = pg_getnameinfo_all(&beentry->st_clientaddr.addr,
+			return beentry;
+	}
+	return NULL;
+}
+
+static int
+pg_get_application_name(char *application_name)
+{
+	PgBackendStatus *beentry = pg_get_backend_status();
+
+	snprintf(application_name, APPLICATIONNAME_LEN, "%s", beentry->st_appname);
+	return strlen(application_name);
+}
+
+/*
+ * Store some statistics for a statement.
+ *
+ * If queryId is 0 then this is a utility statement and we should compute
+ * a suitable queryId internally.
+ *
+ * If jstate is not NULL then we're trying to create an entry for which
+ * we have no statistics as yet; we just want to record the normalized
+ */
+
+static uint
+pg_get_client_addr(void)
+{
+	PgBackendStatus *beentry = pg_get_backend_status();
+	char	remote_host[NI_MAXHOST];
+	int		ret;
+
+	memset(remote_host, 0x0, NI_MAXHOST);
+	ret = pg_getnameinfo_all(&beentry->st_clientaddr.addr,
 							 beentry->st_clientaddr.salen,
 							 remote_host, sizeof(remote_host),
 							 NULL, 0,
 							 NI_NUMERICHOST | NI_NUMERICSERV);
-			if (ret == 0)
-				break;
-			else
-				return ntohl(inet_addr("127.0.0.1"));
-		}
-	}
+	if (ret != 0)
+		return ntohl(inet_addr("127.0.0.1"));
+
 	if (strcmp(remote_host, "[local]") == 0)
 		return ntohl(inet_addr("127.0.0.1"));
 	return ntohl(inet_addr(remote_host));
@@ -709,15 +766,18 @@ static void pgss_store(uint64 queryId,
 	char			*norm_query = NULL;
 	int				encoding = GetDatabaseEncoding();
 	bool			reset = false;
-	int				i;
-	char			tables_name[MAX_REL_LEN] = {0};
-	int             len;
+	bool			found = false;
+	int				i,j;
 	pgssSharedState *pgss = pgsm_get_ss();
 	HTAB            *pgss_hash = pgsm_get_hash();
 	int				message_len = message ? strlen(message) : 0;
-
+	int				cmd_len[CMD_LST];
+	char			application_name[APPLICATIONNAME_LEN];
+	int				application_name_len;
 	Assert(query != NULL);
 	Assert(PGSM_ENABLED);
+
+	application_name_len = pg_get_application_name(application_name);
 
 	/* Safety check... */
 	if (!IsSystemInitialized() || !pgss_qbuf[pgss->current_wbucket])
@@ -761,8 +821,8 @@ static void pgss_store(uint64 queryId,
 	if (queryId == UINT64CONST(0))
 		queryId = pgss_hash_string(query, query_len);
 
-	hash_dealloc_object_entry(queryId, tables_name);
-	len = strlen(tables_name);
+	for (i = 0; i < CMD_LST; i++)
+		cmd_len[i] = strlen(pgss->cmdTag[i]);
 
 	bucket_id = get_next_wbucket(pgss);
 
@@ -815,9 +875,9 @@ static void pgss_store(uint64 queryId,
 			goto exit;
 		}
 		if (PGSM_NORMALIZED_QUERY)
-				store_query(queryId, norm_query ? norm_query : query, query_len);
+			store_query(key.bucket_id, queryId, norm_query ? norm_query : query, query_len);
 		else
-			store_query(queryId, query, query_len);
+			store_query(key.bucket_id, queryId, query, query_len);
 	}
 
 	/*
@@ -883,10 +943,40 @@ static void pgss_store(uint64 queryId,
 				e->counters.resp_calls[MAX_RESPONSE_BUCKET - 1]++;
 		}
 
+		for (i = 0; i < application_name_len; i++)
+				e->counters.info.application_name[i] = application_name[i];
+
+		for (i = 0; i < REL_LST; i++)
+			if (e->counters.info.relations[i] != 0)
+				found = true;
+
+		if (!found)
+			for (i = 0; i < REL_LST; i++)
+				e->counters.info.relations[i] = pgss->relations[i];
+
+		found = false;
+		/* This is bit ugly hack to check we already updated the counter or not */
+		for (i = 0; i < CMD_LST; i++)
+			if (e->counters.info.cmd_type[i][0] != 0)
+				found = true;
+
+		/* Don't update the counter, if already updated */
+		if (!found)
+		{
+			for (i = 0; i < CMD_LST; i++)
+			{
+				for (j = 0; j < CMD_LEN; j++)
+				{
+					e->counters.info.cmd_type[i][j] = (cmd_len[i] <= CMD_LEN ? pgss->cmdTag[i][j] : 0);
+					pgss->cmdTag[i][j] = 0;
+				}
+			}
+		}
 		e->counters.error.elevel = elevel;
 		e->counters.error.sqlcode = sqlcode;
 		for(i = 0; i < message_len; i++)
 			e->counters.error.message[i] = message[i];
+
 		e->counters.calls[kind].rows += rows;
 		e->counters.blocks.shared_blks_hit += bufusage->shared_blks_hit;
 		e->counters.blocks.shared_blks_read += bufusage->shared_blks_read;
@@ -904,8 +994,6 @@ static void pgss_store(uint64 queryId,
 		e->counters.info.host = pg_get_client_addr();
 		e->counters.sysinfo.utime = utime;
 		e->counters.sysinfo.stime = stime;
-		for(i = 0; i < len; i++)
-			e->counters.info.tables_name[i] = tables_name[i];
 		SpinLockRelease(&e->mutex);
 		}
 	}
@@ -1004,20 +1092,32 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	hash_seq_init(&hash_seq, pgss_hash);
 	while ((entry = hash_seq_search(&hash_seq)) != NULL)
 	{
-		Datum		values[PG_STAT_STATEMENTS_COLS];
-		bool		nulls[PG_STAT_STATEMENTS_COLS];
-		int		i = 0;
-		int		kind;
-		Counters	tmp;
-		double		stddev;
-		int64		queryid = entry->key.queryid;
+		Datum       values[PG_STAT_STATEMENTS_COLS];
+		bool        nulls[PG_STAT_STATEMENTS_COLS];
+		int		    i = 0,j;
+		int         len = 0;
+		int		    kind;
+		Counters    tmp;
+		double      stddev;
+		int64       queryid = entry->key.queryid;
 
 		memset(values, 0, sizeof(values));
 		memset(nulls, 0, sizeof(nulls));
 
-		if(locate_query(entry->key.bucket_id, queryid, query_txt) == 0)
-			query_txt = NULL;
-
+		if (!hash_find_query_entry(entry->key.bucket_id, queryid))
+		{
+			sprintf(query_txt, "%s", "pg_stat_monitor: queryid not found in hash and in temporay file");
+		}
+		else
+		{
+			unsigned char *buf = pgss_qbuf[entry->key.bucket_id];
+			if(read_query(buf, queryid, query_txt) == 0)
+			{
+				len = read_query_buffer(entry->key.bucket_id, queryid, query_txt);
+				if (len != MAX_QUERY_BUFFER_BUCKET)
+					sprintf(query_txt, "%s", "pg_stat_monitor: query not found either in hash nor in temporay file");
+			}
+		}
 		if (query_txt)
 			sprintf(queryid_txt, "%08lX", queryid);
 		else
@@ -1070,6 +1170,22 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			else
 				nulls[i++] = true;
 		}
+		if (strlen(tmp.info.application_name) <= 0)
+			nulls[i++] = true;
+		else
+			values[i++] = CStringGetTextDatum(tmp.info.application_name);
+
+		len = 0;
+		for (j = 0; j < REL_LST; j++)
+			if (tmp.info.relations[j] != 0)
+				len++;
+
+		if (len == 0)
+			nulls[i++] = true;
+		else
+			values[i++] = IntArrayGetTextDatum(tmp.info.relations, len);
+
+		values[i++] = TextArrayGetTextDatum(tmp.info.cmd_type, CMD_LST);
 		values[i++] = Int64GetDatumFast(tmp.error.elevel);
 		values[i++] = Int64GetDatumFast(tmp.error.sqlcode);
 		if (strlen(tmp.error.message) == 0)
@@ -1105,13 +1221,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_written);
 		values[i++] = Float8GetDatumFast(tmp.blocks.blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.blk_write_time);
-		values[i++] = ArrayGetTextDatum(tmp.resp_calls);
+		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, 10);
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.utime);
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.stime);
-		if (strlen(tmp.info.tables_name) == 0)
-			nulls[i++] = true;
-		else
-			values[i++] = CStringGetTextDatum(tmp.info.tables_name);
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 	free(query_txt);
@@ -1126,8 +1238,9 @@ static uint64
 get_next_wbucket(pgssSharedState *pgss)
 {
 	struct timeval	tv;
-	uint64	current_usec;
-	uint64			bucket_id;
+	uint64          current_usec;
+	uint64          bucket_id;
+	char            file_name[1024];
 
 	gettimeofday(&tv,NULL);
 	current_usec = tv.tv_sec;
@@ -1142,6 +1255,11 @@ get_next_wbucket(pgssSharedState *pgss)
 		LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
 		buf = pgss_qbuf[bucket_id];
 		hash_entry_dealloc(bucket_id);
+		hash_query_entry_dealloc(bucket_id);
+		sprintf(file_name, "%s.%d", PGSM_TEXT_FILE, (int)bucket_id);
+		unlink(file_name);
+		printf("\nRemove file %s\n", file_name);
+
 		/* reset the query buffer */
 		memset(buf, 0, sizeof (uint64));
 		LWLockRelease(pgss->lock);
@@ -2056,19 +2174,46 @@ comp_location(const void *a, const void *b)
 	else
 		return 0;
 }
+/* Convert array into Text dataum */
+static Datum
+textarray_get_datum(char arr[][CMD_LEN], int len)
+{
+	int     j;
+	char    str[1024];
+	bool    first = true;
+
+	memset(str, 0, sizeof(str));
+
+	/* Need to calculate the actual size, and avoid unnessary memory usage */
+	for (j = 0; j < len; j++)
+	{
+		if (strlen(arr[j]) <= 0)
+			continue;
+		if (first)
+		{
+			snprintf(str, CMD_LEN, "%s", arr[j]);
+			first = false;
+			continue;
+		}
+		snprintf(str, CMD_LEN, "%s,%s", str, arr[j]);
+	}
+	return CStringGetTextDatum(str);
+
+}
 
 /* Convert array into Text dataum */
 static Datum
-array_get_datum(int arr[])
+intarray_get_datum(int32 arr[], int len)
 {
 	int     j;
-	char    str[1024] = {0};
+	char    str[1024];
 	char    tmp[10];
 	bool    first = true;
 
-	memset(str, 0, 1024);
+	memset(str, 0, sizeof(str));
+
 	/* Need to calculate the actual size, and avoid unnessary memory usage */
-	for (j = 0; j < 10; j++)
+	for (j = 0; j < len; j++)
 	{
 		if (first)
 		{
@@ -2077,24 +2222,24 @@ array_get_datum(int arr[])
 			first = false;
 			continue;
 		}
-		snprintf(tmp, 10, ", %d", arr[j]);
+		snprintf(tmp, 10, ",%d", arr[j]);
 		strcat(str,tmp);
 	}
 	return CStringGetTextDatum(str);
+
 }
 
 static uint64
-locate_query(uint64 bucket_id, uint64 queryid, char * query)
+read_query(unsigned char *buf, uint64 queryid, char * query)
 {
 	bool found            = false;
 	uint64 query_id       = 0;
 	uint64 query_len      = 0;
 	uint64 rlen           = 0;
 	uint64 buf_len        = 0;
-	unsigned char *buf    = pgss_qbuf[bucket_id];
 
 	memcpy(&buf_len, buf, sizeof (uint64));
-	if (buf_len <= sizeof (uint64))
+	if (buf_len <= 0)
 		return 0;
 
 	rlen = sizeof (uint64); /* Move forwad to skip length bytes */
@@ -2131,7 +2276,7 @@ locate_query(uint64 bucket_id, uint64 queryid, char * query)
 }
 
 static void
-store_query(uint64 queryid, const char *query, uint64 query_len)
+store_query(int bucket_id, uint64 queryid, const char *query, uint64 query_len)
 {
     uint64          buf_len = 0;
 	pgssSharedState *pgss   = pgsm_get_ss();
@@ -2143,18 +2288,20 @@ store_query(uint64 queryid, const char *query, uint64 query_len)
 	/* Already have query in the shared buffer, there
 	 * is no need to add that again.
 	 */
-	if (locate_query(pgss->current_wbucket, queryid, NULL) == queryid)
+	if (hash_find_query_entry(bucket_id, queryid))
+		return;
+
+	if (!hash_create_query_entry(bucket_id, queryid))
 		return;
 
 	memcpy(&buf_len, buf, sizeof (uint64));
 	if (buf_len == 0)
 		buf_len += sizeof (uint64);
 
-	if ((buf_len + query_len + sizeof(uint64) + sizeof(uint64)) > pgsm_get_bucket_size())
+	if (QUERY_BUFFER_OVERFLOW(buf_len, query_len))
 	{
-		/* Buffer is full */
-		elog(INFO, "pg_stat_monitor: no space left in shared_buffer");
-		return;
+		dump_queries_buffer(bucket_id, buf, MAX_QUERY_BUFFER_BUCKET);
+		buf_len = sizeof (uint64);
 	}
 
 	memcpy(&buf[buf_len], &queryid, sizeof (uint64)); /* query id */
@@ -2313,7 +2460,11 @@ pg_stat_monitor_settings(PG_FUNCTION_ARGS)
 
 	MemoryContextSwitchTo(oldcontext);
 
+#if PG_VERSION_NUM >= 130000
 	for(i = 0; i < 11; i++)
+#else
+	for(i = 0; i < 10; i++)
+#endif
 	{
 		Datum		values[7];
 		bool		nulls[7];
@@ -2434,3 +2585,77 @@ tablenames_walker(Query *query, char *tables_name, bool *isfirst)
 		}
 	}
 }
+dump_queries_buffer(int bucket_id, unsigned char *buf, int buf_len)
+{
+    int  fd = 0;
+	char file_name[1024];
+
+	sprintf(file_name, "%s.%d", PGSM_TEXT_FILE, bucket_id);
+	printf("\nWriting to %s\n", file_name);
+	fd = OpenTransientFile(file_name, O_RDWR | O_CREAT | O_APPEND | PG_BINARY);
+    if (fd < 0)
+		ereport(LOG,
+            (errcode_for_file_access(),
+             	errmsg("could not write file \"%s\": %m",
+                    		file_name)));
+
+    if (write(fd, buf, buf_len) != buf_len)
+		ereport(LOG,
+            (errcode_for_file_access(),
+             	errmsg("could not write file \"%s\": %m",
+                    		file_name)));
+    if (fd > 0)
+		CloseTransientFile(fd);
+}
+
+int
+read_query_buffer(int bucket_id, uint64 queryid, char *query_txt)
+{
+    int           fd = 0;
+	int           buf_len;
+	char          file_name[1024];
+	unsigned char *buf = NULL;
+	int           off = 0;
+
+	sprintf(file_name, "%s.%d", PGSM_TEXT_FILE, bucket_id);
+    fd = OpenTransientFile(file_name, O_RDONLY | PG_BINARY);
+	if (fd < 0)
+		goto exit;
+
+	buf = (unsigned char*) palloc(MAX_QUERY_BUFFER_BUCKET);
+	for(;;)
+	{
+		if (lseek(fd, off, SEEK_SET) != off)
+			goto exit;
+
+		buf_len = read(fd, buf, MAX_QUERY_BUFFER_BUCKET);
+		if (buf_len != MAX_QUERY_BUFFER_BUCKET)
+		{
+			if (errno != ENOENT)
+				goto exit;
+
+			if (buf_len == 0)
+				break;
+		}
+		off += buf_len;
+		if (read_query(buf, queryid, query_txt))
+			break;
+	}
+	if (fd > 0)
+    	CloseTransientFile(fd);
+	if (buf)
+		pfree(buf);
+	return buf_len;
+
+exit:
+	ereport(LOG,
+		(errcode_for_file_access(),
+			errmsg("could not read file \"%s\": %m",
+				file_name)));
+	if (fd > 0)
+    	CloseTransientFile(fd);
+	if (buf)
+		pfree(buf);
+	return buf_len;
+}
+

@@ -22,7 +22,10 @@ CREATE FUNCTION pg_stat_monitor(IN showtext boolean,
 
     OUT queryid             text,
     OUT query               text,
-    OUT elevel              int,
+	OUT application_name	text,
+	OUT relations			text,
+	OUT cmd_type			text,
+	OUT elevel              int,
     OUT sqlcode             int,
     OUT message             text,
     OUT bucket_start_time   timestamptz,
@@ -57,8 +60,7 @@ CREATE FUNCTION pg_stat_monitor(IN showtext boolean,
     OUT blk_write_time      float8,
     OUT resp_calls          text,
     OUT cpu_user_time       float8,
-    OUT cpu_sys_time        float8,
-    OUT tables_names        text
+    OUT cpu_sys_time        float8
 )
 RETURNS SETOF record
 AS 'MODULE_PATHNAME', 'pg_stat_monitor'
@@ -96,6 +98,9 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	'0.0.0.0'::inet + client_ip AS client_ip,
     queryid,
     query,
+	application_name,
+	(string_to_array(relations, ',')) relations,
+	(string_to_array(cmd_type, ',')) cmd_type,
 	elevel,
 	sqlcode,
 	message,
@@ -126,8 +131,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     blk_write_time,
 	(string_to_array(resp_calls, ',')) resp_calls,
     cpu_user_time,
-    cpu_sys_time,
-	(string_to_array(tables_names, ',')) tables_names
+    cpu_sys_time
 FROM pg_stat_monitor(TRUE);
 
 CREATE FUNCTION decode_error_level(elevel int)
@@ -153,6 +157,5 @@ $$
 LANGUAGE SQL PARALLEL SAFE;
 
 GRANT SELECT ON pg_stat_monitor_settings TO PUBLIC;
-
 -- Don't want this to be available to non-superusers.
 REVOKE ALL ON FUNCTION pg_stat_monitor_reset() FROM PUBLIC;
