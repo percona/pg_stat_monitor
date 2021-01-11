@@ -1,7 +1,7 @@
 ## What is pg_stat_monitor?
-The pg_stat_monitor is a PostgreSQL Query Performance Monitoring tool, based on PostgreSQL's contrib module pg_stat_statements. PostgreSQL’s pg_stat_statements provides the basic statistics, which is sometimes not enough. The major shortcoming in pg_stat_statements is that it accumulates all the queries and their statistics and does not provide aggregated statistics nor histogram information. In this case, a user needs to calculate the aggregate which is quite expensive.
+The **pg_stat_monitor** is a **PostgreSQL Query Performance Monitoring** tool, based on PostgreSQL's contrib module ``pg_stat_statements``. PostgreSQL’s pg_stat_statements provides the basic statistics, which is sometimes not enough. The major shortcoming in pg_stat_statements is that it accumulates all the queries and their statistics and does not provide aggregated statistics nor histogram information. In this case, a user needs to calculate the aggregate which is quite expensive. 
 
-``pg_stat_monitor`` is developed on the basis of pg_stat_statements as its more advanced replacement. It provides all the features of pg_stat_statements plus its own feature set.  
+**pg_stat_monitor** is developed on the basis of pg_stat_statements as its more advanced replacement. It provides all the features of pg_stat_statements plus its own feature set.  
 
 ### How pg_stat_monitor works?
 
@@ -116,7 +116,7 @@ To learn more about ``pg_stat_monitor`` configuration and usage, see [User Guide
 
 ## Submitting Bug Reports
 
-If you found a bug in ``pg_stat_statements``, please submit the report to the [Jira issue tracker](https://jira.percona.com/projects/PG/issues)
+If you found a bug in ``pg_stat_monitor``, please submit the report to the [Jira issue tracker](https://jira.percona.com/projects/PG/issues)
 
 Start by searching the open tickets for a similar report. If you find that someone else has already reported your issue, then you can upvote that report to increase its visibility.
 
@@ -130,12 +130,15 @@ As a general rule of thumb, try to create bug reports that are:
 
 - Reproducible: describe the steps to reproduce the problem.
 
-- Specific: include the version of Percona Backup for MongoDB, your environment, and so on.
-
 - Unique: check if there already exists a JIRA ticket to describe the problem.
 
 - Scoped to a Single Bug: only report one bug in one JIRA ticket.
 
 
 ## Copyright Notice
-Copyright (c) 2006 - 2020, Percona LLC.
+
+Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
+
+Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+
+Portions Copyright (c) 1994, The Regents of the University of California
