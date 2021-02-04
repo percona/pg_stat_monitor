@@ -80,6 +80,8 @@
 #define APPLICATIONNAME_LEN	100
 #define PGSM_OVER_FLOW_MAX	10
 
+/* the assumption of query max nested level */
+#define DEFAULT_MAX_NESTED_LEVEL	10
 
 #define MAX_QUERY_BUF						(PGSM_QUERY_BUF_SIZE * 1024 * 1024)
 #define MAX_BUCKETS_MEM 					(PGSM_MAX * 1024 * 1024)
@@ -158,6 +160,7 @@ typedef struct QueryInfo
 	Oid			userid;						/* user OID */
 	Oid			dbid;						/* database OID */
 	uint		host;						/* client IP */
+	uint64		parentid;					/* parent queryid of current query*/
 	int64       type; 						/* type of query, options are query, info, warning, error, fatal */
 	char		application_name[APPLICATIONNAME_LEN];
 	int32		relations[REL_LST];

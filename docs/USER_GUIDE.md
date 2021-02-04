@@ -89,6 +89,7 @@ pg_stat_monitor extension contains a view called pg_stat_monitor, which contains
  dbid                | oid                      | :heavy_check_mark:  | :heavy_check_mark:
  client_ip           | inet                     | :heavy_check_mark:  | :x:
  queryid             | text                     | :heavy_check_mark:  | :heavy_check_mark:
+ parentid            | text                     | :heavy_check_mark:  | :x:
  query               | text                     | :heavy_check_mark:  | :heavy_check_mark:
  application_name    | text                     | :heavy_check_mark:  | :x:
  relations           | text[]                   | :heavy_check_mark:  | :x:
@@ -375,4 +376,45 @@ postgres=# SELECT bucket, substr(query,0, 50) AS query, cmd_type FROM pg_stat_mo
       4 | UPDATE pgbench_tellers SET tbalance = tbalance +  | UPDATE
       4 | UPDATE pgbench_branches SET bbalance = bbalance + | UPDATE
 (14 rows)
+```
+
+#### Function Execution Tracking 
+
+**`parentid`**: Outer layer caller's query id.
+
+```sql
+postgres=# select prosrc from pg_proc where proname = 'getnum';
+             prosrc             
+--------------------------------
+ select * from t1 where a >= $1
+(1 row)
+
+postgresr=# select pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+postgres=# select prosrc from pg_proc where proname = 'getnum';
+             prosrc             
+--------------------------------
+ select * from t1 where a >= $1
+(1 row)
+
+postgres=# select * from getnum(2);
+ a 
+---
+ 2
+ 3
+ 4
+(3 rows)
+
+postgres=# select queryid,parentid,query,calls from pg_stat_monitor;
+     queryid      |     parentid     |                     query                     | calls 
+------------------+------------------+-----------------------------------------------+-------
+ 3FEC80684AFE7FC7 | DD2A4843140299C2 | select * from t1 where a >= $1                |     1
+ 6ED05FFB78DD52FA |                  | select pg_stat_monitor_reset()                |     1
+ DD2A4843140299C2 |                  | select * from getnum($1)                      |     1
+ 42517D48FB98ACF7 |                  | select prosrc from pg_proc where proname = $1 |     1
+(4 rows)
 ```
