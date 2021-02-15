@@ -151,3 +151,9 @@ Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
 Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
 
 Portions Copyright (c) 1994, The Regents of the University of California
+
+![pg11-test](https://github.com/percona/pg_stat_monitor/workflows/pg11-test/badge.svg)
+
+![pg12-test](https://github.com/percona/pg_stat_monitor/workflows/pg12-test/badge.svg)
+
+![pg13-test](https://github.com/percona/pg_stat_monitor/workflows/pg13-test/badge.svg)
