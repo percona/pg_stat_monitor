@@ -186,6 +186,7 @@ static uint64 get_query_id(pgssJumbleState *jstate, Query *query);
  * Module load callback
  */
 void
+ // cppcheck-suppress unusedFunction
 _PG_init(void)
 {
 	int i;
@@ -255,6 +256,7 @@ _PG_init(void)
  * Module unload callback
  */
 void
+ // cppcheck-suppress unusedFunction
 _PG_fini(void)
 {
 	system_init = false;
@@ -404,6 +406,7 @@ pgss_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 	if(nested_level + 1 >= cur_max_nested_level)
 	{
 		cur_max_nested_level *= 2;
+		// cppcheck-suppress memleakOnRealloc
 		nested_queryids = realloc(nested_queryids, cur_max_nested_level);
 	}
 	nested_level++;
@@ -1148,6 +1151,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		Datum       values[PG_STAT_STATEMENTS_COLS];
 		bool        nulls[PG_STAT_STATEMENTS_COLS];
 		int		    i = 0;
+		// cppcheck-suppress variableScope
 		int         len = 0;
 		int		    kind;
 		Counters    tmp;
@@ -2789,6 +2793,8 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 		}
 		else
 		{
+		    // cppcheck-suppress variableScope
+            // cppcheck-suppress sprintfOverlappingData
 			sprintf(text_str, "%s, (%ld - %ld)}", text_str, b_start, b_end);
 		}
 	}

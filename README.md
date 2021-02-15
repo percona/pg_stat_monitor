@@ -152,6 +152,8 @@ Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
 
 Portions Copyright (c) 1994, The Regents of the University of California
 
+![cppcheck-action-test](https://github.com/percona/pg_stat_monitor/workflows/cppcheck-action-test/badge.svg)
+
 ![pg11-test](https://github.com/percona/pg_stat_monitor/workflows/pg11-test/badge.svg)
 
 ![pg12-test](https://github.com/percona/pg_stat_monitor/workflows/pg12-test/badge.svg)
