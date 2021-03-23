@@ -183,6 +183,7 @@ typedef struct pgssQueryEntry
 {
 	pgssQueryHashKey    key;		/* hash key of entry - MUST BE FIRST */
 	uint64              pos;		/* bucket number */
+	bool				query_setted;	/* whewher query text was setted*/
 } pgssQueryEntry;
 
 typedef struct PlanInfo
@@ -353,6 +354,30 @@ typedef struct pgssJumbleState
 	/* highest Param id we've seen, in order to start normalization correctly */
 	int			highest_extern_param_id;
 } pgssJumbleState;
+
+/*
+ * the placeholder location and its corresponding parameter id;
+ */
+typedef struct pgssPlaceholderLocation
+{
+	pgssLocationLen plocation;	/*placeholder location and its length */
+	int paramid;				/*the parameter id bound with this placeholder*/
+}pgssPlaceholderLocation;
+
+/*
+ * the state we used for denormalizing a query with pararmeters
+ */
+typedef struct pgssPlaceholderState
+{
+	/* a array of placeholder's locaiton and its value*/
+	pgssPlaceholderLocation *plocations;
+
+	/* the allocated size of plocations*/
+	int			plocations_buf_size;
+
+	/* the number of elements in plocations*/
+	int			plocations_count;
+}pgssPlaceholderState;
 
 /* Links to shared memory state */
 
