@@ -193,6 +193,11 @@ int read_query_buffer(int bucket_id, uint64 queryid, char *query_txt);
 
 static uint64 get_query_id(pgssJumbleState *jstate, Query *query);
 
+static char **get_params_text_list(const ParamListInfo paramlist);
+static char *get_denormalized_query(const ParamListInfo paramlist, const char *query_text);
+static bool raw_expression_extern_params_walker(Node *node, void *context);
+static bool modified_raw_expression_tree_walker(Node *node, bool (*walker) (),void *context);
+
 /*
  * Module load callback
  */
@@ -498,6 +503,7 @@ pgss_ExecutorEnd(QueryDesc *queryDesc)
 	pgssSharedState    *pgss         = pgsm_get_ss();
     SysInfo            sys_info;
 	PlanInfo           plan_info;
+	const char  *query_text;
 
 	/* Extract the plan information in case of SELECT statment */
 	memset(&plan_info, 0, sizeof(PlanInfo));
@@ -522,8 +528,17 @@ pgss_ExecutorEnd(QueryDesc *queryDesc)
 		sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
 		sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
 
+		/*
+		 * For a query with parameters if we want the actual query we denormalized it
+		 * by replacing all the placeholders with actual parameter values.
+		 */
+		if(!PGSM_NORMALIZED_QUERY && queryDesc->params)
+			query_text = get_denormalized_query(queryDesc->params, queryDesc->sourceText);
+		else
+			query_text = queryDesc->sourceText;
+
 		pgss_store(queryId,                                 /* query id */
-					queryDesc->sourceText,					/* query text */
+					query_text,								/* query text */
 					&plan_info,								/* PlanInfo */
 					queryDesc->operation,					/* CmdType */
 					&sys_info,								/* SysInfo */
@@ -2688,7 +2703,7 @@ read_query(unsigned char *buf, uint64 bucketid, uint64 queryid, char * query)
 exit:
 	if (PGSM_OVERFLOW_TARGET == OVERFLOW_TARGET_NONE)
 	{
-		sprintf(query, "%s", "<insufficient shared space>");
+		sprintf(query, "%s", "<insufficient shared space or query text not set>");
 		return -1;
 	}
 	return 0;
@@ -2717,11 +2732,28 @@ pgss_store_query_info(uint64 bucketid,
 	 */
 	entry = hash_find_query_entry(bucketid, queryid, dbid, userid, ip);
 	if (entry)
-		return entry;
+	{
+		if(entry->query_setted)
+			return entry;
+	}
+	else
+	{
+		entry = hash_create_query_entry(bucketid, queryid, dbid, userid, ip);
+		if (!entry)
+			return NULL;
+		entry->query_setted = false;
+	}
 
-	entry = hash_create_query_entry(bucketid, queryid, dbid, userid, ip);
-	if (!entry)
-		return NULL;
+	/* If PGSM_NORMALIZED_QUERY is off, we will store the query text
+	 * at the end of execution so we can get param info and repalce placeholder
+	 * with actual parameters. Except for a error message.
+	 */
+	if(!PGSM_NORMALIZED_QUERY)
+	{
+		if(kind != PGSS_FINISHED && kind != PGSS_ERROR)
+			return entry;
+	}
+		
 
 	memcpy(&buf_len, buf, sizeof (uint64));
 	if (buf_len == 0)
@@ -2753,6 +2785,9 @@ pgss_store_query_info(uint64 bucketid,
 	memcpy(&buf[buf_len], query, query_len); /* query */
 	buf_len += query_len;
 	memcpy(buf, &buf_len, sizeof (uint64));
+
+	entry->query_setted = true;
+
 	return entry;
 }
 
@@ -3039,3 +3074,645 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 	return CStringGetTextDatum(text_str);
 }
 
+/* transform parameters value from datum to string*/
+static char **
+get_params_text_list(const ParamListInfo paramlist)
+{
+	StringInfoData  buf;
+	int             entry_num = paramlist->numParams;
+	int             i;
+	char          **params_text;
+
+	initStringInfo(&buf);
+	params_text = (char **)palloc0(sizeof(char *) * entry_num);
+
+	for(i = 0; i < entry_num; i++)
+	{
+		ParamExternData *param = &paramlist->params[i];
+		
+		if (param->isnull || !OidIsValid(param->ptype))
+		{
+			appendStringInfoString(&buf, "NULL");
+		}
+		else
+		{
+			Oid		typoutput;
+			bool	typisvarlena;
+			char	*pstring;
+			
+			getTypeOutputInfo(param->ptype, &typoutput, &typisvarlena);
+			pstring = OidOutputFunctionCall(typoutput, param->value);
+			appendStringInfo(&buf, "%s",pstring);
+		}
+		
+		/* assign memory space and add terminate symbol at the end of string*/
+		params_text[i] = (char *)palloc0(sizeof(char) * (buf.len + 1));
+		memcpy(params_text[i], buf.data, buf.len);
+		memset(params_text[i] + sizeof(char) * buf.len,'\0',sizeof(char));
+
+		/*clean the temp buffer*/
+		resetStringInfo(&buf);
+	}
+	
+	return params_text;
+}
+
+/* denormalize the query, replace placeholder with actual value*/
+static char * 
+get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
+{
+	int             current_param;
+	int             param_num;
+	int             i;
+	int             ploc;
+	int             ploc_length;
+	char          **param_text;
+	char           *query_copy;
+	char           *cursor_start;
+	char           *cursor_end;
+	StringInfoData  result_buf;
+	pgssPlaceholderState ph_state;
+	
+	List       *parsetree_list;
+	RawStmt    *parsetree;
+
+	/* get the placeholder's locations */
+	ph_state.plocations_count = 0;
+	ph_state.plocations_buf_size = 32;
+	ph_state.plocations = (pgssPlaceholderLocation *)
+							palloc(ph_state.plocations_buf_size *
+								   sizeof(pgssPlaceholderLocation));
+
+	/* 
+	 * Since the query text should already been parsed so it should be 
+	 * safe to make an assertion that there's only one parsetree in list
+	 */
+	parsetree_list = pg_parse_query(query_text);
+	Assert(list_length(parsetree_list) == 1);
+	parsetree = linitial_node(RawStmt, parsetree_list);	
+	
+	modified_raw_expression_tree_walker(parsetree->stmt,
+										raw_expression_extern_params_walker,
+										(void *)&ph_state);
+
+	/* get the parameters value in string form */
+	param_text = get_params_text_list(paramlist);
+	param_num = paramlist->numParams;
+
+	//Assert(param_num == ph_state.plocations_count);
+	
+	query_copy = pstrdup(query_text);
+
+	cursor_start = query_copy;
+	initStringInfo(&result_buf);
+
+	/* replace the placeholder with corresponding value */
+	for (i = 0; i < ph_state.plocations_count; i++)
+	{
+		ploc = ph_state.plocations[i].plocation.location;
+		ploc_length = ph_state.plocations[i].plocation.length;
+		current_param = ph_state.plocations[i].paramid;
+
+		cursor_end = query_copy;
+		cursor_end += ploc;
+		*cursor_end = '\0';
+		appendStringInfo(&result_buf,"%s",cursor_start);
+		appendStringInfo(&result_buf,"%s",param_text[current_param - 1]);
+
+		cursor_start = cursor_end + ploc_length;
+	}
+	
+	appendStringInfo(&result_buf,"%s",cursor_start);
+	/* free the query text array*/
+	for(i = 0; i < param_num; i++)
+	{
+		pfree(param_text[i]);
+	}
+	pfree(param_text);
+
+	return result_buf.data;
+}
+
+/*
+ * a walker function find all the paramref node and record its location.
+ */
+static bool
+raw_expression_extern_params_walker(Node *node, void *context)
+{
+	if (node == NULL)
+		return false;
+	if (IsA(node, ParamRef))
+	{
+		ParamRef			   *paramref = (ParamRef *) node;
+		pgssPlaceholderState   *ph_state = (pgssPlaceholderState *)context;
+
+		/*add placeholder entry in the ph_state*/
+		if(ph_state->plocations_count >= ph_state->plocations_buf_size)
+		{
+			ph_state->plocations_buf_size *= 2;
+			ph_state->plocations = (pgssPlaceholderLocation *)
+									repalloc(ph_state->plocations,
+											 ph_state->plocations_buf_size *
+											 sizeof(pgssPlaceholderLocation));
+		}
+		/* the lentgh is the number of digits plus one of '$'*/
+		ph_state->plocations[ph_state->plocations_count].plocation.length = floor(log10(paramref->number)) + 2;
+		ph_state->plocations[ph_state->plocations_count].plocation.location = paramref->location;
+		ph_state->plocations[ph_state->plocations_count].paramid = paramref->number;
+		ph_state->plocations_count++;
+
+		
+		return false;
+	}
+
+	/* since raw_expression_tree_walker won't process PrepareStmt node so I add it here*/
+	if (IsA(node, PrepareStmt))
+	{
+		PrepareStmt *preparestmt = (PrepareStmt *)  node;
+		return modified_raw_expression_tree_walker(preparestmt->query,
+												   raw_expression_extern_params_walker,
+												   context);
+	}
+	if (IsA(node, RawStmt))
+	{
+		RawStmt *rawstmt = (RawStmt *)  node;
+		return modified_raw_expression_tree_walker(rawstmt->stmt,
+												   raw_expression_extern_params_walker,
+												   context);
+	}
+
+	return modified_raw_expression_tree_walker(node, 
+											   raw_expression_extern_params_walker,
+											   context);
+}
+
+/*
+ * A veriation of raw_expression_tree_walker which can process Prepared Statement.
+ * Most of the code is same. The only difference is this one can process 
+ * T_PrepareStmt type statement.
+ */
+static bool
+modified_raw_expression_tree_walker(Node *node,
+						   bool (*walker) (),
+						   void *context)
+{
+	ListCell   *temp;
+
+	/*
+	 * The walker has already visited the current node, and so we need only
+	 * recurse into any sub-nodes it has.
+	 */
+	if (node == NULL)
+		return false;
+
+	/* Guard against stack overflow due to overly complex expressions */
+	check_stack_depth();
+
+	switch (nodeTag(node))
+	{
+		case T_SetToDefault:
+		case T_CurrentOfExpr:
+		case T_SQLValueFunction:
+		case T_Integer:
+		case T_Float:
+		case T_String:
+		case T_BitString:
+		case T_Null:
+		case T_ParamRef:
+		case T_A_Const:
+		case T_A_Star:
+			/* primitive node types with no subnodes */
+			break;
+		case T_Alias:
+			/* we assume the colnames list isn't interesting */
+			break;
+		case T_RangeVar:
+			return walker(((RangeVar *) node)->alias, context);
+		case T_GroupingFunc:
+			return walker(((GroupingFunc *) node)->args, context);
+		case T_SubLink:
+			{
+				SubLink    *sublink = (SubLink *) node;
+
+				if (walker(sublink->testexpr, context))
+					return true;
+				/* we assume the operName is not interesting */
+				if (walker(sublink->subselect, context))
+					return true;
+			}
+			break;
+		case T_CaseExpr:
+			{
+				CaseExpr   *caseexpr = (CaseExpr *) node;
+
+				if (walker(caseexpr->arg, context))
+					return true;
+				/* we assume walker doesn't care about CaseWhens, either */
+				foreach(temp, caseexpr->args)
+				{
+					CaseWhen   *when = lfirst_node(CaseWhen, temp);
+
+					if (walker(when->expr, context))
+						return true;
+					if (walker(when->result, context))
+						return true;
+				}
+				if (walker(caseexpr->defresult, context))
+					return true;
+			}
+			break;
+		case T_RowExpr:
+			/* Assume colnames isn't interesting */
+			return walker(((RowExpr *) node)->args, context);
+		case T_CoalesceExpr:
+			return walker(((CoalesceExpr *) node)->args, context);
+		case T_MinMaxExpr:
+			return walker(((MinMaxExpr *) node)->args, context);
+		case T_XmlExpr:
+			{
+				XmlExpr    *xexpr = (XmlExpr *) node;
+
+				if (walker(xexpr->named_args, context))
+					return true;
+				/* we assume walker doesn't care about arg_names */
+				if (walker(xexpr->args, context))
+					return true;
+			}
+			break;
+		case T_NullTest:
+			return walker(((NullTest *) node)->arg, context);
+		case T_BooleanTest:
+			return walker(((BooleanTest *) node)->arg, context);
+		case T_JoinExpr:
+			{
+				JoinExpr   *join = (JoinExpr *) node;
+
+				if (walker(join->larg, context))
+					return true;
+				if (walker(join->rarg, context))
+					return true;
+				if (walker(join->quals, context))
+					return true;
+				if (walker(join->alias, context))
+					return true;
+				/* using list is deemed uninteresting */
+			}
+			break;
+		case T_IntoClause:
+			{
+				IntoClause *into = (IntoClause *) node;
+
+				if (walker(into->rel, context))
+					return true;
+				/* colNames, options are deemed uninteresting */
+				/* viewQuery should be null in raw parsetree, but check it */
+				if (walker(into->viewQuery, context))
+					return true;
+			}
+			break;
+		case T_List:
+			foreach(temp, (List *) node)
+			{
+				if (walker((Node *) lfirst(temp), context))
+					return true;
+			}
+			break;
+		case T_InsertStmt:
+			{
+				InsertStmt *stmt = (InsertStmt *) node;
+
+				if (walker(stmt->relation, context))
+					return true;
+				if (walker(stmt->cols, context))
+					return true;
+				if (walker(stmt->selectStmt, context))
+					return true;
+				if (walker(stmt->onConflictClause, context))
+					return true;
+				if (walker(stmt->returningList, context))
+					return true;
+				if (walker(stmt->withClause, context))
+					return true;
+			}
+			break;
+		case T_DeleteStmt:
+			{
+				DeleteStmt *stmt = (DeleteStmt *) node;
+
+				if (walker(stmt->relation, context))
+					return true;
+				if (walker(stmt->usingClause, context))
+					return true;
+				if (walker(stmt->whereClause, context))
+					return true;
+				if (walker(stmt->returningList, context))
+					return true;
+				if (walker(stmt->withClause, context))
+					return true;
+			}
+			break;
+		case T_UpdateStmt:
+			{
+				UpdateStmt *stmt = (UpdateStmt *) node;
+
+				if (walker(stmt->relation, context))
+					return true;
+				if (walker(stmt->targetList, context))
+					return true;
+				if (walker(stmt->whereClause, context))
+					return true;
+				if (walker(stmt->fromClause, context))
+					return true;
+				if (walker(stmt->returningList, context))
+					return true;
+				if (walker(stmt->withClause, context))
+					return true;
+			}
+			break;
+		case T_SelectStmt:
+			{
+				SelectStmt *stmt = (SelectStmt *) node;
+
+				if (walker(stmt->distinctClause, context))
+					return true;
+				if (walker(stmt->intoClause, context))
+					return true;
+				if (walker(stmt->targetList, context))
+					return true;
+				if (walker(stmt->fromClause, context))
+					return true;
+				if (walker(stmt->whereClause, context))
+					return true;
+				if (walker(stmt->groupClause, context))
+					return true;
+				if (walker(stmt->havingClause, context))
+					return true;
+				if (walker(stmt->windowClause, context))
+					return true;
+				if (walker(stmt->valuesLists, context))
+					return true;
+				if (walker(stmt->sortClause, context))
+					return true;
+				if (walker(stmt->limitOffset, context))
+					return true;
+				if (walker(stmt->limitCount, context))
+					return true;
+				if (walker(stmt->lockingClause, context))
+					return true;
+				if (walker(stmt->withClause, context))
+					return true;
+				if (walker(stmt->larg, context))
+					return true;
+				if (walker(stmt->rarg, context))
+					return true;
+			}
+			break;
+		case T_A_Expr:
+			{
+				A_Expr	   *expr = (A_Expr *) node;
+
+				if (walker(expr->lexpr, context))
+					return true;
+				if (walker(expr->rexpr, context))
+					return true;
+				/* operator name is deemed uninteresting */
+			}
+			break;
+		case T_BoolExpr:
+			{
+				BoolExpr   *expr = (BoolExpr *) node;
+
+				if (walker(expr->args, context))
+					return true;
+			}
+			break;
+		case T_ColumnRef:
+			/* we assume the fields contain nothing interesting */
+			break;
+		case T_FuncCall:
+			{
+				FuncCall   *fcall = (FuncCall *) node;
+
+				if (walker(fcall->args, context))
+					return true;
+				if (walker(fcall->agg_order, context))
+					return true;
+				if (walker(fcall->agg_filter, context))
+					return true;
+				if (walker(fcall->over, context))
+					return true;
+				/* function name is deemed uninteresting */
+			}
+			break;
+		case T_NamedArgExpr:
+			return walker(((NamedArgExpr *) node)->arg, context);
+		case T_A_Indices:
+			{
+				A_Indices  *indices = (A_Indices *) node;
+
+				if (walker(indices->lidx, context))
+					return true;
+				if (walker(indices->uidx, context))
+					return true;
+			}
+			break;
+		case T_A_Indirection:
+			{
+				A_Indirection *indir = (A_Indirection *) node;
+
+				if (walker(indir->arg, context))
+					return true;
+				if (walker(indir->indirection, context))
+					return true;
+			}
+			break;
+		case T_A_ArrayExpr:
+			return walker(((A_ArrayExpr *) node)->elements, context);
+		case T_ResTarget:
+			{
+				ResTarget  *rt = (ResTarget *) node;
+
+				if (walker(rt->indirection, context))
+					return true;
+				if (walker(rt->val, context))
+					return true;
+			}
+			break;
+		case T_MultiAssignRef:
+			return walker(((MultiAssignRef *) node)->source, context);
+		case T_TypeCast:
+			{
+				TypeCast   *tc = (TypeCast *) node;
+
+				if (walker(tc->arg, context))
+					return true;
+				if (walker(tc->typeName, context))
+					return true;
+			}
+			break;
+		case T_CollateClause:
+			return walker(((CollateClause *) node)->arg, context);
+		case T_SortBy:
+			return walker(((SortBy *) node)->node, context);
+		case T_WindowDef:
+			{
+				WindowDef  *wd = (WindowDef *) node;
+
+				if (walker(wd->partitionClause, context))
+					return true;
+				if (walker(wd->orderClause, context))
+					return true;
+				if (walker(wd->startOffset, context))
+					return true;
+				if (walker(wd->endOffset, context))
+					return true;
+			}
+			break;
+		case T_RangeSubselect:
+			{
+				RangeSubselect *rs = (RangeSubselect *) node;
+
+				if (walker(rs->subquery, context))
+					return true;
+				if (walker(rs->alias, context))
+					return true;
+			}
+			break;
+		case T_RangeFunction:
+			{
+				RangeFunction *rf = (RangeFunction *) node;
+
+				if (walker(rf->functions, context))
+					return true;
+				if (walker(rf->alias, context))
+					return true;
+				if (walker(rf->coldeflist, context))
+					return true;
+			}
+			break;
+		case T_RangeTableSample:
+			{
+				RangeTableSample *rts = (RangeTableSample *) node;
+
+				if (walker(rts->relation, context))
+					return true;
+				/* method name is deemed uninteresting */
+				if (walker(rts->args, context))
+					return true;
+				if (walker(rts->repeatable, context))
+					return true;
+			}
+			break;
+		case T_RangeTableFunc:
+			{
+				RangeTableFunc *rtf = (RangeTableFunc *) node;
+
+				if (walker(rtf->docexpr, context))
+					return true;
+				if (walker(rtf->rowexpr, context))
+					return true;
+				if (walker(rtf->namespaces, context))
+					return true;
+				if (walker(rtf->columns, context))
+					return true;
+				if (walker(rtf->alias, context))
+					return true;
+			}
+			break;
+		case T_RangeTableFuncCol:
+			{
+				RangeTableFuncCol *rtfc = (RangeTableFuncCol *) node;
+
+				if (walker(rtfc->colexpr, context))
+					return true;
+				if (walker(rtfc->coldefexpr, context))
+					return true;
+			}
+			break;
+		case T_TypeName:
+			{
+				TypeName   *tn = (TypeName *) node;
+
+				if (walker(tn->typmods, context))
+					return true;
+				if (walker(tn->arrayBounds, context))
+					return true;
+				/* type name itself is deemed uninteresting */
+			}
+			break;
+		case T_ColumnDef:
+			{
+				ColumnDef  *coldef = (ColumnDef *) node;
+
+				if (walker(coldef->typeName, context))
+					return true;
+				if (walker(coldef->raw_default, context))
+					return true;
+				if (walker(coldef->collClause, context))
+					return true;
+				/* for now, constraints are ignored */
+			}
+			break;
+		case T_IndexElem:
+			{
+				IndexElem  *indelem = (IndexElem *) node;
+
+				if (walker(indelem->expr, context))
+					return true;
+				/* collation and opclass names are deemed uninteresting */
+			}
+			break;
+		case T_GroupingSet:
+			return walker(((GroupingSet *) node)->content, context);
+		case T_LockingClause:
+			return walker(((LockingClause *) node)->lockedRels, context);
+		case T_XmlSerialize:
+			{
+				XmlSerialize *xs = (XmlSerialize *) node;
+
+				if (walker(xs->expr, context))
+					return true;
+				if (walker(xs->typeName, context))
+					return true;
+			}
+			break;
+		case T_WithClause:
+			return walker(((WithClause *) node)->ctes, context);
+		case T_InferClause:
+			{
+				InferClause *stmt = (InferClause *) node;
+
+				if (walker(stmt->indexElems, context))
+					return true;
+				if (walker(stmt->whereClause, context))
+					return true;
+			}
+			break;
+		case T_OnConflictClause:
+			{
+				OnConflictClause *stmt = (OnConflictClause *) node;
+
+				if (walker(stmt->infer, context))
+					return true;
+				if (walker(stmt->targetList, context))
+					return true;
+				if (walker(stmt->whereClause, context))
+					return true;
+			}
+			break;
+		case T_CommonTableExpr:
+			return walker(((CommonTableExpr *) node)->ctequery, context);	
+			break;
+		/*make it can process prepare statement*/
+		case T_PrepareStmt:
+			return walker(((PrepareStmt *) node)->query,context);
+			break;
+		case T_RawStmt:
+			return walker(((RawStmt *) node)->stmt,context);
+		default:
+			elog(ERROR, "unrecognized node type: %d",
+				 (int) nodeTag(node));
+			break;
+	}
+	return false;
+}
