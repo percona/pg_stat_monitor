@@ -79,6 +79,7 @@ pg_stat_monitor extension contains a view called pg_stat_monitor, which contains
  dbid                | oid                      | :heavy_check_mark:  | :heavy_check_mark:
  client_ip           | inet                     | :heavy_check_mark:  | :x:
  queryid             | text                     | :heavy_check_mark:  | :heavy_check_mark:
+ top_queryid         | text                     | :heavy_check_mark:  | :x:
  planid              | text                     | :heavy_check_mark:  | :x:
  query_plan          | text                     | :heavy_check_mark:  | :x:
  top_query           | text                     | :heavy_check_mark:  | :x:
