@@ -1730,7 +1730,16 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			len = read_query_buffer(bucketid, queryid, query_txt);
 			if (len != MAX_QUERY_BUFFER_BUCKET)
 			{
-				pgsm_log_error("pg_stat_monitor_internal: <insufficient disk/shared space>");
+				switch(PGSM_OVERFLOW_TARGET)
+				{
+					case OVERFLOW_TARGET_NONE:
+						pgsm_log_error("pg_stat_monitor_internal: insufficient shared space (pgsm_query_shared_buffer)");
+						break;
+					case OVERFLOW_TARGET_DISK:
+						pgsm_log_error("pg_stat_monitor_internal: failed to read query from disk");
+						break;
+				}
+
 				continue;
 			}
 		}
