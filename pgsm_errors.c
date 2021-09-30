@@ -63,7 +63,7 @@ size_t pgsm_errors_size(void)
     return hash_estimate_size(PSGM_ERRORS_MAX, sizeof(ErrorEntry));
 }
 
-void pgsm_log_error(const char *format, ...)
+void pgsm_log(PgsmLogSeverity severity, const char *format, ...)
 {
 	char key[ERROR_MSG_MAX_LEN];
 	ErrorEntry *entry;
@@ -97,7 +97,10 @@ void pgsm_log_error(const char *format, ...)
 	}
 
 	if (!found)
+	{
+		entry->severity = severity;
 		entry->calls = 0;
+	}
 
 	/* Update message timestamp. */
 	gettimeofday(&tv, NULL);
@@ -179,7 +182,7 @@ pg_stat_monitor_errors(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "pg_stat_monitor: return type must be a row type");
 
-	if (tupdesc->natts != 3)
+	if (tupdesc->natts != 4)
 		elog(ERROR, "pg_stat_monitor: incorrect number of output arguments, required 3, found %d", tupdesc->natts);
 
 	tupstore = tuplestore_begin_heap(true, false, work_mem);
@@ -194,12 +197,13 @@ pg_stat_monitor_errors(PG_FUNCTION_ARGS)
 	hash_seq_init(&hash_seq, pgsm_errors_ht);
 	while ((error_entry = hash_seq_search(&hash_seq)) != NULL)
 	{
-		Datum		values[3];
-		bool		nulls[3];
+		Datum		values[4];
+		bool		nulls[4];
 		int			i = 0;
 		memset(values, 0, sizeof(values));
 		memset(nulls, 0, sizeof(nulls));
 
+		values[i++] = Int64GetDatumFast(error_entry->severity);
 		values[i++] = CStringGetTextDatum(error_entry->message);
 		values[i++] = CStringGetTextDatum(error_entry->time);
 		values[i++] = Int64GetDatumFast(error_entry->calls);
