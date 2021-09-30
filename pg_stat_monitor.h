@@ -311,6 +311,7 @@ typedef struct pgssSharedState
 	uint64				bucket_entry[MAX_BUCKETS];
 	int64				query_buf_size_bucket;
 	char				bucket_start_time[MAX_BUCKETS][60];   	/* start time of the bucket */
+	LWLock				*errors_lock;		/* protects errors hashtable search/modification */
 } pgssSharedState;
 
 #define ResetSharedState(x) \
@@ -367,6 +368,7 @@ bool SaveQueryText(uint64 bucketid, uint64 queryid, unsigned char *buf, const ch
 void init_guc(void);
 GucVariable *get_conf(int i);
 
+bool IsSystemInitialized(void);
 /* hash_create.c */
 bool IsHashInitialize(void);
 void pgss_shmem_startup(void);

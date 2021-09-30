@@ -17,6 +17,7 @@
 #include "postgres.h"
 #include "nodes/pg_list.h"
 
+#include "pgsm_errors.h"
 #include "pg_stat_monitor.h"
 
 
@@ -24,7 +25,6 @@ static pgssSharedState *pgss;
 static HTAB *pgss_hash;
 static HTAB *pgss_query_hash;
 
-static HTAB* hash_init(const char *hash_name, int key_size, int entry_size, int hash_size);
 /*
  * Copy all queries from query_buffer[old_bucket_id] to query_buffer[new_bucket_id]
  * whose query ids are found in the array 'query_ids', of length 'n_queries'.
@@ -66,7 +66,9 @@ pgss_startup(void)
 	if (!found)
 	{
 		/* First time through ... */
-		pgss->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
+		LWLockPadded *pgsm_locks = GetNamedLWLockTranche("pg_stat_monitor");
+		pgss->lock = &(pgsm_locks[0].lock);
+		pgss->errors_lock = &(pgsm_locks[1].lock);
 		SpinLockInit(&pgss->mutex);
 		ResetSharedState(pgss);
 	}
@@ -85,7 +87,8 @@ pgss_startup(void)
 	}
 
 	pgss_hash = hash_init("pg_stat_monitor: bucket hashtable", sizeof(pgssHashKey), sizeof(pgssEntry), MAX_BUCKET_ENTRIES);
-	pgss_query_hash = hash_init("pg_stat_monitor: query hashtable", sizeof(pgssQueryHashKey), sizeof(pgssQueryEntry),MAX_BUCKET_ENTRIES);
+	pgss_query_hash = hash_init("pg_stat_monitor: query hashtable", sizeof(pgssQueryHashKey), sizeof(pgssQueryEntry), MAX_BUCKET_ENTRIES);
+	psgm_errors_init();
 
 	LWLockRelease(AddinShmemInitLock);
 
@@ -145,10 +148,14 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 {
 	pgssEntry	*entry = NULL;
 	bool		found = false;
+	long		bucket_entries_cnt;
 
-	if (hash_get_num_entries(pgss_hash) >= MAX_BUCKET_ENTRIES)
+	bucket_entries_cnt = hash_get_num_entries(pgss_hash);
+
+	if (bucket_entries_cnt >= MAX_BUCKET_ENTRIES)
 	{
-		elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
+		pgsm_log_error("hash_entry_alloc: <BUCKET OVERFLOW>. entries(%d) >= max_entries(%d)",
+						bucket_entries_cnt, MAX_BUCKET_ENTRIES);
 		return NULL;
 	}
 	/* Find or create an entry with desired hash code */
@@ -166,7 +173,8 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 		entry->encoding = encoding;
 	}
 	if (entry == NULL)
-		elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
+		pgsm_log_error("hash_entry_alloc: <OUT OF MEMORY>");
+
 	return entry;
 }
 /*
