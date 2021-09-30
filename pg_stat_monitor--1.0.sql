@@ -250,6 +250,7 @@ CREATE VIEW pg_stat_monitor_hook_stats AS SELECT
 FROM pg_stat_monitor_hook_stats();
 
 CREATE FUNCTION pg_stat_monitor_errors(
+    OUT severity   int,
     OUT message    text,
     OUT msgtime    text,
     OUT calls      int8
@@ -258,8 +259,19 @@ RETURNS SETOF record
 AS 'MODULE_PATHNAME', 'pg_stat_monitor_errors'
 LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
 
+CREATE OR REPLACE FUNCTION pgsm_log_severity_as_text(severity int) RETURNS TEXT AS
+$$
+SELECT
+	CASE
+		WHEN severity = 0 THEN 'INFO'
+		WHEN severity = 1 THEN 'WARNING'
+		WHEN severity = 2 THEN 'ERROR'
+	END
+$$
+LANGUAGE SQL PARALLEL SAFE;
+
 CREATE VIEW pg_stat_monitor_errors AS SELECT
-    message, msgtime, calls
+    pgsm_log_severity_as_text(severity) as severity, message, msgtime, calls
 FROM pg_stat_monitor_errors();
 
 CREATE FUNCTION pg_stat_monitor_reset_errors()

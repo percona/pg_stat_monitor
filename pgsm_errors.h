@@ -26,8 +26,16 @@
 /* Maximum allowed error message length. */
 #define ERROR_MSG_MAX_LEN 128
 
+/* Log message severity. */
+typedef enum {
+    PSGM_LOG_INFO,
+    PGSM_LOG_WARNING,
+    PGSM_LOG_ERROR
+} PgsmLogSeverity;
+
 typedef struct {
     char   message[ERROR_MSG_MAX_LEN];  /* message is also the hash key (MUST BE FIRST). */
+    PgsmLogSeverity severity;
     char   time[60];  /* last timestamp in which this error was reported. */
     int64  calls;     /* how many times this error was reported. */
 } ErrorEntry;
@@ -45,9 +53,13 @@ void psgm_errors_init(void);
 size_t pgsm_errors_size(void);
 
 /*
- * Add an error message to the hash table.
+ * Add a message to the hash table.
  * Increment no. of calls if message already exists.
  */
-void pgsm_log_error(const char *format, ...);
+void pgsm_log(PgsmLogSeverity severity, const char *format, ...);
+
+#define pgsm_log_info(msg, ...) pgsm_log(PGSM_LOG_INFO, msg, ##__VA_ARGS__)
+#define pgsm_log_warning(msg, ...) pgsm_log(PGSM_LOG_WARNING, msg, ##__VA_ARGS__)
+#define pgsm_log_error(msg, ...) pgsm_log(PGSM_LOG_ERROR, msg, ##__VA_ARGS__)
 
 #endif /* PGSM_ERRORS_H */
