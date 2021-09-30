@@ -17,13 +17,13 @@
 #include "postgres.h"
 #include "nodes/pg_list.h"
 
+#include "pgsm_errors.h"
 #include "pg_stat_monitor.h"
 
 
 static pgssSharedState *pgss;
 static HTAB *pgss_hash;
 
-static HTAB* hash_init(const char *hash_name, int key_size, int entry_size, int hash_size);
 /*
  * Copy query from src_buffer to dst_buff.
  * Use query_id and query_pos to fast locate query in source buffer.
@@ -66,7 +66,9 @@ pgss_startup(void)
 	if (!found)
 	{
 		/* First time through ... */
-		pgss->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
+		LWLockPadded *pgsm_locks = GetNamedLWLockTranche("pg_stat_monitor");
+		pgss->lock = &(pgsm_locks[0].lock);
+		pgss->errors_lock = &(pgsm_locks[1].lock);
 		SpinLockInit(&pgss->mutex);
 		ResetSharedState(pgss);
 	}
@@ -85,6 +87,8 @@ pgss_startup(void)
 	}
 
 	pgss_hash = hash_init("pg_stat_monitor: bucket hashtable", sizeof(pgssHashKey), sizeof(pgssEntry), MAX_BUCKET_ENTRIES);
+
+	psgm_errors_init();
 
 	LWLockRelease(AddinShmemInitLock);
 
@@ -144,10 +148,14 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 {
 	pgssEntry	*entry = NULL;
 	bool		found = false;
+	long		bucket_entries_cnt;
 
-	if (hash_get_num_entries(pgss_hash) >= MAX_BUCKET_ENTRIES)
+	bucket_entries_cnt = hash_get_num_entries(pgss_hash);
+
+	if (bucket_entries_cnt >= MAX_BUCKET_ENTRIES)
 	{
-		elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
+		pgsm_log_error("hash_entry_alloc: BUCKET OVERFLOW. entries(%d) >= max_entries(%d)",
+						bucket_entries_cnt, MAX_BUCKET_ENTRIES);
 		return NULL;
 	}
 	/* Find or create an entry with desired hash code */
@@ -165,7 +173,8 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 		entry->encoding = encoding;
 	}
 	if (entry == NULL)
-		elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
+		pgsm_log_error("hash_entry_alloc: OUT OF MEMORY");
+
 	return entry;
 }
 
@@ -230,7 +239,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 				if (!bkp_entry)
 				{
 					/* No memory, remove pending query entry from the previous bucket. */
-					elog(ERROR, "hash_entry_dealloc: out of memory");
+					pgsm_log_error("hash_entry_dealloc: out of memory");
 					entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
 					continue;
 				}
@@ -261,7 +270,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 
 		new_entry = (pgssEntry *) hash_search(pgss_hash, &old_entry->key, HASH_ENTER_NULL, &found);
 		if (new_entry == NULL)
-			elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
+			pgsm_log_error("hash_entry_dealloc: out of memory");
 		else if (!found)
 		{
 			/* Restore counters and other data. */
