@@ -29,6 +29,7 @@ SELECT * FROM pg_stat_monitor_settings;
  pg_stat_monitor.pgsm_histogram_buckets   |     10 |            10 | Sets the maximum number of histogram buckets                                                             |       2 | 2147483647 |       1
  pg_stat_monitor.pgsm_query_shared_buffer |     20 |            20 | Sets the maximum size of shared memory in (MB) used for query tracked by pg_stat_monitor.                |       1 |      10000 |       1
  pg_stat_monitor.pgsm_overflow_target     |      1 |             1 | Sets the overflow target for pg_stat_monitor                                                             |       0 |      1     |       1
+ pg_stat_monitor.pgsm_enable_query_plan   |      1 |             0 | Enable/Disable query plan monitoring                                                                     |       0 |      0     |       0
  pg_stat_monitor.pgsm_track_planning      |      0 |             1 | Selects whether planning statistics are tracked.                                                         |       0 |      0     |       0
 (13 rows)
 
