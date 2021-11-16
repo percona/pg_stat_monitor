@@ -47,6 +47,12 @@ static HTAB *pgsm_errors_ht = NULL;
 void psgm_errors_init(void)
 {
 	HASHCTL info;
+#if PG_VERSION_NUM >= 140000
+	int flags = HASH_ELEM | HASH_STRINGS;
+#else
+	int flags = HASH_ELEM | HASH_BLOBS;
+#endif
+
 
 	memset(&info, 0, sizeof(info));
 	info.keysize = ERROR_MSG_MAX_LEN;
@@ -55,7 +61,7 @@ void psgm_errors_init(void)
 									PSGM_ERRORS_MAX,  /* initial size */
 									PSGM_ERRORS_MAX,  /* maximum size */
 									&info,
-									HASH_ELEM | HASH_STRINGS);
+									flags);
 }
 
 size_t pgsm_errors_size(void)
