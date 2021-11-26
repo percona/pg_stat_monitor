@@ -1,10 +1,8 @@
-![PostgreSQL-11](https://github.com/percona/pg_stat_monitor/workflows/pg11-test/badge.svg)
-![PostgreSQL-12](https://github.com/percona/pg_stat_monitor/workflows/pg12-test/badge.svg)
-![PostgreSQL-13](https://github.com/percona/pg_stat_monitor/workflows/pg13-test/badge.svg)
-![PostgreSQL-14](https://github.com/percona/pg_stat_monitor/workflows/pg14-test/badge.svg)
-![PostgreSQL-11-Package](https://github.com/percona/pg_stat_monitor/workflows/pg11package-test/badge.svg)
-![PostgreSQL-12-Packages](https://github.com/percona/pg_stat_monitor/workflows/pg12package-test/badge.svg)
-![PostgreSQL-13-Packages](https://github.com/percona/pg_stat_monitor/workflows/pg13package-test/badge.svg)
+![PostgreSQL-11](https://github.com/percona/pg_stat_monitor/workflows/postgresql-11-build/badge.svg) ![PostgreSQL-11-Package](https://github.com/percona/pg_stat_monitor/workflows/postgresql-11-package/badge.svg) ![PostgreSQL-12](https://github.com/percona/pg_stat_monitor/workflows/postgresql-12-build/badge.svg) ![PostgreSQL-12-Package](https://github.com/percona/pg_stat_monitor/workflows/postgresql-12-package/badge.svg)
+
+![PostgreSQL-13](https://github.com/percona/pg_stat_monitor/workflows/postgresql-13-build/badge.svg) ![PostgreSQL-13-Package](https://github.com/percona/pg_stat_monitor/workflows/postgresql-13-package/badge.svg) ![PostgreSQL-14](https://github.com/percona/pg_stat_monitor/workflows/postgresql-14-build/badge.svg) 
+
+
 
 [![Coverage Status](https://coveralls.io/repos/github/percona/pg_stat_monitor/badge.svg)](https://coveralls.io/github/percona/pg_stat_monitor)
 
@@ -22,8 +20,9 @@
 * [Setup](#setup)
 * [Building from source code](#building-from-source)
 * [How to contribute](#how-to-contribute)
+* [Support, discussions and forums](#support-discussions-and-forums)
 * [License](#license)
-* [Copyright](#copyright)
+* [Copyright notice](#copyright-notice)
 
 ## Overview
 
@@ -160,7 +159,11 @@ ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_monitor';
 ALTER SYSTEM
 ```
 
-**NOTE**: If you’ve added other values to the shared_preload_libraries parameter, list all of them separated by commas for the `ALTER SYSTEM` command. For example, `ALTER SYSTEM SET shared_preload_libraries = 'foo, bar, pg_stat_monitor'`
+> **NOTE**: If you’ve added other modules to the `shared_preload_libraries` parameter (for example, `pg_stat_statements`), list all of them separated by commas for the `ALTER SYSTEM` command. 
+>
+>:warning: For PostgreSQL 13 and earlier versions,`pg_stat_monitor` **must** follow `pg_stat_statements`. For example, `ALTER SYSTEM SET shared_preload_libraries = 'foo, pg_stat_statements, pg_stat_monitor'`.
+>
+>In PostgreSQL 14, modules can be specified in any order.
 
 Start or restart the `postgresql` instance to apply the changes.
 
@@ -188,6 +191,7 @@ CREATE EXTENSION
 
 This allows you to see the stats collected by `pg_stat_monitor`.
 
+By default, `pg_stat_monitor` is created for the `postgres` database. To access the statistics from other databases, you need to create the extension for every database.
 
 ```
 -- Select some of the query information, like client_ip, username and application_name etc.
@@ -208,6 +212,13 @@ To learn more about `pg_stat_monitor` features and usage, see [User Guide](https
 
 
 ### Building from source
+
+To build `pg_stat_monitor` from source code, you require the following:
+
+* git
+* make
+* gcc
+* pg_config
 
 You can download the source code of the latest release of `pg_stat_monitor` from [the releases page on GitHub](https://github.com/Percona/pg_stat_monitor/releases) or using git:
 

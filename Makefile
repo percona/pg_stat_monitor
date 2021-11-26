@@ -17,8 +17,28 @@ REGRESS = basic version guc counters relations database top_query application_na
 # which typical installcheck users do not have (e.g. buildfarm clients).
 # NO_INSTALLCHECK = 1
 
-ifdef USE_PGXS
+
 PG_CONFIG = pg_config
+PG_VERSION := $(shell pg_config --version | awk {'print $$1 $$2'})
+MAJOR := $(shell echo $(PG_VERSION) | sed -e 's/\.[^./]*$$//')
+
+ifneq (,$(findstring PostgreSQL14,$(MAJOR)))
+  CP := $(shell cp pg_stat_monitor--1.0.14.sql.in pg_stat_monitor--1.0.sql)
+endif
+
+ifneq (,$(findstring PostgreSQL13,$(MAJOR)))
+  CP := $(shell cp pg_stat_monitor--1.0.13.sql.in pg_stat_monitor--1.0.sql)
+endif
+
+ifneq (,$(findstring PostgreSQL12,$(MAJOR)))
+  CP := $(shell cp pg_stat_monitor--1.0.sql.in pg_stat_monitor--1.0.sql)
+endif
+
+ifneq (,$(findstring PostgreSQL11,$(MAJOR)))
+  CP := $(shell cp pg_stat_monitor--1.0.sql.in pg_stat_monitor--1.0.sql)
+endif
+
+ifdef USE_PGXS
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 else

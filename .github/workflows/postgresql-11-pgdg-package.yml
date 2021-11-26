@@ -1,9 +1,9 @@
-name: Test-with-pg11-pgdg-packages
+name: postgresql-11-pgdg-package
 on: [push]
 
 jobs:
   build:
-    name: pg11-test-with-pgdg-packages
+    name: postgresql-11-pgdg-package
     runs-on: ubuntu-18.04
     steps:
       - name: Clone pg_stat_monitor repository

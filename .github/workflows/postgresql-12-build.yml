@@ -1,9 +1,9 @@
-name: Test-with-pg12-build
+name: postgresql-12-build
 on: [push]
 
 jobs:
   build:
-    name: pg12-test
+    name: postgresql-12-build
     runs-on: ubuntu-latest
     steps:
       - name: Clone postgres repository
