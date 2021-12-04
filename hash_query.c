@@ -149,7 +149,9 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 	}
 	/* Find or create an entry with desired hash code */
 	entry = (pgssEntry *) hash_search(pgss_hash, key, HASH_ENTER_NULL, &found);
-	if (!found)
+	if (entry == NULL)
+		pgsm_log_error("hash_entry_alloc: OUT OF MEMORY");
+	else if (!found)
 	{
 		pgss->bucket_entry[pg_atomic_read_u64(&pgss->current_wbucket)]++;
 		/* New entry, initialize it */
@@ -161,8 +163,6 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 		/* ... and don't forget the query text metadata */
 		entry->encoding = encoding;
 	}
-	if (entry == NULL)
-		pgsm_log_error("hash_entry_alloc: OUT OF MEMORY");
 
 	return entry;
 }
