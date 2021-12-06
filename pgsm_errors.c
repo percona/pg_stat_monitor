@@ -96,9 +96,7 @@ void pgsm_log(PgsmLogSeverity severity, const char *format, ...)
 		LWLockRelease(pgss->errors_lock);
 		/* 
 		* We're out of memory, can't track this error message.
-		* In this case we must fallback to PostgreSQL log facility.
 		*/
-		elog(WARNING, "pgsm_log_error: <OUT OF MEMORY>");
 		return;
 	}
 
