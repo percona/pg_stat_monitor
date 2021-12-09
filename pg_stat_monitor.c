@@ -46,6 +46,12 @@ do                                                      \
 		strlcpy((char *)_str_dst[i], _str_src[i], _len2); \
 }while(0)
 
+#define pgsm_enabled(level) \
+    (!IsParallelWorker() && \
+    (PGSM_TRACK == PGSM_TRACK_ALL || \
+    (PGSM_TRACK == PGSM_TRACK_TOP && (level) == 0)))
+
+
 /*---- Initicalization Function Declarations ----*/
 void _PG_init(void);
 void _PG_fini(void);
@@ -53,7 +59,7 @@ void _PG_fini(void);
 /*---- Local variables ----*/
 
 /* Current nesting depth of ExecutorRun+ProcessUtility calls */
-static int	nested_level = 0;
+static int exec_nested_level = 0;
 #if PG_VERSION_NUM >= 130000
 static int plan_nested_level = 0;
 #endif
@@ -356,7 +362,7 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 	if (!IsSystemInitialized())
 		return;
 
-	if (IsParallelWorker())
+	if (!pgsm_enabled(exec_nested_level))
 		return;
 
 	/*
@@ -421,7 +427,7 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query)
 	if (!IsSystemInitialized())
 		return;
 
-	if (IsParallelWorker())
+	if (!pgsm_enabled(exec_nested_level))
 		return;
 
 	/*
@@ -489,15 +495,13 @@ pgss_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	else
 		standard_ExecutorStart(queryDesc, eflags);
 
-	if (IsParallelWorker())
-		return;
-
 	/*
 	 * If query has queryId zero, don't track it.  This prevents double
 	 * counting of optimizable statements that are directly contained in
 	 * utility statements.
 	 */
-	if (PGSM_ENABLED && queryDesc->plannedstmt->queryId != UINT64CONST(0))
+	if (pgsm_enabled(exec_nested_level) &&
+		queryDesc->plannedstmt->queryId != UINT64CONST(0))
 	{
 		/*
 		 * Set up to track total elapsed time in ExecutorRun.  Make sure the
@@ -552,24 +556,24 @@ static void
 pgss_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 				 bool execute_once)
 {
-	if (nested_level >=0 && nested_level < max_stack_depth)
-		nested_queryids[nested_level] = queryDesc->plannedstmt->queryId;
-	nested_level++;
+	if (exec_nested_level >=0 && exec_nested_level < max_stack_depth)
+		nested_queryids[exec_nested_level] = queryDesc->plannedstmt->queryId;
+	exec_nested_level++;
 	PG_TRY();
 	{
 		if (prev_ExecutorRun)
 			prev_ExecutorRun(queryDesc, direction, count, execute_once);
 		else
 			standard_ExecutorRun(queryDesc, direction, count, execute_once);
-		nested_level--;
-		if (nested_level >=0 && nested_level < max_stack_depth)
-			nested_queryids[nested_level] = UINT64CONST(0);
+		exec_nested_level--;
+		if (exec_nested_level >=0 && exec_nested_level < max_stack_depth)
+			nested_queryids[exec_nested_level] = UINT64CONST(0);
 	}
 	PG_CATCH();
 	{
-		nested_level--;
-		if (nested_level >=0 && nested_level < max_stack_depth)
-			nested_queryids[nested_level] = UINT64CONST(0);
+		exec_nested_level--;
+		if (exec_nested_level >=0 && exec_nested_level < max_stack_depth)
+			nested_queryids[exec_nested_level] = UINT64CONST(0);
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
@@ -592,18 +596,18 @@ pgss_ExecutorFinish_benchmark(QueryDesc *queryDesc)
 static void
 pgss_ExecutorFinish(QueryDesc *queryDesc)
 {
-	nested_level++;
+	exec_nested_level++;
 	PG_TRY();
 	{
 		if (prev_ExecutorFinish)
 			prev_ExecutorFinish(queryDesc);
 		else
 			standard_ExecutorFinish(queryDesc);
-		nested_level--;
+		exec_nested_level--;
 	}
 	PG_CATCH();
 	{
-		nested_level--;
+		exec_nested_level--;
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
@@ -661,7 +665,7 @@ pgss_ExecutorEnd(QueryDesc *queryDesc)
 		MemoryContextSwitchTo(mct);
 	}
 
-	if (queryId != UINT64CONST(0) && queryDesc->totaltime && !IsParallelWorker())
+	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(exec_nested_level))
 	{
 		/*
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
@@ -778,7 +782,20 @@ pgss_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 {
 	PlannedStmt			*result;
 
-	if (PGSM_TRACK_PLANNING && query_string && parse->queryId != UINT64CONST(0) && !IsParallelWorker())
+	/*
+     * We can't process the query if no query_string is provided, as
+     * pgss_store needs it.  We also ignore query without queryid, as it would
+     * be treated as a utility statement, which may not be the case.
+     *
+     * Note that planner_hook can be called from the planner itself, so we
+     * have a specific nesting level for the planner.  However, utility
+     * commands containing optimizable statements can also call the planner,
+     * same for regular DML (for instance for underlying foreign key queries).
+     * So testing the planner nesting level only is not enough to detect real
+     * top level planner call.
+     */
+	if (pgsm_enabled(plan_nested_level + exec_nested_level) &&
+		PGSM_TRACK_PLANNING && query_string && parse->queryId != UINT64CONST(0))
 	{
 		instr_time	start;
 		instr_time	duration;
@@ -946,7 +963,7 @@ static void pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * since we are already measuring the statement's costs at the utility
 	 * level.
 	 */
-	if (PGSM_TRACK_UTILITY && !IsParallelWorker())
+	if (PGSM_TRACK_UTILITY && pgsm_enabled(exec_nested_level))
 		pstmt->queryId = UINT64CONST(0);
 #endif
 
@@ -964,8 +981,8 @@ static void pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 *
 	 * Likewise, we don't track execution of DEALLOCATE.
 	 */
-	if (PGSM_TRACK_UTILITY && PGSM_HANDLED_UTILITY(parsetree) &&
-		 !IsParallelWorker())
+	if (PGSM_TRACK_UTILITY && pgsm_enabled(exec_nested_level) && 
+		PGSM_HANDLED_UTILITY(parsetree))		 
 	{
 		instr_time	start;
 		instr_time	duration;
@@ -1018,7 +1035,7 @@ static void pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		}
 		PG_CATCH();
         {
-			nested_level--;
+			exec_nested_level--;
 			PG_RE_THROW();
 
 		}
@@ -1310,10 +1327,10 @@ pgss_update_entry(pgssEntry *entry,
 
 		e->counters.info.cmd_type = cmd_type;
 
-		if(nested_level > 0)
+		if(exec_nested_level > 0)
 		{
-			if (nested_level >=0 && nested_level < max_stack_depth)
-				e->counters.info.parentid = nested_queryids[nested_level - 1];
+			if (exec_nested_level >=0 && exec_nested_level < max_stack_depth)
+				e->counters.info.parentid = nested_queryids[exec_nested_level - 1];
 		}
 		else
 		{
@@ -1428,10 +1445,6 @@ pgss_store(uint64 queryid,
 	static bool found_app_name = false;
 	static bool found_client_addr = false;
 	static uint client_addr = 0;
-
-	/*  Monitoring is disabled */
-	if (!PGSM_ENABLED)
-		return;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -3311,7 +3324,7 @@ pg_stat_monitor_settings(PG_FUNCTION_ARGS)
 		return (Datum) 0;
 	}
 
-	if (tupdesc->natts != 7)
+	if (tupdesc->natts != 8)
 	{
 		pgsm_log_error("pg_stat_monitor_settings: incorrect number of output arguments, required: 7, found %d", tupdesc->natts);
 		return (Datum) 0;
@@ -3326,19 +3339,78 @@ pg_stat_monitor_settings(PG_FUNCTION_ARGS)
 
 	for(i = 0; i < MAX_SETTINGS; i++)
 	{
-		Datum		values[7];
-		bool		nulls[7];
+		Datum		values[8];
+		bool		nulls[8];
 		int			j = 0;
+		char options[1024] = "";
+		GucVariable *conf;
+
 		memset(values, 0, sizeof(values));
 		memset(nulls, 0, sizeof(nulls));
 
-		values[j++] = CStringGetTextDatum(get_conf(i)->guc_name);
-		values[j++] = Int64GetDatumFast(get_conf(i)->guc_variable);
-		values[j++] = Int64GetDatumFast(get_conf(i)->guc_default);
+		conf = get_conf(i);
+
+		values[j++] = CStringGetTextDatum(conf->guc_name);
+
+		/* Handle current and default values. */
+		switch (conf->type)
+		{
+			case PGC_ENUM:
+				values[j++] = CStringGetTextDatum(conf->guc_options[conf->guc_variable]);
+				values[j++] = CStringGetTextDatum(conf->guc_options[conf->guc_default]);
+				break;
+
+			case PGC_INT:
+			{
+				char value[32];
+
+				sprintf(value, "%d", conf->guc_variable);
+				values[j++] = CStringGetTextDatum(value);
+
+				sprintf(value, "%d", conf->guc_default);
+				values[j++] = CStringGetTextDatum(value);
+				break;
+			}
+
+			case PGC_BOOL:
+				values[j++] = CStringGetTextDatum(conf->guc_variable ? "yes" : "no");
+				values[j++] = CStringGetTextDatum(conf->guc_default ? "yes" : "no");
+				break;
+
+			default:
+				Assert(false);
+		}
+
 		values[j++] = CStringGetTextDatum(get_conf(i)->guc_desc);
-		values[j++] = Int64GetDatumFast(get_conf(i)->guc_min);
-		values[j++] = Int64GetDatumFast(get_conf(i)->guc_max);
-		values[j++] = Int64GetDatumFast(get_conf(i)->guc_restart);
+
+		/* Minimum and maximum displayed only for integers or real numbers. */
+		if (conf->type != PGC_INT)
+		{
+			nulls[j++] = true;
+			nulls[j++] = true;
+		}
+		else
+		{
+			values[j++] = Int64GetDatumFast(get_conf(i)->guc_min);
+			values[j++] = Int64GetDatumFast(get_conf(i)->guc_max);
+		}
+
+		if (conf->type == PGC_ENUM)
+		{
+			strcat(options, conf->guc_options[0]);
+			for (size_t i = 1; i < conf->n_options; ++i)
+			{
+				strcat(options, ", ");
+				strcat(options, conf->guc_options[i]);
+			}
+		}
+		else if (conf->type == PGC_BOOL)
+		{
+			strcat(options, "yes, no");
+		}
+
+		values[j++] = CStringGetTextDatum(options);
+		values[j++] = CStringGetTextDatum(get_conf(i)->guc_restart ? "yes" : "no");
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 	/* clean up and return the tuplestore */
