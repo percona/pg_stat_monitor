@@ -1496,8 +1496,6 @@ pgss_store(uint64 queryid,
 	planid = plan_info ? plan_info->planid : 0;
 	appid = djb2_hash((unsigned char *)application_name, application_name_len);
 
-	extract_query_comments(query, comments, sizeof(comments));
-
 	prev_bucket_id = pg_atomic_read_u64(&pgss->current_wbucket);
 	bucketid = get_next_wbucket(pgss);
 
@@ -1604,6 +1602,10 @@ pgss_store(uint64 queryid,
 	}
 
 	if (jstate == NULL)
+	{
+		if (PGSM_EXTRACT_COMMENTS)
+			extract_query_comments(query, comments, sizeof(comments));
+
 		pgss_update_entry(entry,		/* entry */
 					bucketid,			/* bucketid */
 					queryid,			/* queryid */
@@ -1621,6 +1623,7 @@ pgss_store(uint64 queryid,
 					kind,				/* kind */
 					application_name,
 					application_name_len);
+	}
 
 	LWLockRelease(pgss->lock);
 	if (norm_query)

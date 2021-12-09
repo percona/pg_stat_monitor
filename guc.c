@@ -191,6 +191,18 @@ init_guc(void)
 	}
 	DefineEnumGUC(&conf[i++], track_options);
 
+	conf[i] = (GucVariable) {
+		.guc_name = "pg_stat_monitor.extract_comments",
+		.guc_desc = "Enable/Disable extracting comments from queries.",
+		.guc_default = 0,
+		.guc_min = 0,
+		.guc_max = 0,
+		.guc_restart = false,
+		.guc_unit = 0,
+		.guc_value = &PGSM_EXTRACT_COMMENTS
+	};
+	DefineBoolGUC(&conf[i++]);
+
 #if PG_VERSION_NUM >= 130000
 	conf[i] = (GucVariable) {
 		.guc_name = "pg_stat_monitor.pgsm_track_planning",
