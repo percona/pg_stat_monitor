@@ -21,6 +21,7 @@
 GucVariable conf[MAX_SETTINGS];
 static void DefineIntGUC(GucVariable *conf);
 static void DefineBoolGUC(GucVariable *conf);
+static void DefineEnumGUC(GucVariable *conf, const struct config_enum_entry *options);
 
 /*
  * Define (or redefine) custom GUC variables.
@@ -29,6 +30,7 @@ void
 init_guc(void)
 {
 	int i = 0;
+
 	conf[i] = (GucVariable) {
 		.guc_name = "pg_stat_monitor.pgsm_max",
 		.guc_desc = "Sets the maximum size of shared memory in (MB) used for statement's metadata tracked by pg_stat_monitor.",
@@ -52,18 +54,6 @@ init_guc(void)
 		.guc_value = &PGSM_QUERY_MAX_LEN
 	};
 	DefineIntGUC(&conf[i++]);
-
-	conf[i] = (GucVariable) {
-		.guc_name = "pg_stat_monitor.pgsm_enable",
-		.guc_desc = "Enable/Disable statistics collector.",
-		.guc_default = 1,
-		.guc_min = 0,
-		.guc_max = 0,
-		.guc_restart = false,
-		.guc_unit = 0,
-		.guc_value = &PGSM_ENABLED
-	};
-	DefineBoolGUC(&conf[i++]);
 
 	conf[i] = (GucVariable) {
 		.guc_name = "pg_stat_monitor.pgsm_track_utility",
@@ -185,6 +175,21 @@ init_guc(void)
 	};
 	DefineBoolGUC(&conf[i++]);
 
+	conf[i] = (GucVariable) {
+		.guc_name = "pg_stat_monitor.track",
+		.guc_desc = "Selects which statements are tracked by pg_stat_monitor.",
+		.n_options = 3,
+		.guc_default = PGSM_TRACK_TOP,
+		.guc_min = PSGM_TRACK_NONE,
+		.guc_max = PGSM_TRACK_ALL,
+		.guc_restart = false,
+		.guc_unit = 0,
+		.guc_value = &PGSM_TRACK
+	};
+	for (int j = 0; j < conf[i].n_options; ++j) {
+		strlcpy(conf[i].guc_options[j], track_options[j].name, sizeof(conf[i].guc_options[j]));
+	}
+	DefineEnumGUC(&conf[i++], track_options);
 
 #if PG_VERSION_NUM >= 130000
 	conf[i] = (GucVariable) {
@@ -204,6 +209,7 @@ init_guc(void)
 static void
 DefineIntGUC(GucVariable *conf)
 {
+	conf->type = PGC_INT;
 	DefineCustomIntVariable(conf->guc_name,
 							conf->guc_desc,
 							NULL,
@@ -220,6 +226,7 @@ DefineIntGUC(GucVariable *conf)
 static void
 DefineBoolGUC(GucVariable *conf)
 {
+	conf->type = PGC_BOOL;
 	DefineCustomBoolVariable(conf->guc_name,
 							conf->guc_desc,
 							NULL,
@@ -232,9 +239,26 @@ DefineBoolGUC(GucVariable *conf)
 							 NULL);
 }
 
+static void
+DefineEnumGUC(GucVariable *conf, const struct config_enum_entry *options)
+{
+	conf->type = PGC_ENUM;
+	DefineCustomEnumVariable(conf->guc_name,
+                             conf->guc_desc,
+                             NULL,
+                             conf->guc_value,
+                             PGSM_TRACK_TOP,
+                             options,
+                             conf->guc_restart ? PGC_POSTMASTER : PGC_USERSET,
+                             0,
+                             NULL,
+                             NULL,
+                             NULL);
+}
+
 GucVariable*
 get_conf(int i)
 {
-	return  &conf[i];
+	return &conf[i];
 }
 
