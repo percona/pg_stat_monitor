@@ -95,9 +95,9 @@
 #define SQLCODE_LEN                         20
 
 #if PG_VERSION_NUM >= 130000
-#define	MAX_SETTINGS                        14
+#define	MAX_SETTINGS                        15
 #else
-#define MAX_SETTINGS                        13
+#define MAX_SETTINGS                        14
 #endif
 
 /* Update this if need a enum GUC with more options. */
@@ -443,7 +443,8 @@ static const struct config_enum_entry track_options[] =
 #define PGSM_OVERFLOW_TARGET get_conf(10)->guc_variable
 #define PGSM_QUERY_PLAN get_conf(11)->guc_variable
 #define PGSM_TRACK get_conf(12)->guc_variable
-#define PGSM_TRACK_PLANNING get_conf(13)->guc_variable
+#define PGSM_EXTRACT_COMMENTS get_conf(13)->guc_variable
+#define PGSM_TRACK_PLANNING get_conf(14)->guc_variable
 
 
 /*---- Benchmarking ----*/
