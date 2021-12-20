@@ -207,7 +207,7 @@ init_guc(void)
 	conf[i] = (GucVariable) {
 		.guc_name = "pg_stat_monitor.pgsm_track_planning",
 		.guc_desc = "Selects whether planning statistics are tracked.",
-		.guc_default = 1,
+		.guc_default = 0,
 		.guc_min = 0,
 		.guc_max = 0,
 		.guc_restart = false,
