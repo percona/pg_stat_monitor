@@ -48,6 +48,12 @@ SELECT pg_reload_conf();
  t
 (1 row)
 
+SELECT pg_sleep(1);
+ pg_sleep 
+----------
+ 
+(1 row)
+
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------
@@ -96,6 +102,12 @@ SELECT pg_reload_conf();
  pg_reload_conf 
 ----------------
  t
+(1 row)
+
+SELECT pg_sleep(1);
+ pg_sleep 
+----------
+ 
 (1 row)
 
 SELECT pg_stat_monitor_reset();
