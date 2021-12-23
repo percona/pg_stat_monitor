@@ -17,6 +17,7 @@
 
 #include "postgres.h"
 #include "access/parallel.h"
+#include "utils/guc.h"
 #include <regex.h>
 #ifdef BENCHMARK
 #include <time.h> /* clock() */
@@ -208,6 +209,8 @@ static uint64 get_query_id(JumbleState *jstate, Query *query);
 
 /* Daniel J. Bernstein's hash algorithm: see http://www.cse.yorku.ca/~oz/hash.html */
 static uint64 djb2_hash(unsigned char *str, size_t len);
+/* Same as above, but stores the calculated string length into *out_len (small optimization) */
+static uint64 djb2_hash_str(unsigned char *str, int *out_len);
 /*
  * Module load callback
  */
@@ -1178,8 +1181,6 @@ static int
 pg_get_application_name(char *application_name, bool *ok)
 {
 	PgBackendStatus *beentry = pg_get_backend_status();
-	if (!beentry)
-		return snprintf(application_name, APPLICATIONNAME_LEN, "%s", "postmaster");
 
 	if (!beentry)
 		return snprintf(application_name, APPLICATIONNAME_LEN, "%s", "unknown");
@@ -1426,22 +1427,23 @@ pgss_store(uint64 queryid,
 		   pgssStoreKind kind)
 {
 	HTAB            *pgss_hash;
-	pgssHashKey     key;
+	pgssHashKey      key;
 	pgssEntry       *entry;
 	pgssSharedState *pgss = pgsm_get_ss();
-	static char     application_name[APPLICATIONNAME_LEN] = "";
-	static int      application_name_len = 0;
-	bool            reset = false;
-	uint64          bucketid;
-	uint64          prev_bucket_id;
-    uint64          userid;
-	uint64          planid;
-	uint64          appid;
-	char            comments[512] = "";
+	char            *app_name_ptr;
+	char             app_name[APPLICATIONNAME_LEN] = "";
+	int              app_name_len = 0;
+	bool             reset = false;
+	uint64           bucketid;
+	uint64           prev_bucket_id;
+	uint64           userid;
+	uint64           planid;
+	uint64           appid = 0;
+	char             comments[512] = "";
 	char *norm_query = NULL;
-	static bool found_app_name = false;
-	static bool found_client_addr = false;
-	static uint client_addr = 0;
+	bool found_app_name = false;
+	bool found_client_addr = false;
+	uint client_addr = 0;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1484,14 +1486,24 @@ pgss_store(uint64 queryid,
 	else
 		userid =  GetUserId();
 
-	if (!found_app_name)
-		application_name_len = pg_get_application_name(application_name, &found_app_name);
+	/* Try to read application name from GUC directly */
+	if (application_name && *application_name)
+	{
+		app_name_ptr = application_name;
+		appid = djb2_hash_str((unsigned char *)application_name, &app_name_len);
+	}
+	else
+	{
+		app_name_len = pg_get_application_name(app_name, &found_app_name);
+		if (found_app_name)
+			appid = djb2_hash((unsigned char *)app_name, app_name_len);
+		app_name_ptr = app_name;
+	}
 
 	if (!found_client_addr)
 		client_addr = pg_get_client_addr(&found_client_addr);
 
 	planid = plan_info ? plan_info->planid : 0;
-	appid = djb2_hash((unsigned char *)application_name, application_name_len);
 
 	prev_bucket_id = pg_atomic_read_u64(&pgss->current_wbucket);
 	bucketid = get_next_wbucket(pgss);
@@ -1622,8 +1634,8 @@ pgss_store(uint64 queryid,
 					walusage,			/* walusage */
 					reset,				/* reset */
 					kind,				/* kind */
-					application_name,
-					application_name_len);
+					app_name_ptr,
+					app_name_len);
 	}
 
 	LWLockRelease(pgss->lock);
@@ -3833,7 +3845,24 @@ static uint64 djb2_hash(unsigned char *str, size_t len)
 	uint64 hash = 5381LLU;
 
     while (len--)
-        hash = ((hash << 5) + hash) ^ *str++; // hash(i - 1) * 33 ^ str[i]
+		hash = ((hash << 5) + hash) ^ *str++; // hash(i - 1) * 33 ^ str[i]
+
+	return hash;
+}
+
+static uint64 djb2_hash_str(unsigned char *str, int *out_len)
+{
+	uint64 hash = 5381LLU;
+	unsigned char *start = str;
+	unsigned char c;
+
+	while ((c = *str) != '\0')
+	{
+		hash = ((hash << 5) + hash) ^ c; // hash(i - 1) * 33 ^ str[i]
+		++str;
+	}
+
+	*out_len = str - start;
 
     return hash;
 }
