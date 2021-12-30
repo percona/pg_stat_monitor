@@ -1,16 +1,16 @@
-name: Test-with-pg11-build
+name: postgresql-14-build
 on: [push]
 
 jobs:
   build:
-    name: pg11-test
-    runs-on: ubuntu-18.04
+    name: postgresql-14-build
+    runs-on: ubuntu-latest
     steps:
       - name: Clone postgres repository
         uses: actions/checkout@v2
         with:
           repository: 'postgres/postgres'
-          ref: 'REL_11_STABLE'
+          ref: 'REL_14_STABLE'
 
       - name: Install dependencies
         run: |
@@ -27,41 +27,41 @@ jobs:
           sudo rm -rf /usr/share/postgresql
           sudo rm -rf /etc/postgresql
           sudo rm -f /usr/bin/pg_config
-
       - name: Create pgsql dir
         run: mkdir -p /opt/pgsql
 
       - name: Build postgres
         run: |
           export PATH="/opt/pgsql/bin:$PATH"
-          ./configure '--build=x86_64-linux-gnu' '--prefix=/usr' '--includedir=/usr/include' \
-            '--mandir=/usr/share/man' '--infodir=/usr/share/info' '--sysconfdir=/etc' \
-            '--localstatedir=/var' '--disable-silent-rules' '--libdir=/usr/lib/x86_64-linux-gnu' \
-            'runstatedir=/run' '--disable-maintainer-mode' '--disable-dependency-tracking' \
-            '--with-icu' '--with-tcl' '--with-perl' '--with-python' '--with-pam' '--with-openssl' \
-            '--with-libxml' '--with-libxslt' 'PYTHON=/usr/bin/python3' \
-            '--mandir=/usr/share/postgresql/11/man' '--docdir=/usr/share/doc/postgresql-doc-11' \
+          ./configure '--build=x86_64-linux-gnu' '--prefix=/usr' '--includedir=${prefix}/include' \
+            '--mandir=${prefix}/share/man' '--infodir=${prefix}/share/info' \
+            '--sysconfdir=/etc' '--localstatedir=/var' '--disable-silent-rules' \
+            '--libdir=${prefix}/lib/x86_64-linux-gnu' \
+            '--libexecdir=${prefix}/lib/x86_64-linux-gnu' '--disable-maintainer-mode' \
+            '--disable-dependency-tracking' '--with-icu' '--with-tcl' '--with-perl' \
+            '--with-python' '--with-pam' '--with-openssl' '--with-libxml' '--with-libxslt' \
+            'PYTHON=/usr/bin/python3' '--mandir=/usr/share/postgresql/14/man' \
+            '--docdir=/usr/share/doc/postgresql-doc-14' \
             '--sysconfdir=/etc/postgresql-common' '--datarootdir=/usr/share/' \
-            '--datadir=/usr/share/postgresql/11' '--bindir=/usr/lib/postgresql/11/bin' \
+            '--datadir=/usr/share/postgresql/14' '--bindir=/usr/lib/postgresql/14/bin' \
             '--libdir=/usr/lib/x86_64-linux-gnu/' '--libexecdir=/usr/lib/postgresql/' \
-            '--includedir=/usr/include/postgresql/' '--with-extra-version= (Ubuntu 11.x.pgdg20.04+1)' \
+            '--includedir=/usr/include/postgresql/' '--with-extra-version= (Ubuntu 2:14-x.focal)' \
             '--enable-nls' '--enable-thread-safety' '--enable-tap-tests' '--enable-debug' \
             '--enable-dtrace' '--disable-rpath' '--with-uuid=e2fs' '--with-gnu-ld' \
             '--with-pgport=5432' '--with-system-tzdata=/usr/share/zoneinfo' '--with-llvm' \
-            'LLVM_CONFIG=/usr/bin/llvm-config-9' 'CLANG=/usr/bin/clang-9' '--with-systemd' \
-            '--with-selinux' 'MKDIR_P=/bin/mkdir -p' 'PROVE=/usr/bin/prove' 'TAR=/bin/tar' \
-            'CFLAGS=-g -O2 -fstack-protector-strong -Wformat -Werror=format-security -fno-omit-frame-pointer' \
+            'LLVM_CONFIG=/usr/bin/llvm-config-11' 'CLANG=/usr/bin/clang-11' \
+            '--with-systemd' '--with-selinux' 'MKDIR_P=/bin/mkdir -p' 'PROVE=/usr/bin/prove' \
+            'TAR=/bin/tar' 'XSLTPROC=xsltproc --nonet' 'CFLAGS=-g -O2 -fstack-protector-strong -Wformat -Werror=format-security -fno-omit-frame-pointer' \
             'LDFLAGS=-Wl,-Bsymbolic-functions -Wl,-z,relro -Wl,-z,now' '--with-gssapi' '--with-ldap' \
-            '--with-includes=/usr/include/mit-krb5' '--with-libs=/usr/lib/mit-krb5' \
-            '--with-libs=/usr/lib/x86_64-linux-gnu/mit-krb5' 'build_alias=x86_64-linux-gnu' \
-            'CPPFLAGS=-Wdate-time -D_FORTIFY_SOURCE=2' 'CXXFLAGS=-g -O2 -fstack-protector-strong -Wformat -Werror=format-security'
+            'build_alias=x86_64-linux-gnu' 'CPPFLAGS=-Wdate-time -D_FORTIFY_SOURCE=2' \
+            'CXXFLAGS=-g -O2 -fstack-protector-strong -Wformat -Werror=format-security'
            make world
            sudo make install-world
 
       - name: Start postgresql cluster
         run: |
-           /usr/lib/postgresql/11/bin/initdb -D /opt/pgsql/data
-           /usr/lib/postgresql/11/bin/pg_ctl -D /opt/pgsql/data -l logfile start
+           /usr/lib/postgresql/14/bin/initdb -D /opt/pgsql/data
+           /usr/lib/postgresql/14/bin/pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
         uses: actions/checkout@v2
@@ -70,33 +70,18 @@ jobs:
 
       - name: Build pg_stat_monitor
         run: |
-          export PATH="/usr/lib/postgresql/11/bin:$PATH"
-          sudo cp /usr/lib/postgresql/11/bin/pg_config /usr/bin
+          export PATH="/usr/lib/postgresql/14/bin:$PATH"
+          sudo cp /usr/lib/postgresql/14/bin/pg_config /usr/bin
           make USE_PGXS=1
           sudo make USE_PGXS=1 install
         working-directory: src/pg_stat_monitor/
 
       - name: Load pg_stat_monitor library and Restart Server
         run: |
-          /usr/lib/postgresql/11/bin/pg_ctl -D /opt/pgsql/data -l logfile stop
+          /usr/lib/postgresql/14/bin/pg_ctl -D /opt/pgsql/data -l logfile stop
           echo "shared_preload_libraries = 'pg_stat_monitor'" >> /opt/pgsql/data/postgresql.conf
-          /usr/lib/postgresql/11/bin/pg_ctl -D /opt/pgsql/data -l logfile start
+          /usr/lib/postgresql/14/bin/pg_ctl -D /opt/pgsql/data -l logfile start
         working-directory: src/pg_stat_monitor/
-
-      - name: Start Server installcheck-world tests (without TAP)
-        run: |
-          make installcheck-world
-
-      - name: Report on installcheck-world test suites fail
-        uses: actions/upload-artifact@v2
-        if: ${{ failure() }}
-        with:
-          name: Regressions output files of failed testsuite, and postgresql log
-          path: |
-            **/regression.diffs
-            **/regression.out
-            src/pg_stat_monitor/logfile
-          retention-days: 1
 
       - name: Start pg_stat_monitor_tests
         run: |
