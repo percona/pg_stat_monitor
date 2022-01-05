@@ -137,16 +137,9 @@ typedef enum pgssStoreKind
 {
 	PGSS_INVALID = -1,
 
-	/*
-	 * PGSS_PLAN and PGSS_EXEC must be respectively 0 and 1 as they're used to
-	 * reference the underlying values in the arrays in the Counters struct,
-	 * and this order is required in pg_stat_statements_internal().
-	 */
 	PGSS_PARSE = 0,
 	PGSS_PLAN,
-	PGSS_EXEC,
 	PGSS_FINISHED,
-	PGSS_ERROR,
 
 	PGSS_NUMKIND				/* Must be last value of this enum */
 } pgssStoreKind;
