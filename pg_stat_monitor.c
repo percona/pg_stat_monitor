@@ -523,20 +523,6 @@ pgss_ExecutorStart(QueryDesc *queryDesc, int eflags)
 #endif
 			MemoryContextSwitchTo(oldcxt);
 		}
-		pgss_store(queryDesc->plannedstmt->queryId,			/* query id */
-					queryDesc->sourceText,					/* query text */
-					queryDesc->plannedstmt->stmt_location,	/* query location */
-					queryDesc->plannedstmt->stmt_len,		/* query length */
-					NULL,                                   /* PlanInfo */
-					queryDesc->operation,                   /* CmdType */
-					NULL,                                   /* SysInfo */
-					NULL,									/* ErrorInfo */
-					0,                                      /* totaltime */
-					0,                                      /* rows */
-					NULL,                                   /* bufusage */
-					NULL,                                   /* walusage */
-					NULL,									/* JumbleState */
-					PGSS_EXEC);								/* pgssStoreKind */
 	}
 }
 
@@ -1400,7 +1386,7 @@ pgss_store_error(uint64 queryid,
 			   NULL,		  /* bufusage */
 			   NULL,		  /* walusage */
 			   NULL,		  /* JumbleState */
-			   PGSS_ERROR);	  /* pgssStoreKind */
+			   PGSS_FINISHED);	  /* pgssStoreKind */
 }
 
 /*
@@ -1481,7 +1467,7 @@ pgss_store(uint64 queryid,
 #endif
 
 	Assert(query != NULL);
-	if (kind == PGSS_ERROR)
+	if (error_info != NULL)
 	{
 		int sec_ctx;
 		GetUserIdAndSecContext((Oid *)&userid, &sec_ctx);
@@ -1743,9 +1729,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		return;
 	}
 
-	if (tupdesc->natts != 50)
+	if (tupdesc->natts != 49)
 	{
-		pgsm_log_error("pg_stat_monitor_internal: incorrect number of output arguments, required: 50, found %d", tupdesc->natts);
+		pgsm_log_error("pg_stat_monitor_internal: incorrect number of output arguments, required: 49, found %d", tupdesc->natts);
 		return;
 	}
 
@@ -1816,7 +1802,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		}
 
 		/* Skip queries such as, $1, $2 := $3, etc. */
-		if (tmp.state == PGSS_PARSE || tmp.state == PGSS_PLAN)
+		if (tmp.state != PGSS_PLAN && tmp.state != PGSS_FINISHED)
 			continue;
 
 		if (tmp.info.parentid != UINT64CONST(0))
@@ -1901,10 +1887,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 		}
-
-
-		/* state at column number 8 */
-		values[i++] = Int64GetDatumFast(tmp.state);
 
 		/* parentid at column number 9 */
         if (tmp.info.parentid != UINT64CONST(0))
