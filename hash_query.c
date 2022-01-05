@@ -199,7 +199,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 		 */
 		if (new_bucket_id < 0 ||
 			(entry->key.bucket_id == new_bucket_id &&
-				 (entry->counters.state == PGSS_FINISHED || entry->counters.state == PGSS_ERROR)))
+			entry->counters.state == PGSS_FINISHED))
 		{
 			if (new_bucket_id == -1) {
 				/* pg_stat_monitor_reset(), remove entry from query hash table too. */
@@ -219,8 +219,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 		if (old_bucket_id != -1 && entry->key.bucket_id == old_bucket_id)
 		{
 			if (entry->counters.state == PGSS_PARSE ||
-				entry->counters.state == PGSS_PLAN ||
-				entry->counters.state == PGSS_EXEC)
+				entry->counters.state == PGSS_PLAN)
 			{
 				pgssEntry *bkp_entry = malloc(sizeof(pgssEntry));
 				if (!bkp_entry)
