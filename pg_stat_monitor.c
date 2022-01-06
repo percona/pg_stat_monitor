@@ -1507,7 +1507,11 @@ pgss_store(uint64 queryid,
 	key.ip = client_addr;
 	key.planid = planid;
 	key.appid = appid;
-
+#if PG_VERSION_NUM < 140000
+    key.toplevel = 1;
+#else
+    key.toplevel = ((exec_nested_level + plan_nested_level) == 0);
+#endif
 	pgss_hash = pgsm_get_hash();
 
 	LWLockAcquire(pgss->lock, LW_SHARED);
@@ -1729,9 +1733,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		return;
 	}
 
-	if (tupdesc->natts != 49)
+	if (tupdesc->natts != 50)
 	{
-		pgsm_log_error("pg_stat_monitor_internal: incorrect number of output arguments, required: 49, found %d", tupdesc->natts);
+		pgsm_log_error("pg_stat_monitor_internal: incorrect number of output arguments, required: 50, found %d", tupdesc->natts);
 		return;
 	}
 
@@ -1761,9 +1765,11 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		uint64        ip = entry->key.ip;
 		uint64        planid = entry->key.planid;
 #if PG_VERSION_NUM < 140000
+		bool          toplevel = 1;
 		bool 		  is_allowed_role = is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_STATS);
 #else
 		bool 		  is_allowed_role = is_member_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS);
+		bool          toplevel = entry->key.toplevel;
 #endif
 
 		if (read_query(pgss_qbuf, queryid, query_txt, entry->query_pos) == 0)
@@ -2065,6 +2071,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			else
 				nulls[i++] = true;
 		}
+		values[i++] = BoolGetDatum(toplevel);
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 	pfree(query_txt);
