@@ -76,6 +76,11 @@ plugins:
   - git-revision-date
   - section-index # Adds links to nodes - comment out when creating PDF
 #  - htmlproofer # Uncomment to check links - but extends build time significantly
+  - mike:
+      version_selector: true
+      css_dir: css
+      javascript_dir: js
+      canonical_version: null   
 
 
 extra:

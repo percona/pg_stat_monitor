@@ -12,7 +12,7 @@ The **pg_stat_monitor** is a **_Query Performance Monitoring_** tool for Postgre
 * **Time Interval Grouping:** Instead of supplying one set of ever-increasing counts, `pg_stat_monitor` computes stats for a configured number of time intervals - time buckets. This allows for much better data accuracy, especially in the case of high resolution or unreliable networks.
 * **Multi-Dimensional Grouping:** While `pg_stat_statements` groups counters by userid, dbid, queryid,  `pg_stat_monitor` uses a more detailed group for higher precision. This allows a user to drill down into the performance of queries.
 * **Capture Actual Parameters in the Queries:** `pg_stat_monitor` allows you to choose if you want to see queries with placeholders for parameters or actual parameter data. This simplifies debugging and analysis processes by enabling users to execute the same query.
-* **Query Plan:** Each SQL is now accompanied by its actual plan that was constructed for its execution. That’s a huge advantage if you want to understand why a particular query is slower than expected.
+* **Query Plan:** Each SQL is now accompanied by its actual plan that was constructed for its execution. That's a huge advantage if you want to understand why a particular query is slower than expected.
 * **Tables Access Statistics for a Statement:** This allows us to easily identify all queries that accessed a given table. This set is at par with the information provided by the `pg_stat_statements`.
 * **Histogram:** Visual representation is very helpful as it can help identify issues. With the help of the histogram function, one can now view a timing/calling data histogram in response to an SQL query. And yes, it even works in psql.
 
@@ -28,8 +28,8 @@ The `pg_stat_monitor` should work on the latest version of both [Percona Distrib
 
 | **Distribution** | **Version**     | **Provider** |
 | ---------------- | --------------- | ------------ |
-|[Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution)| [11](https://www.percona.com/downloads/percona-postgresql-11/LATEST/), [12](https://www.percona.com/downloads/postgresql-distribution-12/LATEST/) and [13](https://www.percona.com/downloads/postgresql-distribution-13/LATEST/)| Percona|
-| PostgreSQL       | 11, 12, and 13 | PostgreSQL Global Development Group (PGDG) |
+|[Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution)| [11](https://www.percona.com/downloads/percona-postgresql-11/LATEST/), [12](https://www.percona.com/downloads/postgresql-distribution-12/LATEST/), [13](https://www.percona.com/downloads/postgresql-distribution-13/LATEST/) and [14](https://www.percona.com/downloads/postgresql-distribution-14/LATEST/)| Percona|
+| PostgreSQL       | 11, 12, 13 and 14 | PostgreSQL Global Development Group (PGDG) |
 
 The RPM (for RHEL and CentOS) and the DEB (for Debian and Ubuntu) packages are available from Percona repositories for PostgreSQL versions [11](https://www.percona.com/downloads/percona-postgresql-11/LATEST/), [12](https://www.percona.com/downloads/postgresql-distribution-12/LATEST/), [13](https://www.percona.com/downloads/postgresql-distribution-13/LATEST/) and [14](https://www.percona.com/downloads/postgresql-distribution-14/LATEST/).
 

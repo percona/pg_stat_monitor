@@ -34,11 +34,15 @@ percona-release setup ppgXX
 Replace XX with the desired PostgreSQL version. For example, to install `pg_stat_monitor ` for PostgreSQL 13, specify `ppg13`.
 
 3.  Install `pg_stat_monitor` package
+
     * For Debian and Ubuntu:
+
       ``` sh
       apt-get install percona-pg-stat-monitor13
       ```
+
     * For RHEL and CentOS:
+    
       ``` sh
       yum install percona-pg-stat-monitor13
       ```
