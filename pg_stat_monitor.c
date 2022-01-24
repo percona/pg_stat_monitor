@@ -986,6 +986,7 @@ static void pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		WalUsage    walusage_start = pgWalUsage;
 #endif
 		INSTR_TIME_SET_CURRENT(start);
+		exec_nested_level++;
 		PG_TRY();
 		{
 #if PG_VERSION_NUM >= 140000
@@ -1024,12 +1025,12 @@ static void pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										dest,
 									    completionTag);
 #endif
+			exec_nested_level--;
 		}
 		PG_CATCH();
         {
 			exec_nested_level--;
 			PG_RE_THROW();
-
 		}
 
 		PG_END_TRY();
