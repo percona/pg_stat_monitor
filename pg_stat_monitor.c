@@ -1358,8 +1358,8 @@ pgss_update_entry(pgssEntry *entry,
             }
 		    if (sys_info)
 		    {
-			    e->counters.sysinfo.utime = (int64)(sys_info->utime - e->counters.sysinfo.utime)/e->counters.calls.calls;
-			    e->counters.sysinfo.stime = (int64)(sys_info->stime - e->counters.sysinfo.stime)/e->counters.calls.calls;
+			    e->counters.sysinfo.utime += (int64)(sys_info->utime - e->counters.sysinfo.utime)/e->counters.calls.calls;
+			    e->counters.sysinfo.stime += (int64)(sys_info->stime - e->counters.sysinfo.stime)/e->counters.calls.calls;
 		    }
 		    if (walusage)
 		    {
