@@ -29,6 +29,7 @@ ifneq (,$(findstring PostgreSQL14,$(MAJOR)))
   ifneq (,$(wildcard pg_stat_monitor--1.0.14.sql.in))
     CP := $(shell cp pg_stat_monitor--1.0.14.sql.in pg_stat_monitor--1.0.sql)
   endif
+  TAP_TESTS = 1
 endif
 
 ifneq (,$(findstring PostgreSQL13,$(MAJOR)))
@@ -38,6 +39,7 @@ ifneq (,$(findstring PostgreSQL13,$(MAJOR)))
   ifneq (,$(wildcard pg_stat_monitor--1.0.13.sql.in))
     CP := $(shell cp pg_stat_monitor--1.0.13.sql.in pg_stat_monitor--1.0.sql)
   endif
+  TAP_TESTS = 1
 endif
 
 ifneq (,$(findstring PostgreSQL12,$(MAJOR)))
@@ -67,3 +69,9 @@ top_builddir = ../..
 include $(top_builddir)/src/Makefile.global
 include $(top_srcdir)/contrib/contrib-global.mk
 endif
+
+#NEEDTARGET = $(shell test $(VERSION_NUM) -lt 120000 && echo yes)
+#ifeq ($(NEEDTARGET),yes)
+#installcheck:
+#    $(prove_installcheck)
+#endif

@@ -53,7 +53,6 @@ void psgm_errors_init(void)
 	int flags = HASH_ELEM | HASH_BLOBS;
 #endif
 
-
 	memset(&info, 0, sizeof(info));
 	info.keysize = ERROR_MSG_MAX_LEN;
 	info.entrysize = sizeof(ErrorEntry);
@@ -82,6 +81,10 @@ void pgsm_log(PgsmLogSeverity severity, const char *format, ...)
 
 	va_start(ap, format);
 	n = vsnprintf(key, ERROR_MSG_MAX_LEN, format, ap);
+#if PG_VERSION_NUM < 140000
+	if (n > 0 && n < ERROR_MSG_MAX_LEN)
+		memset(key + n, 0, ERROR_MSG_MAX_LEN - n);
+#endif
 	va_end(ap);
 
 	if (n < 0)
