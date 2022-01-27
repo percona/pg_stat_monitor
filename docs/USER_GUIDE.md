@@ -109,6 +109,7 @@ Learn more about using histograms from the [usage example](#histogram-1).
 ## Views
 
 `pg_stat_monitor` provides the following views:
+
 * `pg_stat_monitor` is the view where statistics data is presented.
 * `pg_stat_monitor_settings` view shows available configuration options which you can change.
 
@@ -191,6 +192,7 @@ The following table shows setup options for each configuration parameter and whe
 ##### pg_stat_monitor.pgsm_max
 
 Values:
+
 - Min: 1
 - Max: 1000
 - Default: 100
@@ -201,6 +203,7 @@ This parameter defines the limit of shared memory (in MB) for ``pg_stat_monitor`
 ##### pg_stat_monitor.pgsm_query_max_len
 
 Values:
+
 - Min: 1024
 - Max: 2147483647
 - Default: 1024
@@ -228,6 +231,7 @@ By default, the query shows the actual parameter instead of the placeholder. It 
 ##### pg_stat_monitor.pgsm_max_buckets
 
 Values:
+
 - Min: 1
 - Max: 10
 - Default: 10
@@ -239,6 +243,7 @@ Requires the server restart.
 ##### pg_stat_monitor.pgsm_bucket_time
 
 Values:
+
 - Min: 1
 - Max: 2147483647
 - Default: 60
@@ -250,6 +255,7 @@ Requires the server restart.
 ##### pg_stat_monitor.pgsm_histogram_min
 
 Values:
+
 - Min: 0
 - Max: 2147483647
 - Default: 0
@@ -261,6 +267,7 @@ Requires the server restart.
 ##### pg_stat_monitor.pgsm_histogram_max
 
 Values:
+
 - Min: 10
 - Max: 2147483647
 - Default: 100000
@@ -270,6 +277,7 @@ This parameter sets the upper bound of the execution time histogram (in ms). Req
 ##### pg_stat_monitor.pgsm_histogram_buckets
 
 Values:
+
 - Min: 2
 - Max: 2147483647
 - Default: 10
@@ -279,6 +287,7 @@ This parameter sets the maximum number of histogram buckets. Requires the server
 ##### pg_stat_monitor.pgsm_query_shared_buffer
 
 Values:
+
 - Min: 1
 - Max: 10000
 - Default: 20

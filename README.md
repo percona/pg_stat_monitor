@@ -74,11 +74,11 @@ The `pg_stat_monitor` should work on the latest version of both [Percona Distrib
 
 ### Documentation
 
-1. [User guide](https://github.com/percona/pg_stat_monitor/blob/master/docs/USER_GUIDE.md)
-2. [Comparing `pg_stat_monitor` and `pg_stat_statements`](https://github.com/percona/pg_stat_monitor/blob/master/docs/COMPARISON.md)
-3. [pg_stat_monitor view reference](https://github.com/percona/pg_stat_monitor/blob/master/docs/REFERENCE.md)
-4. [Release notes](https://github.com/percona/pg_stat_monitor/blob/master/docs/RELEASE_NOTES.md)
-5. [Contributing guide](https://github.com/percona/pg_stat_monitor/blob/master/CONTRIBUTING.md)
+Find more information about `pg_stat_monitor` and its usage in the [`pg_stat_monitor` documentation](https://percona.github.io/pg_stat_monitor/master).
+
+Learn about recent improvements in the [release notes](https://nastena1606.github.io/pg_stat_monitor/master/RELEASE_NOTES.html)  
+
+For how to contribute, see the [Contributing guide](https://github.com/percona/pg_stat_monitor/blob/master/CONTRIBUTING.md)
 
 
 ### Supported platforms
@@ -228,7 +228,7 @@ You can download the source code of the latest release of `pg_stat_monitor` from
 
 
 ```
-git clone git://github.com/Percona/pg_stat_monitor.git
+git clone git://github.com/percona/pg_stat_monitor.git
 ```
 
 Compile and install the extension
