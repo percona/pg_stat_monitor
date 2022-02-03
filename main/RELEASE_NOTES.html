@@ -1,0 +1,804 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation">
+      
+      
+        <meta name="author" content="Percona LLC">
+      
+      
+      <link rel="icon" href="_images/percona-favicon.ico">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-8.1.9">
+    
+    
+      
+        <title>Release notes - pg_stat_monitor Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.2b4465f4.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.e6a45f82.min.css">
+        
+      
+    
+    
+    
+      
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unicons.iconscout.com/release/v3.0.3/css/line.css">
+    
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css">
+    
+      <link rel="stylesheet" href="css/version-select.css">
+    
+      <link rel="stylesheet" href="css/toctree.css">
+    
+      <link rel="stylesheet" href="css/percona.css">
+    
+    <script>__md_scope=new URL(".",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="percona-light" data-md-color-primary="" data-md-color-accent="">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#release-notes" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-component="outdated" hidden>
+        <aside class="md-banner md-banner--warning">
+          
+        </aside>
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="index.html" title="pg_stat_monitor Documentation" class="md-header__button md-logo" aria-label="pg_stat_monitor Documentation" data-md-component="logo">
+      
+  <img src="_images/percona-logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            pg_stat_monitor Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Release notes
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="percona-light" data-md-color-primary="" data-md-color-accent=""  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="" data-md-color-accent=""  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/percona/pg_stat_monitor/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    percona/pg_stat_monitor
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="index.html" title="pg_stat_monitor Documentation" class="md-nav__button md-logo" aria-label="pg_stat_monitor Documentation" data-md-component="logo">
+      
+  <img src="_images/percona-logo.svg" alt="logo">
+
+    </a>
+    pg_stat_monitor Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/percona/pg_stat_monitor/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    percona/pg_stat_monitor
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        Welcome
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="setup.html" class="md-nav__link">
+        Setting up `pg_stat_monitor`
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="USER_GUIDE.html" class="md-nav__link">
+        User guide
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="REFERENCE.html" class="md-nav__link">
+        `pg_stat_monitor` view reference
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="COMPARISON.html" class="md-nav__link">
+        Comparing pg_stat_monitor and pg_stat_statements
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Release notes
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="RELEASE_NOTES.html" class="md-nav__link md-nav__link--active">
+        Release notes
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_9_0_stable" class="md-nav__link">
+    REL0_9_0_STABLE
+  </a>
+  
+    <nav class="md-nav" aria-label="REL0_9_0_STABLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#improvements" class="md-nav__link">
+    Improvements
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed" class="md-nav__link">
+    Bugs Fixed
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_8_1" class="md-nav__link">
+    REL0_8_1
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_8_0_stable" class="md-nav__link">
+    REL0_8_0_STABLE
+  </a>
+  
+    <nav class="md-nav" aria-label="REL0_8_0_STABLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#improvements_1" class="md-nav__link">
+    Improvements
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed_1" class="md-nav__link">
+    Bugs Fixed
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_7_2" class="md-nav__link">
+    REL0_7_2
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_7_1" class="md-nav__link">
+    REL0_7_1
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_7_0_stable" class="md-nav__link">
+    REL0_7_0_STABLE
+  </a>
+  
+    <nav class="md-nav" aria-label="REL0_7_0_STABLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#improvements_2" class="md-nav__link">
+    Improvements
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed_2" class="md-nav__link">
+    Bugs Fixed
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v060" class="md-nav__link">
+    v0.6.0
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master" class="md-nav__link">
+    Master
+  </a>
+  
+    <nav class="md-nav" aria-label="Master">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#improvements_3" class="md-nav__link">
+    Improvements
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_9_0_stable" class="md-nav__link">
+    REL0_9_0_STABLE
+  </a>
+  
+    <nav class="md-nav" aria-label="REL0_9_0_STABLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#improvements" class="md-nav__link">
+    Improvements
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed" class="md-nav__link">
+    Bugs Fixed
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_8_1" class="md-nav__link">
+    REL0_8_1
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_8_0_stable" class="md-nav__link">
+    REL0_8_0_STABLE
+  </a>
+  
+    <nav class="md-nav" aria-label="REL0_8_0_STABLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#improvements_1" class="md-nav__link">
+    Improvements
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed_1" class="md-nav__link">
+    Bugs Fixed
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_7_2" class="md-nav__link">
+    REL0_7_2
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_7_1" class="md-nav__link">
+    REL0_7_1
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rel0_7_0_stable" class="md-nav__link">
+    REL0_7_0_STABLE
+  </a>
+  
+    <nav class="md-nav" aria-label="REL0_7_0_STABLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#improvements_2" class="md-nav__link">
+    Improvements
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed_2" class="md-nav__link">
+    Bugs Fixed
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v060" class="md-nav__link">
+    v0.6.0
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master" class="md-nav__link">
+    Master
+  </a>
+  
+    <nav class="md-nav" aria-label="Master">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#improvements_3" class="md-nav__link">
+    Improvements
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+<a href="https://github.com/percona/pg_stat_monitor/edit/master/docs/RELEASE_NOTES.md" title="Edit this page" class="md-content__button md-icon">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
+</a>
+
+
+<h1 id="release-notes">Release Notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
+<p>Below is the complete list of release notes for every version of <code>pg_stat_monitor</code>.</p>
+<h2 id="rel0_9_0_stable">REL0_9_0_STABLE<a class="headerlink" href="#rel0_9_0_stable" title="Permanent link">&para;</a></h2>
+<h3 id="improvements">Improvements<a class="headerlink" href="#improvements" title="Permanent link">&para;</a></h3>
+<p><a href="https://jira.percona.com/browse/PG-186">PG-186</a>: Add support to monitor query execution plan</p>
+<p><a href="https://jira.percona.com/browse/PG-147">PG-147</a>: Store top query, instead of parent query.</p>
+<p><a href="https://jira.percona.com/browse/PG-188">PG-188</a>: Added a new column to monitor the query state i.e PARSING/PLANNING/ACTIVE/FINISHED.</p>
+<p><a href="https://jira.percona.com/browse/PG-180">PG-180</a>: Schema Qualified table/relations names.</p>
+<p>Regression Test Suite.</p>
+<h3 id="bugs-fixed">Bugs Fixed<a class="headerlink" href="#bugs-fixed" title="Permanent link">&para;</a></h3>
+<p><a href="https://jira.percona.com/browse/PG-189">PG-189</a>: Regression crash in case of PostgreSQL 11.</p>
+<p><a href="https://jira.percona.com/browse/PG-187">PG-187</a>: Compilation Error for PostgreSQL 11 and PostgreSQL 12.</p>
+<p><a href="https://jira.percona.com/browse/PG-186">PG-186</a>: Add support to monitor query execution plan.</p>
+<p><a href="https://jira.percona.com/browse/PG-182">PG-182</a>: Added a new option for the query buffer overflow.</p>
+<p><a href="https://jira.percona.com/browse/PG-181">PG-181</a>: Segmentation fault in case of track_utility is ON.</p>
+<p>Some Code refactoring.</p>
+<h2 id="rel0_8_1">REL0_8_1<a class="headerlink" href="#rel0_8_1" title="Permanent link">&para;</a></h2>
+<p><a href="https://jira.percona.com/browse/PG-147">PG-147</a>: Stored Procedure Support add parentid to track caller.</p>
+<p><a href="https://jira.percona.com/browse/PG-177">PG-177</a>:  Error in Histogram ranges.</p>
+<h2 id="rel0_8_0_stable">REL0_8_0_STABLE<a class="headerlink" href="#rel0_8_0_stable" title="Permanent link">&para;</a></h2>
+<h3 id="improvements_1">Improvements<a class="headerlink" href="#improvements_1" title="Permanent link">&para;</a></h3>
+<p>Column userid (int64) was removed.
+Column dbid (int64) was removed.</p>
+<p>Column user (string) was added (replacement for userid).
+Column datname (string) was added (replacement for dbid).</p>
+<p><a href="https://jira.percona.com/browse/PG-176">PG-176</a>: Extract fully qualified relations name.</p>
+<p><a href="https://jira.percona.com/browse/PG-175">PG-175</a>: Only Superuser / Privileged user can view IP address.</p>
+<p><a href="https://jira.percona.com/browse/PG-174">PG-174</a>: Code cleanup.</p>
+<p><a href="https://jira.percona.com/browse/PG-173">PG-173</a>: Added new WAL usage statistics.</p>
+<p><a href="https://jira.percona.com/browse/PG-172">PG-172</a>: Exponential histogram for time buckets.</p>
+<p><a href="https://jira.percona.com/browse/PG-164">PG-164</a>: Query timing will be four decimal places instead of two.</p>
+<p><a href="https://jira.percona.com/browse/PG-167">PG-167</a>: SQLERRCODE must be in readable format.</p>
+<h3 id="bugs-fixed_1">Bugs Fixed<a class="headerlink" href="#bugs-fixed_1" title="Permanent link">&para;</a></h3>
+<p><a href="https://jira.percona.com/browse/PG-169">PG-169</a>: Fixing message buffer overrun and incorrect index access to fix the server crash.</p>
+<p><a href="https://jira.percona.com/browse/PG-168">PG-168</a>: &ldquo;calls&rdquo; and histogram parameter does not match.</p>
+<p><a href="https://jira.percona.com/browse/PG-166">PG-166</a>: Display actual system time instead of null.</p>
+<p><a href="https://jira.percona.com/browse/PG-165">PG-165</a>: Recycle expired buckets.</p>
+<p><a href="https://jira.percona.com/browse/PG-150">PG-150</a>: Error while logging CMD Type like SELECT, UPDATE, INSERT, DELETE.</p>
+<h2 id="rel0_7_2">REL0_7_2<a class="headerlink" href="#rel0_7_2" title="Permanent link">&para;</a></h2>
+<p><a href="https://jira.percona.com/browse/PG-165">PG-165</a>: Recycle expired buckets.</p>
+<p><a href="https://jira.percona.com/browse/PG-164">PG-164</a>: Query timing will be four decimal places instead of two.</p>
+<p><a href="https://jira.percona.com/browse/PG-161">PG-161</a>: Miscellaneous small issues.</p>
+<h2 id="rel0_7_1">REL0_7_1<a class="headerlink" href="#rel0_7_1" title="Permanent link">&para;</a></h2>
+<p><a href="https://jira.percona.com/browse/PG-158">PG-158</a>: Segmentation fault while using pgbench with clients &gt; 1.</p>
+<p><a href="https://jira.percona.com/browse/PG-159">PG-159</a>: Bucket start time (bucket_start_time) should be aligned with bucket_time.</p>
+<p><a href="https://jira.percona.com/browse/PG-160">PG-160</a>: Integration with PGXN.</p>
+<h2 id="rel0_7_0_stable">REL0_7_0_STABLE<a class="headerlink" href="#rel0_7_0_stable" title="Permanent link">&para;</a></h2>
+<h3 id="improvements_2">Improvements<a class="headerlink" href="#improvements_2" title="Permanent link">&para;</a></h3>
+<p><a href="https://jira.percona.com/browse/PG-153">PG-153</a>: Capture and record the application_name executing the query.</p>
+<p><a href="https://jira.percona.com/browse/PG-143">PG-145</a>: Add a new View/Query to show the actual Database name and Username.</p>
+<p><a href="https://jira.percona.com/browse/PG-110">PG-110</a>; Aggregate the number of warnings.</p>
+<p><a href="https://jira.percona.com/browse/PG-109">PG-109</a>: Log failed queries or queries with warning messages.</p>
+<p><a href="https://jira.percona.com/browse/PG-150">PG-150</a>: Differentiate different types of queries such as SELECT, UPDATE, INSERT or DELETE.</p>
+<h3 id="bugs-fixed_2">Bugs Fixed<a class="headerlink" href="#bugs-fixed_2" title="Permanent link">&para;</a></h3>
+<p><a href="https://jira.percona.com/browse/PG-111">PG-111</a> Show information for incomplete buckets.</p>
+<p><a href="https://jira.percona.com/browse/PG-148">PG-148</a> Loss of query statistics/monitoring due to not enough “slots” available.</p>
+<h2 id="v060">v0.6.0<a class="headerlink" href="#v060" title="Permanent link">&para;</a></h2>
+<p>Initial Release.</p>
+<h2 id="master">Master<a class="headerlink" href="#master" title="Permanent link">&para;</a></h2>
+<h3 id="improvements_3">Improvements<a class="headerlink" href="#improvements_3" title="Permanent link">&para;</a></h3>
+<p><a href="https://jira.percona.com/browse/PG-156">PG-156</a>: Adding a placeholder replacement function for the prepared statement</p>
+
+  <hr>
+<div class="md-source-file">
+  <small>
+    
+      Last update:
+      2021-03-31
+    
+  </small>
+</div>
+
+              
+            </article>
+          </div>
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" data-md-state="hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    <nav class="md-footer__inner md-grid" aria-label="Footer">
+      
+        
+        <a href="COMPARISON.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Comparing pg_stat_monitor and pg_stat_statements" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Comparing pg_stat_monitor and pg_stat_statements
+            </div>
+          </div>
+        </a>
+      
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Percona LLC, &#169; 2022
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": ".", "features": ["search.highlight", "navigation.top"], "translations": {"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "assets/javascripts/workers/search.22074ed6.min.js", "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.960e086b.min.js"></script>
+      
+        <script src="js/version-select.js"></script>
+      
+    
+  </body>
+</html>
