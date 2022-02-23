@@ -48,7 +48,7 @@ function usage() {
 	usage
 }
 
-[ "$1" = "-h" -o "$1" = "--help"] &&
+[ "$1" = "-h" -o "$1" = "--help" ] &&
 {
 	usage
 }
@@ -137,6 +137,7 @@ function cleanup() {
 		rm -f pgconf.orig
 	fi
 	rm -f pgsm.conf
+	git checkout $ORIG_BRANCH
 }
 
 trap cleanup EXIT
@@ -179,6 +180,8 @@ function dump_pgsm_api() {
 	"$PSQL" -c 'DROP EXTENSION IF EXISTS pg_stat_monitor;' 2> /dev/null
 	"$PSQL" -c 'CREATE EXTENSION pg_stat_monitor;' 2> /dev/null
 	"$PSQL" -c '\d pg_stat_monitor' 2> /dev/null > api_pgsmview."${BRANCH}"
+	"$PSQL" -c '\d pg_stat_monitor_settings' 2> /dev/null > api_pgsm_settings."${BRANCH}"
+	"$PSQL" -c 'SELECT * FROM pg_stat_monitor_settings' 2> /dev/null > api_pgsm_settings_values."${BRANCH}"
 	"$PSQL" -c '\d pg_stat_monitor_errors' 2> /dev/null > api_pgsmerrview."${BRANCH}"
 	"$PSQL" -c '\sf histogram' 2> /dev/null > api_histogramfn."${BRANCH}"
 	"$PSQL" -c '\sf pg_stat_monitor_reset' 2> /dev/null > api_resetfn."${BRANCH}"
@@ -215,7 +218,7 @@ then
 fi
 
 # Remove temporary source branch (if created).
-[ -z "${TMP_SRC_BRANCH}"] || git branch -D "${TMP_SRC_BRANCH}"
+[ -z "${TMP_SRC_BRANCH}" ] || git branch -D "${TMP_SRC_BRANCH}"
 
 echo "[*] Dumping API (${TARGET_BRANCH})..."
 dump_pgsm_api "${TARGET_BRANCH}"
@@ -230,9 +233,10 @@ echo "[*] ------ API comparison results ------"
 echo "[*]"
 
 # Input files
-INPUT=(api_pgsmview api_pgsmerrview api_histogramfn api_resetfn api_reseterrfn)
+INPUT=(api_pgsmview api_pgsm_settings api_pgsm_settings_values api_pgsmerrview api_histogramfn api_resetfn api_reseterrfn)
 # Real API object names.
-API_OBJECTS=("pg_stat_monitor" "pg_stat_monitor_errors" "histogram" "pg_stat_monitor_reset" "pg_stat_monitor_reset_errors")
+API_OBJECTS=("pg_stat_monitor" "pg_stat_monitor_settings"
+"pg_stat_monitor_settings(values)" "pg_stat_monitor_errors" "histogram" "pg_stat_monitor_reset" "pg_stat_monitor_reset_errors")
 
 STATUS=0
 i=0
