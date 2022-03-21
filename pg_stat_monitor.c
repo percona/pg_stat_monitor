@@ -1792,7 +1792,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			SpinLockRelease(&e->mutex);
 		}
 
-        /* In case plan is enable, there is no need to show 0 planid query */
+        /* In case that query plan is enabled, there is no need to show 0 planid query */
         if (tmp.info.cmd_type == CMD_SELECT && PGSM_QUERY_PLAN && planid == 0)
           continue;
 
