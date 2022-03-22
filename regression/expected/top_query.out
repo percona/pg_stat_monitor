@@ -36,11 +36,10 @@ SELECT query, top_query FROM pg_stat_monitor ORDER BY query COLLATE "C";
          return add($1,$2);                                             +| 
  END;                                                                   +| 
  $$ language plpgsql                                                     | 
- SELECT (select $1 + $2)                                                 | SELECT add2($1,$2)
  SELECT add2($1,$2)                                                      | 
  SELECT pg_stat_monitor_reset()                                          | 
  SELECT query, top_query FROM pg_stat_monitor ORDER BY query COLLATE "C" | 
-(6 rows)
+(5 rows)
 
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
