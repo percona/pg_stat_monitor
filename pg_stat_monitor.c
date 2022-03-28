@@ -404,7 +404,7 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 				   NULL,				 /* bufusage */
 				   NULL,				 /* walusage */
 				   jstate,				 /* JumbleState */
-				   PGSS_PARSE);			 /* pgssStoreKind */
+				   PGSS_INVALID);		 /* pgssStoreKind */
 }
 #else
 
@@ -473,7 +473,7 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query)
 				   NULL,				 /* bufusage */
 				   NULL,				 /* walusage */
 				   &jstate,				 /* JumbleState */
-				   PGSS_PARSE);			 /* pgssStoreKind */
+				   PGSS_INVALID);		 /* pgssStoreKind */
 }
 #endif
 
@@ -687,7 +687,7 @@ pgss_ExecutorEnd(QueryDesc *queryDesc)
 					NULL,
 #endif
 					NULL,
-					PGSS_FINISHED); 							/* pgssStoreKind */
+					PGSS_EXEC); 							/* pgssStoreKind */
 	}
 	if (prev_ExecutorEnd)
 		prev_ExecutorEnd(queryDesc);
@@ -1076,7 +1076,7 @@ static void pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 			&bufusage,						   /* bufusage */
 			&walusage,						   /* walusage */
 			NULL,							   /* JumbleState */
-			PGSS_FINISHED);					   /* pgssStoreKind */
+			PGSS_EXEC);						   /* pgssStoreKind */
 	}
 	else
 	{
@@ -1240,69 +1240,58 @@ pgss_update_entry(pgssEntry *entry,
 {
 	int                 index;
 	double              old_mean;
-	int             	message_len = error_info ? strlen (error_info->message) : 0;
-	int             	comments_len = comments ? strlen (comments) : 0;
+	int                 message_len = error_info ? strlen (error_info->message) : 0;
+	int                 comments_len = comments ? strlen (comments) : 0;
 	int             	sqlcode_len = error_info ? strlen (error_info->sqlcode) : 0;
-	int             	plan_text_len = plan_info ? plan_info->plan_len : 0;
+	int                 plan_text_len = plan_info ? plan_info->plan_len : 0;
+	volatile CallTime   *time_stats;
+	int64_t             calls;
 
+	Assert(kind == PGSS_PLAN || kind == PGSS_EXEC);
 
 	/* volatile block */
 	{
 		volatile pgssEntry *e = (volatile pgssEntry *) entry;
 		SpinLockAcquire(&e->mutex);
+
+		time_stats = &e->counters.time[kind];
+
 		/* Start collecting data for next bucket and reset all counters */
 		if (reset)
 			memset(&entry->counters, 0, sizeof(Counters));
 
 		if (comments_len > 0)
 			_snprintf(e->counters.info.comments, comments, comments_len + 1, COMMENTS_LEN);
-		e->counters.state = kind;
-		if (kind == PGSS_PLAN)
+
+		/* "Unstick" entry if it was previously sticky */
+		if (IS_STICKY(e->counters))
+			e->counters.usage = USAGE_INIT;
+
+		e->counters.calls[kind] += 1;
+
+		calls = e->counters.calls[kind];
+
+		time_stats->total_time += total_time;
+
+		if (calls == 1)
 		{
-			if (e->counters.plancalls.calls == 0)
-				e->counters.plancalls.usage = USAGE_INIT;
-			e->counters.plancalls.calls += 1;
-			e->counters.plantime.total_time += total_time;
-
-			if (e->counters.plancalls.calls == 1)
-			{
-				e->counters.plantime.min_time = total_time;
-				e->counters.plantime.max_time = total_time;
-				e->counters.plantime.mean_time = total_time;
-			}
-
-			/* Increment the counts, except when jstate is not NULL */
-			old_mean = e->counters.plantime.mean_time;
-			e->counters.plantime.mean_time += (total_time - old_mean) / e->counters.plancalls.calls;
-			e->counters.plantime.sum_var_time +=(total_time - old_mean) * (total_time - e->counters.plantime.mean_time);
-
-			/* calculate min and max time */
-			if (e->counters.plantime.min_time > total_time) e->counters.plantime.min_time = total_time;
-			if (e->counters.plantime.max_time < total_time) e->counters.plantime.max_time = total_time;
+			time_stats->min_time = total_time;
+			time_stats->max_time = total_time;
+			time_stats->mean_time = total_time;
 		}
-		else if (kind == PGSS_FINISHED)
+
+		old_mean = time_stats->mean_time;
+		time_stats->mean_time += (total_time - old_mean) / calls;
+		time_stats->sum_var_time +=(total_time - old_mean) * (total_time - time_stats->mean_time);
+
+		/* calculate min and max time */
+		if (time_stats->min_time > total_time)
+			time_stats->min_time = total_time;
+		if (time_stats->max_time < total_time)
+			time_stats->max_time = total_time;
+
+		if (kind == PGSS_EXEC)
 		{
-			if (e->counters.calls.calls == 0)
-				e->counters.calls.usage = USAGE_INIT;
-			e->counters.calls.calls += 1;
-			e->counters.time.total_time += total_time;
-
-			if (e->counters.calls.calls == 1)
-			{
-				e->counters.time.min_time = total_time;
-				e->counters.time.max_time = total_time;
-				e->counters.time.mean_time = total_time;
-			}
-
-			/* Increment the counts, except when jstate is not NULL */
-			old_mean = e->counters.time.mean_time;
-			e->counters.time.mean_time += (total_time - old_mean) / e->counters.calls.calls;
-			e->counters.time.sum_var_time +=(total_time - old_mean) * (total_time - e->counters.time.mean_time);
-
-			/* calculate min and max time */
-			if (e->counters.time.min_time > total_time) e->counters.time.min_time = total_time;
-			if (e->counters.time.max_time < total_time) e->counters.time.max_time = total_time;
-
 			index = get_histogram_bucket(total_time);
 			e->counters.resp_calls[index]++;
 		}
@@ -1334,42 +1323,35 @@ pgss_update_entry(pgssEntry *entry,
 			_snprintf(e->counters.error.sqlcode, error_info->sqlcode, sqlcode_len, SQLCODE_LEN);
 			_snprintf(e->counters.error.message, error_info->message, message_len, ERROR_MESSAGE_LEN);
 		}
-		e->counters.calls.rows += rows;
+		e->counters.rows += rows;
 
-        if (e->counters.calls.calls == 0)
-        {
-          _memset(&e->counters.walusage, 0, sizeof(e->counters.walusage));
-        }
-        if (e->counters.calls.calls > 0)
-        {
-		    if (bufusage)
-		    {
-		        e->counters.blocks.shared_blks_hit += (int64)(bufusage->shared_blks_hit - e->counters.blocks.shared_blks_hit)/e->counters.calls.calls;
-			    e->counters.blocks.shared_blks_read += (int64)(bufusage->shared_blks_read - e->counters.blocks.shared_blks_read)/e->counters.calls.calls;
-			    e->counters.blocks.shared_blks_dirtied += (int64)(bufusage->shared_blks_dirtied - e->counters.blocks.shared_blks_dirtied)/e->counters.calls.calls;
-			    e->counters.blocks.shared_blks_written += (int64)(bufusage->shared_blks_written - e->counters.blocks.shared_blks_written)/e->counters.calls.calls;
-			    e->counters.blocks.local_blks_hit += (int64)(bufusage->local_blks_hit - e->counters.blocks.local_blks_hit)/e->counters.calls.calls;
-			    e->counters.blocks.local_blks_read += (int64)(bufusage->local_blks_read - e->counters.blocks.local_blks_read)/e->counters.calls.calls;
-			    e->counters.blocks.local_blks_dirtied += (int64)(bufusage->local_blks_dirtied - e->counters.blocks.local_blks_dirtied)/e->counters.calls.calls;
-			    e->counters.blocks.local_blks_written += (int64)(bufusage->local_blks_written - e->counters.blocks.local_blks_written)/e->counters.calls.calls;
-			    e->counters.blocks.temp_blks_read += (int64)(bufusage->temp_blks_read - e->counters.blocks.temp_blks_read)/e->counters.calls.calls;
-			    e->counters.blocks.temp_blks_written += (int64)(bufusage->temp_blks_written - e->counters.blocks.temp_blks_written)/e->counters.calls.calls;
-			    e->counters.blocks.blk_read_time += (int64)(INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time) - e->counters.blocks.blk_read_time)/e->counters.calls.calls;
-			    e->counters.blocks.blk_write_time += (int64)(INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time) - e->counters.blocks.blk_write_time)/e->counters.calls.calls;
-            }
-		    if (sys_info)
-		    {
-			    e->counters.sysinfo.utime += (sys_info->utime - e->counters.sysinfo.utime)/e->counters.calls.calls;
-			    e->counters.sysinfo.stime += (sys_info->stime - e->counters.sysinfo.stime)/e->counters.calls.calls;
-		    }
-		    if (walusage)
-		    {
-			    e->counters.walusage.wal_records +=(int64) (walusage->wal_records - e->counters.walusage.wal_records)/e->counters.calls.calls;
-			    e->counters.walusage.wal_fpi +=(int64) (walusage->wal_fpi - e->counters.walusage.wal_fpi)/e->counters.calls.calls;
-                e->counters.walusage.wal_bytes += (int64)( walusage->wal_bytes - e->counters.walusage.wal_bytes)/e->counters.calls.calls;
-            }
-        }
-		e->counters.calls.usage += USAGE_EXEC(total_time);
+		if (bufusage)
+		{
+			e->counters.blocks.shared_blks_hit += (int64)(bufusage->shared_blks_hit - e->counters.blocks.shared_blks_hit)/calls;
+			e->counters.blocks.shared_blks_read += (int64)(bufusage->shared_blks_read - e->counters.blocks.shared_blks_read)/calls;
+			e->counters.blocks.shared_blks_dirtied += (int64)(bufusage->shared_blks_dirtied - e->counters.blocks.shared_blks_dirtied)/calls;
+			e->counters.blocks.shared_blks_written += (int64)(bufusage->shared_blks_written - e->counters.blocks.shared_blks_written)/calls;
+			e->counters.blocks.local_blks_hit += (int64)(bufusage->local_blks_hit - e->counters.blocks.local_blks_hit)/calls;
+			e->counters.blocks.local_blks_read += (int64)(bufusage->local_blks_read - e->counters.blocks.local_blks_read)/calls;
+			e->counters.blocks.local_blks_dirtied += (int64)(bufusage->local_blks_dirtied - e->counters.blocks.local_blks_dirtied)/calls;
+			e->counters.blocks.local_blks_written += (int64)(bufusage->local_blks_written - e->counters.blocks.local_blks_written)/calls;
+			e->counters.blocks.temp_blks_read += (int64)(bufusage->temp_blks_read - e->counters.blocks.temp_blks_read)/calls;
+			e->counters.blocks.temp_blks_written += (int64)(bufusage->temp_blks_written - e->counters.blocks.temp_blks_written)/calls;
+			e->counters.blocks.blk_read_time += (int64)(INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time) - e->counters.blocks.blk_read_time)/calls;
+			e->counters.blocks.blk_write_time += (int64)(INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time) - e->counters.blocks.blk_write_time)/calls;
+		}
+		if (sys_info)
+		{
+			e->counters.sysinfo.utime += (sys_info->utime - e->counters.sysinfo.utime)/calls;
+			e->counters.sysinfo.stime += (sys_info->stime - e->counters.sysinfo.stime)/calls;
+		}
+		if (walusage)
+		{
+			e->counters.walusage.wal_records +=(int64) (walusage->wal_records - e->counters.walusage.wal_records)/calls;
+			e->counters.walusage.wal_fpi +=(int64) (walusage->wal_fpi - e->counters.walusage.wal_fpi)/calls;
+			e->counters.walusage.wal_bytes += (int64)( walusage->wal_bytes - e->counters.walusage.wal_bytes)/calls;
+		}
+		e->counters.usage += USAGE_EXEC(total_time);
 		SpinLockRelease(&e->mutex);
 	}
 }
@@ -1398,7 +1380,7 @@ pgss_store_error(uint64 queryid,
 			   NULL,		  /* bufusage */
 			   NULL,		  /* walusage */
 			   NULL,		  /* JumbleState */
-			   PGSS_FINISHED);	  /* pgssStoreKind */
+			   PGSS_EXEC);	  /* pgssStoreKind */
 }
 
 /*
@@ -1815,12 +1797,11 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		}
 		if (!IsBucketValid(bucketid))
 		{
-			if (tmp.state == PGSS_FINISHED)
-				continue;
+			continue;
 		}
 
 		/* Skip queries such as, $1, $2 := $3, etc. */
-		if (tmp.state != PGSS_PLAN && tmp.state != PGSS_FINISHED)
+		if (IS_STICKY(tmp))
 			continue;
 
 		if (tmp.info.parentid != UINT64CONST(0))
@@ -1974,66 +1955,43 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		/* bucket_start_time at column number 15 */
 		values[i++] = CStringGetTextDatum(pgss->bucket_start_time[entry->key.bucket_id]);
-		if (tmp.calls.calls == 0)
+
+		/*
+			Note that we rely on PGSS_PLAN being 0 and PGSS_EXEC being 1.
+			In pg_stat_monitor view, query execution stats columns come before
+			query planning stats columns, that is why we reverse the loop.
+			Also, there is a "rows" column between exec and plan stats.
+		*/
+		for (int kind = PGSS_EXEC; kind >= PGSS_PLAN; --kind)
 		{
-			/*  Query of pg_stat_monitor itslef started from zero count */
-			tmp.calls.calls++;
-			tmp.resp_calls[0]++;
+			/* calls at column number 16 */
+			values[i++] = Int64GetDatumFast(tmp.calls[kind]);
+
+			/* total_time at column number 17 */
+			values[i++] = Float8GetDatumFast(roundf(tmp.time[kind].total_time, 4));
+
+			/* min_time at column number 18 */
+			values[i++] = Float8GetDatumFast(roundf(tmp.time[kind].min_time,4));
+
+			/* max_time at column number 19 */
+			values[i++] = Float8GetDatumFast(roundf(tmp.time[kind].max_time,4));
+
+			/* mean_time at column number 20 */
+			values[i++] = Float8GetDatumFast(roundf(tmp.time[kind].mean_time,4));
+			if (tmp.calls[PGSS_EXEC] > 1)
+				stddev = sqrt(tmp.time[PGSS_EXEC].sum_var_time / tmp.calls[PGSS_EXEC]);
+			else
+				stddev = 0.0;
+
+			/* calls at column number 21 */
+			values[i++] = Float8GetDatumFast(roundf(stddev,4));
+
+			if (kind == PGSS_EXEC)
+			{
+				/* rows at column number 22 */
+				values[i++] = Int64GetDatumFast(tmp.rows);
+			}
 		}
-
-		/* calls at column number 16 */
-		values[i++] = Int64GetDatumFast(tmp.calls.calls);
-
-		/* total_time at column number 17 */
-		values[i++] = Float8GetDatumFast(roundf(tmp.time.total_time, 4));
-
-		/* min_time at column number 18 */
-		values[i++] = Float8GetDatumFast(roundf(tmp.time.min_time,4));
-
-		/* max_time at column number 19 */
-		values[i++] = Float8GetDatumFast(roundf(tmp.time.max_time,4));
-
-		/* mean_time at column number 20 */
-		values[i++] = Float8GetDatumFast(roundf(tmp.time.mean_time,4));
-		if (tmp.calls.calls > 1)
-			stddev = sqrt(tmp.time.sum_var_time / tmp.calls.calls);
-		else
-			stddev = 0.0;
-
-		/* calls at column number 21 */
-		values[i++] = Float8GetDatumFast(roundf(stddev,4));
-
-		/* calls at column number 22 */
-		values[i++] = Int64GetDatumFast(tmp.calls.rows);
-
-		if (tmp.calls.calls == 0)
-		{
-			/*  Query of pg_stat_monitor itslef started from zero count */
-			tmp.calls.calls++;
-			tmp.resp_calls[0]++;
-		}
-
-		/* calls at column number 23 */
-		values[i++] = Int64GetDatumFast(tmp.plancalls.calls);
-
-		/* total_time at column number 24 */
-		values[i++] = Float8GetDatumFast(roundf(tmp.plantime.total_time,4));
-
-		/* min_time at column number 25 */
-		values[i++] = Float8GetDatumFast(roundf(tmp.plantime.min_time,4));
-
-		/* max_time at column number 26 */
-		values[i++] = Float8GetDatumFast(roundf(tmp.plantime.max_time,4));
-
-		/* mean_time at column number 27 */
-		values[i++] = Float8GetDatumFast(roundf(tmp.plantime.mean_time,4));
-		if (tmp.plancalls.calls > 1)
-			stddev = sqrt(tmp.plantime.sum_var_time / tmp.plancalls.calls);
-		else
-			stddev = 0.0;
-
-		/* calls at column number 28 */
-		values[i++] = Float8GetDatumFast(roundf(stddev,4));
 
 		/* blocks are from column number 29 - 40 */
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_hit);

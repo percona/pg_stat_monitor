@@ -199,7 +199,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 		 */
 		if (new_bucket_id < 0 ||
 			(entry->key.bucket_id == new_bucket_id &&
-			entry->counters.state == PGSS_FINISHED))
+			entry->counters.state != PGSS_INVALID))
 		{
 			if (new_bucket_id == -1) {
 				/* pg_stat_monitor_reset(), remove entry from query hash table too. */
@@ -216,56 +216,26 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 		 * Can't update the hash table while iterating it inside this loop,
 		 * as this may introduce all sort of problems.
 		 */
-		if (old_bucket_id != -1 && entry->key.bucket_id == old_bucket_id)
+		if (entry->key.bucket_id == old_bucket_id && IS_STICKY(entry->counters))
 		{
-			if (entry->counters.state == PGSS_PARSE ||
-				entry->counters.state == PGSS_PLAN)
+			pgssEntry *bkp_entry = malloc(sizeof(pgssEntry));
+			if (!bkp_entry)
 			{
-				pgssEntry *bkp_entry = malloc(sizeof(pgssEntry));
-				if (!bkp_entry)
-				{
-					pgsm_log_error("hash_entry_dealloc: out of memory");
-					/*
-					 * No memory, If the entry has calls > 1 then we change the state to finished,
-					 * as the pending query will likely finish execution during the new bucket
-					 * time window. The pending query will vanish in this case, can't list it
-					 * until it completes.
-					 *
-					 * If there is only one call to the query and it's pending, remove the
-					 * entry from the previous bucket and allow it to finish in the new bucket,
-					 * in order to avoid the query living in the old bucket forever.
-					 */
-					if (entry->counters.calls.calls > 1)
-						entry->counters.state = PGSS_FINISHED;
-					else
-						entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
-					continue;
-				}
-
-				/* Save key/data from the previous entry. */
-				memcpy(bkp_entry, entry, sizeof(pgssEntry));
-
-				/* Update key to use the new bucket id. */
-				bkp_entry->key.bucket_id = new_bucket_id;
-
-				/* Add the entry to a list of nodes to be processed later. */
-				pending_entries = lappend(pending_entries, bkp_entry);
-
-				/*
-				 * If the entry has calls > 1 then we change the state to finished in
-				 * the previous bucket, as the pending query will likely finish execution
-				 * during the new bucket time window. Can't remove it from the previous bucket
-				 * as it may have many calls and we would lose the query statistics.
-				 *
-				 * If there is only one call to the query and it's pending, remove the entry
-				 * from the previous bucket and allow it to finish in the new bucket,
-				 * in order to avoid the query living in the old bucket forever.
-				 */
-				if (entry->counters.calls.calls > 1)
-					entry->counters.state = PGSS_FINISHED;
-				else
-					entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
+				pgsm_log_error("hash_entry_dealloc: out of memory");
+				entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
+				continue;
 			}
+
+			/* Save key/data from the previous entry. */
+			memcpy(bkp_entry, entry, sizeof(pgssEntry));
+
+			/* Update key to use the new bucket id. */
+			bkp_entry->key.bucket_id = new_bucket_id;
+
+			/* Add the entry to a list of nodes to be processed later. */
+			pending_entries = lappend(pending_entries, bkp_entry);
+
+			entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
 		}
 	}
 

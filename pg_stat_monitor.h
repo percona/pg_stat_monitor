@@ -65,6 +65,7 @@
 #define USAGE_DECREASE_FACTOR	(0.99)	/* decreased every entry_dealloc */
 #define STICKY_DECREASE_FACTOR	(0.50)	/* factor for sticky entries */
 #define USAGE_DEALLOC_PERCENT	5	/* free this % of entries at once */
+#define IS_STICKY(c)	((c.calls[PGSS_PLAN] + c.calls[PGSS_EXEC]) == 0)
 
 #define JUMBLE_SIZE				1024	/* query serialization buffer size */
 
@@ -137,9 +138,13 @@ typedef enum pgssStoreKind
 {
 	PGSS_INVALID = -1,
 
-	PGSS_PARSE = 0,
-	PGSS_PLAN,
-	PGSS_FINISHED,
+	/*
+	 * PGSS_PLAN and PGSS_EXEC must be respectively 0 and 1 as they're used to
+	 * reference the underlying values in the arrays in the Counters struct,
+	 * and this order is required in pg_stat_statements_internal().
+	 */
+	PGSS_PLAN = 0,
+	PGSS_EXEC,
 
 	PGSS_NUMKIND				/* Must be last value of this enum */
 } pgssStoreKind;
@@ -221,14 +226,6 @@ typedef struct ErrorInfo
 	char	message[ERROR_MESSAGE_LEN];   	/* error message text */
 } ErrorInfo;
 
-typedef struct Calls
-{
-	int64		calls;						/* # of times executed */
-	int64		rows;						/* total # of retrieved or affected rows */
-	double		usage;						/* usage factor */
-} Calls;
-
-
 typedef struct Blocks
 {
 	int64		shared_blks_hit;			/* # of shared buffer hits */
@@ -261,12 +258,11 @@ typedef struct Wal_Usage
 typedef struct Counters
 {
 	uint64		bucket_id;		/* bucket id */
-	Calls		calls;
+	double		usage;			/* usage factor */
+	int64		calls[PGSS_NUMKIND]; /* # of times planned/executed */
+	int64		rows;			/* total # of retrieved or affected rows */
 	QueryInfo	info;
-	CallTime	time;
-
-	Calls		plancalls;
-	CallTime	plantime;
+	CallTime	time[PGSS_NUMKIND];
 	PlanInfo    planinfo;
 
 	Blocks		blocks;
