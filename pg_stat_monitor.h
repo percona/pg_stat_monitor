@@ -198,14 +198,14 @@ typedef struct PlanInfo
 
 typedef struct pgssHashKey
 {
-	uint64		bucket_id;		/* bucket number */
-	uint64		queryid;		/* query identifier */
-	uint64		userid;			/* user OID */
-	uint64		dbid;			/* database OID */
-	uint64		ip;				/* client ip address */
-	uint64		planid;			/* plan identifier */
-	uint64		appid;			/* hash of application name */
-    uint64        toplevel;       /* query executed at top level */
+	uint64		bucket_id;      /* bucket number */
+	uint64		queryid;        /* query identifier */
+	uint64		userid;         /* user OID */
+	uint64		dbid;           /* database OID */
+	uint64		ip;             /* client ip address */
+	uint64		planid;         /* plan identifier */
+	uint64		appid;          /* hash of application name */
+    uint64		toplevel;       /* query executed at top level */
 } pgssHashKey;
 
 typedef struct QueryInfo
@@ -258,7 +258,6 @@ typedef struct Wal_Usage
 typedef struct Counters
 {
 	uint64		bucket_id;		/* bucket id */
-	double		usage;			/* usage factor */
 	int64		calls[PGSS_NUMKIND]; /* # of times planned/executed */
 	int64		rows;			/* total # of retrieved or affected rows */
 	QueryInfo	info;
@@ -303,9 +302,7 @@ typedef struct pgssSharedState
 	char				bucket_start_time[MAX_BUCKETS][60];   	/* start time of the bucket */
 	LWLock				*errors_lock;		/* protects errors hashtable search/modification */
 	/*
-	 * These variables are used when pgsm_overflow_target is ON.
-	 *
-	 * overflow is set to true when the query buffer overflows.
+	 * Track query buffer overflow when pgsm_overflow_target is ON.
 	 *
 	 * n_bucket_cycles counts the number of times we changed bucket
 	 * since the query buffer overflowed. When it reaches pgsm_max_buckets
@@ -314,8 +311,18 @@ typedef struct pgssSharedState
 	 * This allows us to avoid having a large file on disk that would also
 	 * slowdown queries to the pg_stat_monitor view.
 	 */
-	bool				overflow;
+	bool				qb_overflow;
 	size_t				n_bucket_cycles;
+	/*
+	 * Track hash table and query buffer overflow.
+	 *
+	 * When the hash table or query buffer is full, we remove least used entries
+	 * in order to make some space for new queries.
+	 *
+	 * We allow the cleanup to take place only once per bucket duration,
+	 * as the cleanup operation is a little bit expensive.
+	 */
+	bool				mem_overflow;
 } pgssSharedState;
 
 #define ResetSharedState(x) \
@@ -371,7 +378,8 @@ bool SaveQueryText(uint64 bucketid,
 				   unsigned char *buf,
 				   const char *query,
 				   uint64 query_len,
-				   size_t *query_pos);
+				   size_t *query_pos,
+				   bool sticky);
 
 /* guc.c */
 void init_guc(void);
@@ -391,9 +399,9 @@ HTAB *pgsm_get_plan_hash(void);
 void hash_entry_reset(void);
 void hash_query_entryies_reset(void);
 void hash_query_entries();
-void hash_query_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer[]);
 void hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
-pgssEntry* hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding);
+void entry_dealloc(unsigned char *qbuffer);
+pgssEntry* hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding, unsigned char *qbuffer);
 Size hash_memsize(void);
 
 int read_query_buffer(int bucket_id, uint64 queryid, char *query_txt, size_t pos);

@@ -1265,7 +1265,7 @@ pgss_update_entry(pgssEntry *entry,
 
 		/* "Unstick" entry if it was previously sticky */
 		if (IS_STICKY(e->counters))
-			e->counters.usage = USAGE_INIT;
+			*(double *)&pgss_qbuf[entry->query_pos + sizeof(uint64)] = USAGE_INIT;
 
 		e->counters.calls[kind] += 1;
 
@@ -1351,7 +1351,7 @@ pgss_update_entry(pgssEntry *entry,
 			e->counters.walusage.wal_fpi +=(int64) (walusage->wal_fpi - e->counters.walusage.wal_fpi)/calls;
 			e->counters.walusage.wal_bytes += (int64)( walusage->wal_bytes - e->counters.walusage.wal_bytes)/calls;
 		}
-		e->counters.usage += USAGE_EXEC(total_time);
+		*(double *)&pgss_qbuf[entry->query_pos + sizeof(uint64)] += USAGE_EXEC(total_time);
 		SpinLockRelease(&e->mutex);
 	}
 }
@@ -1515,7 +1515,6 @@ pgss_store(uint64 queryid,
 	{
 		pgssQueryEntry *query_entry;
 		bool query_found = false;
-		uint64 prev_qbuf_len = 0;
 		HTAB *pgss_query_hash;
 
 		pgss_query_hash = pgsm_get_query_hash();
@@ -1541,9 +1540,9 @@ pgss_store(uint64 queryid,
 		if (query_entry == NULL)
 		{
 			LWLockRelease(pgss->lock);
+			pgsm_log_error("pgss_store: out of memory (pgss_query_hash).");
 			if (norm_query)
 				pfree(norm_query);
-			pgsm_log_error("pgss_store: out of memory (pgss_query_hash).");
 			return;
 		}
 		else if (!query_found)
@@ -1557,44 +1556,40 @@ pgss_store(uint64 queryid,
 		LWLockRelease(pgss->lock);
 		LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
 
-		if (!query_found)
+		/* OK to create a new hashtable entry */
+		entry = hash_entry_alloc(pgss, &key, GetDatabaseEncoding(), pgss_qbuf);
+		if (!entry)
+		{
+			LWLockRelease(pgss->lock);
+			pgsm_log_error("hash_entry_alloc: OUT OF MEMORY");
+			if (norm_query)
+				pfree(norm_query);
+			return;
+		}
+
+		if (query_found)
+			entry->query_pos = query_entry->query_pos;
+		else
 		{
 			if (!SaveQueryText(bucketid,
 							   queryid,
 							   pgss_qbuf,
 							   norm_query ? norm_query : query,
 							   query_len,
-							   &query_entry->query_pos))
+							   &query_entry->query_pos,
+							   jstate != NULL))
 			{
+				/* Can't save query text, remove entry from hash table. */
+				hash_search(pgsm_get_hash(), &key, HASH_REMOVE, NULL);
 				LWLockRelease(pgss->lock);
 				if (norm_query)
 					pfree(norm_query);
 				pgsm_log_error("pgss_store: insufficient shared space for query.");
 				return;
 			}
-			/*
-			 * Save current query buffer length, if we fail to add a new
-			 * new entry to the hash table then we must restore the
-			 * original length.
-			 */
-			memcpy(&prev_qbuf_len, pgss_qbuf, sizeof(prev_qbuf_len));
+			/* Update entry query position. */
+			entry->query_pos = query_entry->query_pos;
 		}
-
-		/* OK to create a new hashtable entry */
-		entry = hash_entry_alloc(pgss, &key, GetDatabaseEncoding());
-		if (entry == NULL)
-		{
-			if (!query_found)
-			{
-				/* Restore previous query buffer length. */
-				memcpy(pgss_qbuf, &prev_qbuf_len, sizeof(prev_qbuf_len));
-			}
-			LWLockRelease(pgss->lock);
-			if (norm_query)
-				pfree(norm_query);
-			return;
-		}
-		entry->query_pos = query_entry->query_pos;
 	}
 
 	if (jstate == NULL)
@@ -1696,8 +1691,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	char			     parentid_txt[32];
 	pgssSharedState      *pgss = pgsm_get_ss();
 	HTAB                 *pgss_hash = pgsm_get_hash();
-	char 				*query_txt = (char*) palloc0(PGSM_QUERY_MAX_LEN + 1);
-	char 				*parent_query_txt = (char*) palloc0(PGSM_QUERY_MAX_LEN + 1);
+	char 				*query_txt;
+	char 				*parent_query_txt;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1737,6 +1732,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	rsinfo->returnMode = SFRM_Materialize;
 	rsinfo->setResult = tupstore;
 	rsinfo->setDesc = tupdesc;
+
+	query_txt = (char*) palloc0(PGSM_QUERY_MAX_LEN + 1);
+	parent_query_txt = (char*) palloc0(PGSM_QUERY_MAX_LEN + 1);
 
 	MemoryContextSwitchTo(oldcontext);
 
@@ -1800,7 +1798,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			continue;
 		}
 
-		/* Skip queries such as, $1, $2 := $3, etc. */
+		/* Skip entry if unexecuted (ie, it's a pending "sticky" entry) */
 		if (IS_STICKY(tmp))
 			continue;
 
@@ -2108,7 +2106,7 @@ get_next_wbucket(pgssSharedState *pgss)
 		LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
 		hash_entry_dealloc(new_bucket_id, prev_bucket_id, pgss_qbuf);
 
-		if (pgss->overflow)
+		if (pgss->qb_overflow)
 		{
 			pgss->n_bucket_cycles += 1;
 			if (pgss->n_bucket_cycles >= PGSM_MAX_BUCKETS)
@@ -2118,12 +2116,15 @@ get_next_wbucket(pgssSharedState *pgss)
 				 * we detected a query buffer overflow.
 				 * Reset overflow state and remove the dump file.
 				 */
-				pgss->overflow = false;
+				pgss->qb_overflow = false;
 				pgss->n_bucket_cycles = 0;
 				snprintf(file_name, 1024, "%s", PGSM_TEXT_FILE);
 				unlink(file_name);
 			}
 		}
+
+		/* Clear overflow flag (hash table and query buffer) as we move to a new bucket. */
+		pgss->mem_overflow = false;
 
 		LWLockRelease(pgss->lock);
 
@@ -3129,10 +3130,12 @@ read_query(unsigned char *buf, uint64 queryid, char * query, size_t pos)
 	if (pos != 0 && (pos + sizeof(uint64) + sizeof(uint64)) < buf_len)
 	{
 		memcpy(&query_id, &buf[pos], sizeof(uint64));
-		if (query_id != queryid)
+		if (query_id != queryid) {
 			return 0;
+		}
 
-		pos += sizeof(uint64);
+		pos += sizeof(uint64); /* query id. */
+		pos += sizeof(double); /* usage factor. */
 
 		memcpy(&query_len, &buf[pos], sizeof(uint64)); /* query len */
 		pos += sizeof(uint64);
@@ -3147,16 +3150,14 @@ read_query(unsigned char *buf, uint64 queryid, char * query, size_t pos)
 	}
 
 	rlen = sizeof (uint64); /* Move forwad to skip length bytes */
-	for(;;)
+	while (rlen < buf_len)
 	{
-		if (rlen >= buf_len)
-			goto exit;
-
 		memcpy(&query_id, &buf[rlen], sizeof (uint64)); /* query id */
 		if (query_id == queryid)
 			found = true;
 
-		rlen += sizeof (uint64);
+		rlen += sizeof (uint64); /* query id. */
+		rlen += sizeof (double); /* usage factor. */
 		if (buf_len <= rlen)
 			continue;
 
@@ -3185,7 +3186,8 @@ SaveQueryText(uint64 bucketid,
 			  unsigned char *buf,
 			  const char *query,
 			  uint64 query_len,
-			  size_t *query_pos)
+			  size_t *query_pos,
+			  bool sticky)
 {
 	uint64 buf_len = 0;
 
@@ -3198,17 +3200,44 @@ SaveQueryText(uint64 bucketid,
 		switch(PGSM_OVERFLOW_TARGET)
 		{
 			case OVERFLOW_TARGET_NONE:
+			{
+				pgssSharedState *pgss = pgsm_get_ss();
+
+				pgsm_log_error("query buffer overflow");
+
+				/*
+				 * Hash table or query buffer overflow happened more than once
+				 * during the same bucket duration.
+				 */
+				if (pgss->mem_overflow)
+					return false;
+
+				pgss->mem_overflow = true;
+				/* Remove least used entries. */
+				entry_dealloc(buf);
+
+				/* Read updated query buffer size. */
+				memcpy(&buf_len, buf, sizeof (uint64));
+				if (buf_len == 0)
+					buf_len += sizeof (uint64);
+
+				if (QUERY_BUFFER_OVERFLOW(buf_len, query_len))
+				{
+					pgsm_log_error("insufficient space for query");
+					return false;
+				}
+
 				return false;
+			}
 			case OVERFLOW_TARGET_DISK:
 			{
 				bool dump_ok;
 				pgssSharedState *pgss = pgsm_get_ss();
 
-				if (pgss->overflow)
-				{
-					pgsm_log_error("query buffer overflowed twice");
+				pgsm_log_error("query buffer overflow");
+
+				if (pgss->qb_overflow)
 					return false;
-				}
 
 				/*
 				 * If the query buffer is empty, there is nothing to dump, this also
@@ -3222,7 +3251,7 @@ SaveQueryText(uint64 bucketid,
 
 				if (dump_ok)
 				{
-					pgss->overflow = true;
+					pgss->qb_overflow = true;
 					pgss->n_bucket_cycles = 0;
 				}
 
@@ -3253,15 +3282,20 @@ SaveQueryText(uint64 bucketid,
 
 	*query_pos = buf_len;
 
-	memcpy(&buf[buf_len], &queryid, sizeof (uint64)); /* query id */
+	*(uint64 *)&buf[buf_len] = queryid;
 	buf_len += sizeof (uint64);
 
-	memcpy(&buf[buf_len], &query_len, sizeof (uint64)); /* query length */
+	/* set the appropriate initial usage count */
+	*(double *)&buf[buf_len] = sticky ? pgsm_get_ss()->cur_median_usage : USAGE_INIT;
+	buf_len += sizeof(double);
+
+	*(uint64 *)&buf[buf_len] = query_len;
 	buf_len += sizeof (uint64);
 
 	memcpy(&buf[buf_len], query, query_len); /* query */
 	buf_len += query_len;
-	memcpy(buf, &buf_len, sizeof (uint64));
+
+	*(uint64 *)buf = buf_len;
 	return true;
 }
 
