@@ -45,6 +45,5 @@ jobs:
       - name: Deploy docs
         run: |
           mike deploy main -p
-          mike set-default main -p
-          mike retitle main  "latest" -p
+          mike retitle main  "development" -p
 
