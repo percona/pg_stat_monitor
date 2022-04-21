@@ -377,6 +377,7 @@
 <h1 id="comparing-pg_stat_monitor-and-pg_stat_statements">Comparing pg_stat_monitor and pg_stat_statements<a class="headerlink" href="#comparing-pg_stat_monitor-and-pg_stat_statements" title="Permanent link">&para;</a></h1>
 <p>The <code>pg_stat_monitor</code> extension is developed on the basis of <code>pg_stat_statements</code>  as its more advanced replacement.</p>
 <p>Thus, <code>pg_stat_monitor</code> inherits the columns available in <code>pg_stat_statements</code> plus provides additional ones.</p>
+<p>Note that <a href="index.html#how-pg_stat_monitor-works"><code>pg_stat_monitor</code> and <code>pg_stat_statements</code> process statistics data differently</a>. Because of these differences, memory blocks and WAL (Write Ahead Logs) related statistics data are displayed inconsistently when both extensions are used together. </p>
 <p>To see all available columns, run the following command from the <code>psql</code> terminal:</p>
 <div class="highlight"><pre><span></span><code><span class="w"> </span><span class="n">postgres</span><span class="o">=#</span><span class="w"> </span><span class="err">\</span><span class="n">d</span><span class="w"> </span><span class="n">pg_stat_monitor</span><span class="p">;</span><span class="w"></span>
 </code></pre></div>
@@ -716,7 +717,7 @@
   <small>
     
       Last update:
-      2021-11-16
+      2022-03-30
     
   </small>
 </div>
