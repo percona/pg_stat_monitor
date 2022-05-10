@@ -13,7 +13,7 @@
       
       
       <link rel="icon" href="_images/percona-favicon.ico">
-      <meta name="generator" content="mkdocs-1.3.0, mkdocs-material-8.2.13">
+      <meta name="generator" content="mkdocs-1.3.0, mkdocs-material-8.2.14">
     
     
       
@@ -21,7 +21,7 @@
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.e411adfe.min.css">
+      <link rel="stylesheet" href="assets/stylesheets/main.3de6f41f.min.css">
       
         
         <link rel="stylesheet" href="assets/stylesheets/palette.cc9b2e1e.min.css">
@@ -1249,17 +1249,23 @@ With this information, <code>pg_stat_monitor</code> enables users to track a que
 * <code>pg_stat_monitor</code> is the view where statistics data is presented.
 * <code>pg_stat_monitor_settings</code> view shows available configuration options which you can change.</p>
 <h3 id="pg_stat_monitor-view"><code>pg_stat_monitor</code> view<a class="headerlink" href="#pg_stat_monitor-view" title="Permanent link">&para;</a></h3>
-<p>The statistics gathered by the module are made available via the view named <code>pg_stat_monitor</code>. This view contains one row for each distinct combination of metrics and whether it is a top-level statement or not (up to the maximum number of distinct statements that the module can track). For details about available counters, refer to the <a href="https://github.com/percona/pg_stat_monitor/blob/master/docs/REFERENCE.md"><code>pg_stat_monitor</code> view reference</a>.</p>
+<p>The statistics gathered by the module are made available via the view named <code>pg_stat_monitor</code>. This view contains one row for each distinct combination of metrics and whether it is a top-level statement or not (up to the maximum number of distinct statements that the module can track). For details about available counters, refer to the <a href="REFERENCE.html"><code>pg_stat_monitor</code> view reference</a>.</p>
 <p>The following are the primary keys for pg_stat_monitor:</p>
 <ul>
-<li><code>bucket</code>,</li>
-<li><code>userid</code>,</li>
-<li><code>dbid</code>,</li>
-<li><code>client_ip</code>,</li>
-<li><code>application_name</code>.</li>
+<li><code>bucket</code></li>
+<li><code>userid</code></li>
+<li><code>datname</code></li>
+<li><code>queryid</code></li>
+<li><code>client_ip</code></li>
+<li><code>planid</code></li>
+<li><code>application_name</code></li>
+<li><code>toplevel</code>.</li>
 </ul>
-<p>A new row is created for each key in the <code>pg_stat_monitor</code> view.</p>
-<p><code>pg_stat_monitor</code> inherits the metrics available in <code>pg_stat_statements</code>, plus provides additional ones. See the <a href="https://github.com/percona/pg_stat_monitor/blob/master/docs/REFERENCE.md"><code>pg_stat_monitor</code> vs <code>pg_stat_statements</code> comparison</a> for details.</p>
+<blockquote>
+<p><strong>NOTE</strong>: The <code>toplevel</code> key is considered starting with PostgreSQL 14 and above. For PostgreSQL 13 and earlier versions, the <code>toplevel</code> value is set to 1 by default, and thus, ignored.</p>
+</blockquote>
+<p>A new row is created for each key in the <code>pg_stat_monitor</code> view. </p>
+<p><code>pg_stat_monitor</code> inherits the metrics available in <code>pg_stat_statements</code>, plus provides additional ones. See the <a href="COMPARISON.html"><code>pg_stat_monitor</code> vs <code>pg_stat_statements</code> comparison</a> for details.</p>
 <p>For security reasons, only superusers and members of the <code>pg_read_all_stats</code> role are allowed to see the SQL text and <code>queryid</code> of queries executed by other users. Other users can see the statistics, however, if the view has been installed in their database.</p>
 <h3 id="pg_stat_monitor_settings-view">pg_stat_monitor_settings view<a class="headerlink" href="#pg_stat_monitor_settings-view" title="Permanent link">&para;</a></h3>
 <p>The <code>pg_stat_monitor_settings</code> view shows one row per <code>pg_stat_monitor</code> configuration parameter. It displays configuration parameter name, value, default value, description, minimum and maximum values, and whether a restart is required for a change in value to be effective.</p>
@@ -1811,7 +1817,7 @@ The <code>bucket_start_time</code> shows the start time of the bucket.
   <small>
     
       Last update:
-      2022-03-25
+      2022-05-10
     
   </small>
 </div>
@@ -1892,7 +1898,7 @@ The <code>bucket_start_time</code> shows the start time of the bucket.
     <script id="__config" type="application/json">{"base": ".", "features": ["search.highlight", "navigation.top"], "search": "assets/javascripts/workers/search.2a1c317c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="assets/javascripts/bundle.ed9748b7.min.js"></script>
+      <script src="assets/javascripts/bundle.c2e1ee47.min.js"></script>
       
         <script src="js/version-select.js"></script>
       
