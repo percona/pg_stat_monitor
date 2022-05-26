@@ -355,6 +355,26 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#101" class="md-nav__link">
+    1.0.1
+  </a>
+  
+    <nav class="md-nav" aria-label="1.0.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed" class="md-nav__link">
+    Bugs Fixed
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#100" class="md-nav__link">
     1.0.0
   </a>
@@ -377,7 +397,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bugs-fixed" class="md-nav__link">
+  <a href="#bugs-fixed_1" class="md-nav__link">
     Bugs Fixed
   </a>
   
@@ -404,7 +424,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bugs-fixed_1" class="md-nav__link">
+  <a href="#bugs-fixed_2" class="md-nav__link">
     Bugs Fixed
   </a>
   
@@ -438,7 +458,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bugs-fixed_2" class="md-nav__link">
+  <a href="#bugs-fixed_3" class="md-nav__link">
     Bugs Fixed
   </a>
   
@@ -479,7 +499,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bugs-fixed_3" class="md-nav__link">
+  <a href="#bugs-fixed_4" class="md-nav__link">
     Bugs Fixed
   </a>
   
@@ -552,6 +572,26 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#101" class="md-nav__link">
+    1.0.1
+  </a>
+  
+    <nav class="md-nav" aria-label="1.0.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed" class="md-nav__link">
+    Bugs Fixed
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#100" class="md-nav__link">
     1.0.0
   </a>
@@ -574,7 +614,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bugs-fixed" class="md-nav__link">
+  <a href="#bugs-fixed_1" class="md-nav__link">
     Bugs Fixed
   </a>
   
@@ -601,7 +641,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bugs-fixed_1" class="md-nav__link">
+  <a href="#bugs-fixed_2" class="md-nav__link">
     Bugs Fixed
   </a>
   
@@ -635,7 +675,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bugs-fixed_2" class="md-nav__link">
+  <a href="#bugs-fixed_3" class="md-nav__link">
     Bugs Fixed
   </a>
   
@@ -676,7 +716,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bugs-fixed_3" class="md-nav__link">
+  <a href="#bugs-fixed_4" class="md-nav__link">
     Bugs Fixed
   </a>
   
@@ -734,6 +774,11 @@
 
 <h1 id="release-notes">Release Notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <p>Below is the complete list of release notes for every version of <code>pg_stat_monitor</code>.</p>
+<h2 id="101">1.0.1<a class="headerlink" href="#101" title="Permanent link">&para;</a></h2>
+<h3 id="bugs-fixed">Bugs Fixed<a class="headerlink" href="#bugs-fixed" title="Permanent link">&para;</a></h3>
+<p><a href="https://jira.percona.com/browse/PG-382">PG-382</a>: Histogram default settings changed to prevent the PostgreSQL server to crash</p>
+<p><a href="https://jira.percona.com/browse/PG-417">PG-417</a>: Addressed security vulnerabilities to prevent an attacker from precreating functions</p>
+<p><a href="https://jira.percona.com/browse/DISTPG-427">DISTPG-427</a>: Fixed the issue with the extensions not working when pg_stat_monitor is enabled by replacing the <code>return</code> with <code>goto exit</code> for the <code>pgsm_emit_log_hook</code> function</p>
 <h2 id="100">1.0.0<a class="headerlink" href="#100" title="Permanent link">&para;</a></h2>
 <p>Bump version from 1.0.0-rc.2 to 1.0.0.</p>
 <h2 id="100-rc2">1.0.0-rc.2<a class="headerlink" href="#100-rc2" title="Permanent link">&para;</a></h2>
@@ -745,7 +790,7 @@
 <p><a href="https://jira.percona.com/browse/PG-359">PG-359</a>: Documentation: updated the <code>pg_stat_monitor_settings</code> view reference. </p>
 <p><a href="https://jira.percona.com/browse/PG-344">PG-344</a>: Documentation: Updated the extensions order and behavior with data collection for PostgreSQL 14.</p>
 <p><a href="https://jira.percona.com/browse/PG-358">PG-358</a>: Documentation: data display of <code>** blk **</code> and <code>** wal **</code> columns when both <code>pg_stat_monitor</code> and <code>pg_stat_statements</code> are loaded together.</p>
-<h3 id="bugs-fixed">Bugs Fixed<a class="headerlink" href="#bugs-fixed" title="Permanent link">&para;</a></h3>
+<h3 id="bugs-fixed_1">Bugs Fixed<a class="headerlink" href="#bugs-fixed_1" title="Permanent link">&para;</a></h3>
 <p><a href="https://jira.percona.com/browse/PG-350">PG-350</a>: Fixed bucket time overflow</p>
 <p><a href="https://jira.percona.com/browse/PG-338">PG-338</a>: Fixed query calls count by setting the default value for <code>pg_stat_monitor.pgsm_track</code> to <code>top</code>.</p>
 <p><a href="https://jira.percona.com/browse/PG-338">PG-291</a>: Fixed calls count.</p>
@@ -763,7 +808,7 @@
 <p><a href="https://jira.percona.com/browse/PG-188">PG-188</a>: Added a new column to monitor the query state i.e PARSING/PLANNING/ACTIVE/FINISHED.</p>
 <p><a href="https://jira.percona.com/browse/PG-180">PG-180</a>: Schema Qualified table/relations names.</p>
 <p>Regression Test Suite.</p>
-<h3 id="bugs-fixed_1">Bugs Fixed<a class="headerlink" href="#bugs-fixed_1" title="Permanent link">&para;</a></h3>
+<h3 id="bugs-fixed_2">Bugs Fixed<a class="headerlink" href="#bugs-fixed_2" title="Permanent link">&para;</a></h3>
 <p><a href="https://jira.percona.com/browse/PG-189">PG-189</a>: Regression crash in case of PostgreSQL 11.</p>
 <p><a href="https://jira.percona.com/browse/PG-187">PG-187</a>: Compilation Error for PostgreSQL 11 and PostgreSQL 12.</p>
 <p><a href="https://jira.percona.com/browse/PG-186">PG-186</a>: Add support to monitor query execution plan.</p>
@@ -786,7 +831,7 @@ Column datname (string) was added (replacement for dbid).</p>
 <p><a href="https://jira.percona.com/browse/PG-172">PG-172</a>: Exponential histogram for time buckets.</p>
 <p><a href="https://jira.percona.com/browse/PG-164">PG-164</a>: Query timing will be four decimal places instead of two.</p>
 <p><a href="https://jira.percona.com/browse/PG-167">PG-167</a>: SQLERRCODE must be in readable format.</p>
-<h3 id="bugs-fixed_2">Bugs Fixed<a class="headerlink" href="#bugs-fixed_2" title="Permanent link">&para;</a></h3>
+<h3 id="bugs-fixed_3">Bugs Fixed<a class="headerlink" href="#bugs-fixed_3" title="Permanent link">&para;</a></h3>
 <p><a href="https://jira.percona.com/browse/PG-169">PG-169</a>: Fixing message buffer overrun and incorrect index access to fix the server crash.</p>
 <p><a href="https://jira.percona.com/browse/PG-168">PG-168</a>: &ldquo;calls&rdquo; and histogram parameter does not match.</p>
 <p><a href="https://jira.percona.com/browse/PG-166">PG-166</a>: Display actual system time instead of null.</p>
@@ -807,7 +852,7 @@ Column datname (string) was added (replacement for dbid).</p>
 <p><a href="https://jira.percona.com/browse/PG-110">PG-110</a>; Aggregate the number of warnings.</p>
 <p><a href="https://jira.percona.com/browse/PG-109">PG-109</a>: Log failed queries or queries with warning messages.</p>
 <p><a href="https://jira.percona.com/browse/PG-150">PG-150</a>: Differentiate different types of queries such as SELECT, UPDATE, INSERT or DELETE.</p>
-<h3 id="bugs-fixed_3">Bugs Fixed<a class="headerlink" href="#bugs-fixed_3" title="Permanent link">&para;</a></h3>
+<h3 id="bugs-fixed_4">Bugs Fixed<a class="headerlink" href="#bugs-fixed_4" title="Permanent link">&para;</a></h3>
 <p><a href="https://jira.percona.com/browse/PG-111">PG-111</a> Show information for incomplete buckets.</p>
 <p><a href="https://jira.percona.com/browse/PG-148">PG-148</a> Loss of query statistics/monitoring due to not enough “slots” available.</p>
 <h2 id="v060">v0.6.0<a class="headerlink" href="#v060" title="Permanent link">&para;</a></h2>
@@ -821,7 +866,7 @@ Column datname (string) was added (replacement for dbid).</p>
   <small>
     
       Last update:
-      2022-04-28
+      2022-05-25
     
   </small>
 </div>
