@@ -31,7 +31,7 @@ jobs:
         if: success() || failure()    # run this step even if previous step failed
         with:
           name: Codeceptjs E2E Tests            # Name of the check run which will be created
-          path: ${PWD}/pmm-ui-tests/tests/output/*.xml    # Path to test results
+          path: ./pmm-ui-tests/tests/output/*.xml    # Path to test results
           reporter: java-junit
 
       - name: Upload Tests Artifacts
@@ -39,5 +39,5 @@ jobs:
         if: success() || failure()    # run this step even if previous step failed
         with:
           name: tests-artifact
-          path: ${PWD}/pmm-ui-tests/tests/output/
+          path: ./pmm-ui-tests/tests/output/
           if-no-files-found: ignore # 'warn' or 'ignore' are also available, defaults to `warn`
