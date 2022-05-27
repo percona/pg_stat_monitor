@@ -35,6 +35,7 @@ jobs:
           reporter: java-junit
 
       - name: Get PMM-Agent Logs from the Container
+        if: success() || failure()    # run this step even if previous step failed
         run: docker exec pgsql_pgsm_12 cat pmm-agent.log > ./pmm-ui-tests/tests/output/pmm-agent.log
 
       - name: Upload Tests Artifacts
