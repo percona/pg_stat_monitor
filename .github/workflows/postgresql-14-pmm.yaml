@@ -7,12 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Clone postgres repository
-        uses: actions/checkout@v2
-        with:
-          repository: 'postgres/postgres'
-          ref: 'REL_1_STABLE'
-
       - name: Clone QA Integration repository
         uses: actions/checkout@v2
         with:
