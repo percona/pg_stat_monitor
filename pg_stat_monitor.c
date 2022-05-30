@@ -27,7 +27,7 @@
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION                   "1.0.0"
+#define BUILD_VERSION                   "1.0.1"
 #define PG_STAT_STATEMENTS_COLS         53  /* maximum of above */
 #define PGSM_TEXT_FILE                  "/tmp/pg_stat_monitor_query"
 
@@ -2032,7 +2032,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Float8GetDatumFast(tmp.blocks.blk_write_time);
 
 		/* resp_calls at column number 41 */
-		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, MAX_RESPONSE_BUCKET);
+		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, PGSM_HISTOGRAM_BUCKETS);
 
 		/* utime at column number 42 */
 		values[i++] = Float8GetDatumFast(roundf(tmp.sysinfo.utime,4));
@@ -3507,11 +3507,11 @@ pgsm_emit_log_hook(ErrorData *edata)
 		goto exit;
 
 	if (IsParallelWorker())
-		return;
+		goto exit;
 
 	/* Check if PostgreSQL has finished its own bootstraping code. */
 	if (MyProc == NULL)
-		return;
+		goto exit;
 
 	if ((edata->elevel == ERROR || edata->elevel == WARNING || edata->elevel == INFO || edata->elevel == DEBUG1))
 	{
