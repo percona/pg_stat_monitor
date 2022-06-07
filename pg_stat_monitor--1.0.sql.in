@@ -114,30 +114,11 @@ SELECT
 $$
 LANGUAGE SQL PARALLEL SAFE;
 
-CREATE FUNCTION pg_stat_monitor_settings(
-    OUT name  text,
-    OUT value text,
-    OUT default_value text,
-    OUT description  text,
-    OUT minimum INTEGER,
-    OUT maximum INTEGER,
-    OUT options text,
-    OUT restart text
-)
-RETURNS SETOF record
-AS 'MODULE_PATHNAME', 'pg_stat_monitor_settings'
-LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
-
-CREATE VIEW pg_stat_monitor_settings AS SELECT
-    name,
-    value,
-    default_value,
-    description,
-    minimum,
-    maximum,
-    options,
-    restart
-FROM pg_stat_monitor_settings();
+CREATE VIEW pg_stat_monitor_settings
+AS
+SELECT *
+FROM pg_settings
+WHERE name like 'pg_stat_monitor.%';
 
 -- Register a view on the function for ease of use.
 CREATE VIEW pg_stat_monitor AS SELECT
@@ -247,7 +228,6 @@ $$ language plpgsql;
 -- FROM pg_stat_monitor_hook_stats();
 
 GRANT SELECT ON pg_stat_monitor TO PUBLIC;
-GRANT SELECT ON pg_stat_monitor_settings TO PUBLIC;
 
 -- Don't want this to be available to non-superusers.
 REVOKE ALL ON FUNCTION pg_stat_monitor_reset() FROM PUBLIC;
