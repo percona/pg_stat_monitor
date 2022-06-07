@@ -181,7 +181,7 @@ static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 static void AppendJumble(JumbleState *jstate,
 			 const unsigned char *item, Size size);
 static void JumbleQuery(JumbleState *jstate, Query *query);
-static void JumbleRangeTable(JumbleState *jstate, List *rtable);
+static void JumbleRangeTable(JumbleState *jstate, List *rtable, CmdType cmd_type);
 static void JumbleExpr(JumbleState *jstate, Node *node);
 static void RecordConstLocation(JumbleState *jstate, int location);
 /*
@@ -2229,9 +2229,15 @@ JumbleQuery(JumbleState *jstate, Query *query)
 	APP_JUMB(query->commandType);
 	/* resultRelation is usually predictable from commandType */
 	JumbleExpr(jstate, (Node *) query->cteList);
-	JumbleRangeTable(jstate, query->rtable);
-	JumbleExpr(jstate, (Node *) query->jointree);
-	JumbleExpr(jstate, (Node *) query->targetList);
+
+	JumbleRangeTable(jstate, query->rtable, query->commandType);
+
+	if (query->commandType != CMD_INSERT)
+	{
+		JumbleExpr(jstate, (Node *) query->jointree);
+		JumbleExpr(jstate, (Node *) query->targetList);
+	}
+
 	JumbleExpr(jstate, (Node *) query->onConflict);
 	JumbleExpr(jstate, (Node *) query->returningList);
 	JumbleExpr(jstate, (Node *) query->groupClause);
@@ -2250,13 +2256,16 @@ JumbleQuery(JumbleState *jstate, Query *query)
  * Jumble a range table
  */
 static void
-JumbleRangeTable(JumbleState *jstate, List *rtable)
+JumbleRangeTable(JumbleState *jstate, List *rtable, CmdType cmd_type)
 {
 	ListCell   *lc = NULL;
 
 	foreach(lc, rtable)
 	{
 		RangeTblEntry *rte = lfirst_node(RangeTblEntry, lc);
+
+		if (rte->rtekind != RTE_RELATION && cmd_type == CMD_INSERT)
+			continue;
 
 		APP_JUMB(rte->rtekind);
 		switch (rte->rtekind)
