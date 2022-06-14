@@ -5,7 +5,6 @@ OBJS = hash_query.o guc.o pg_stat_monitor.o $(WIN32RES)
 
 EXTENSION = pg_stat_monitor
 DATA = pg_stat_monitor--1.0.sql
-
 PGFILEDESC = "pg_stat_monitor - execution statistics of SQL statements"
 
 LDFLAGS_SL += $(filter -lm, $(LIBS)) 

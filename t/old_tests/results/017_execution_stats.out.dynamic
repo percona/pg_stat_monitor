@@ -1,0 +1,14 @@
+select substr(query, 0,100) as query, calls, total_exec_time, min_exec_time,max_exec_time,mean_exec_time,stddev_exec_time from pg_stat_monitor order by query;
+                                                query                                                | calls | total_exec_time | min_exec_time | max_exec_time | mean_exec_time | stddev_exec_time 
+-----------------------------------------------------------------------------------------------------+-------+-----------------+---------------+---------------+----------------+------------------
+ SELECT * from pg_stat_monitor_settings                                                              |     2 |          0.1135 |        0.0562 |        0.0573 |         0.0568 |           0.0005
+ SELECT pg_stat_monitor_reset()                                                                      |     1 |          0.0573 |        0.0573 |        0.0573 |         0.0573 |                0
+ SELECT query, calls, total_exec_time, min_exec_time, max_exec_time, mean_exec_time, stddev_exec_tim |     1 |           0.226 |         0.226 |         0.226 |          0.226 |                0
+ select (max_exec_time = 0) from pg_stat_monitor where calls = 2                                     |     1 |          0.2074 |        0.2074 |        0.2074 |         0.2074 |                0
+ select (mean_exec_time = 0) from pg_stat_monitor where calls = 2                                    |     1 |          0.2147 |        0.2147 |        0.2147 |         0.2147 |                0
+ select (min_exec_time = 0) from pg_stat_monitor where calls = 2                                     |     1 |          0.1626 |        0.1626 |        0.1626 |         0.1626 |                0
+ select (round(total_exec_time::numeric,3) = round(min_exec_time::numeric + max_exec_time::numeric,3 |     1 |          0.2269 |        0.2269 |        0.2269 |         0.2269 |                0
+ select (total_exec_time = 0) from pg_stat_monitor where calls = 2                                   |     1 |          0.1942 |        0.1942 |        0.1942 |         0.1942 |                0
+ select substr(query, 0,100) as query, calls, total_exec_time, min_exec_time,max_exec_time,mean_exec |     1 |               0 |             0 |             0 |              0 |                0
+(9 rows)
+

@@ -6,6 +6,7 @@
 *.ko
 *.obj
 *.elf
+*.log
 
 # Linker output
 *.ilk
@@ -49,6 +50,8 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+tmp_check/*
+results/*
 
 ## IDE
 .idea
