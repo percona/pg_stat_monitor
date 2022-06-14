@@ -23,9 +23,9 @@ WARNING:  warning message
 SELECT query, elevel, sqlcode, message FROM pg_stat_monitor ORDER BY query COLLATE "C",elevel;
                                              query                                             | elevel | sqlcode |              message              
 -----------------------------------------------------------------------------------------------+--------+---------+-----------------------------------
- ELECET * FROM unknown;                                                                        |     21 | 42601   | syntax error at or near "ELECET"
- SELECT * FROM unknown;                                                                        |     21 | 42P01   | relation "unknown" does not exist
- SELECT 1/0;                                                                                   |     21 | 22012   | division by zero
+ ELECET * FROM unknown;                                                                        |     20 | 42601   | syntax error at or near "ELECET"
+ SELECT * FROM unknown;                                                                        |     20 | 42P01   | relation "unknown" does not exist
+ SELECT 1/0;                                                                                   |     20 | 22012   | division by zero
  SELECT pg_stat_monitor_reset()                                                                |      0 |         | 
  SELECT query, elevel, sqlcode, message FROM pg_stat_monitor ORDER BY query COLLATE "C",elevel |      0 |         | 
  do $$                                                                                        +|      0 |         | 
@@ -37,6 +37,39 @@ SELECT query, elevel, sqlcode, message FROM pg_stat_monitor ORDER BY query COLLA
  RAISE WARNING 'warning message';                                                             +|        |         | 
  END $$;                                                                                       |        |         | 
 (7 rows)
+
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+DROP TABLE IF EXISTS Company;
+NOTICE:  table "company" does not exist, skipping
+CREATE TABLE Company(
+   ID INT PRIMARY KEY     NOT NULL,
+   NAME TEXT    NOT NULL
+);
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+INSERT  INTO Company(ID, Name) VALUES (1, 'Percona');
+INSERT  INTO Company(ID, Name) VALUES (1, 'Percona');
+ERROR:  duplicate key value violates unique constraint "company_pkey"
+DETAIL:  Key (id)=(1) already exists.
+DROP TABLE IF EXISTS Company;
+SELECT query, elevel, sqlcode, message FROM pg_stat_monitor ORDER BY query COLLATE "C",elevel;
+                                             query                                             | elevel | sqlcode |                            message                            
+-----------------------------------------------------------------------------------------------+--------+---------+---------------------------------------------------------------
+ DROP TABLE IF EXISTS Company                                                                  |      0 |         | 
+ INSERT  INTO Company(ID, Name) VALUES (1, 'Percona')                                          |      0 |         | 
+ INSERT  INTO Company(ID, Name) VALUES (1, 'Percona');                                         |     20 | 23505   | duplicate key value violates unique constraint "company_pkey"
+ SELECT pg_stat_monitor_reset()                                                                |      0 |         | 
+ SELECT query, elevel, sqlcode, message FROM pg_stat_monitor ORDER BY query COLLATE "C",elevel |      0 |         | 
+(5 rows)
 
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
