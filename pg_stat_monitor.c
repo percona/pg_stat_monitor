@@ -2237,8 +2237,8 @@ JumbleQuery(JumbleState *jstate, Query *query)
 	JumbleRangeTable(jstate, query->rtable, query->commandType);
 
     /*
-     * Skip add jointree and targetlist in case of insert statment
-     * to aoid queryid duplication problem.
+     * Skip jointree and targetlist in case of insert statment
+     * to avoid queryid duplication problem.
      */
 	if (query->commandType != CMD_INSERT)
 	{
