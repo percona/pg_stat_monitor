@@ -1442,8 +1442,9 @@ With this information, <code>pg_stat_monitor</code> enables users to track a que
 <p>Type: boolean. Default: 1</p>
 <p>This parameter controls whether utility commands are tracked by the module. Utility commands are all those other than <code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, and <code>DELETE</code>.</p>
 <h5 id="pg_stat_monitorpgsm_normalized_query">pg_stat_monitor.pgsm_normalized_query<a class="headerlink" href="#pg_stat_monitorpgsm_normalized_query" title="Permanent link">&para;</a></h5>
-<p>Type: boolean. Default: 1</p>
-<p>By default, the query shows the actual parameter instead of the placeholder. It is quite useful when users want to use that query and try to run that query to check the abnormalities. But in most cases users like the queries with a placeholder. This parameter is used to toggle between the two said options.</p>
+<p>Type: boolean. Default: 0</p>
+<p>By default, the query shows the actual parameter instead of the placeholder. It is quite useful when users want to use that query and try to run that query to check the abnormalities. Users should be aware, however, that running queries with disabled normalization can expose some sensitive data. </p>
+<p>But in most cases users like the queries with a placeholder. This parameter is used to toggle between the two said options.</p>
 <h5 id="pg_stat_monitorpgsm_max_buckets">pg_stat_monitor.pgsm_max_buckets<a class="headerlink" href="#pg_stat_monitorpgsm_max_buckets" title="Permanent link">&para;</a></h5>
 <p>Values:
 - Min: 1
