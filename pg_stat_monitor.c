@@ -1556,7 +1556,9 @@ pgss_store(uint64 queryid,
 
 	planid = plan_info ? plan_info->planid : 0;
 
-	extract_query_comments(query, comments, sizeof(comments));
+	/* Extract comments if enabled. */
+	if (PGSM_EXTRACT_COMMENTS)
+		extract_query_comments(query, comments, sizeof(comments));
 
 	prev_bucket_id = pg_atomic_read_u64(&pgss->current_wbucket);
 	bucketid = get_next_wbucket(pgss);
@@ -2169,7 +2171,7 @@ get_next_wbucket(pgssSharedState *pgss)
 	 * definitely make the while condition to fail, we can stop the loop as
 	 * another thread has already updated prev_bucket_sec.
 	 */
-	if ((current_sec - current_bucket_sec) < ((uint64) PGSM_BUCKET_TIME * 1000LU * 1000LU))
+	if ((current_sec - current_bucket_sec) < (uint64)PGSM_BUCKET_TIME)
 	{
 		return pg_atomic_read_u64(&pgss->current_wbucket);
 	}
