@@ -55,9 +55,7 @@ $node->init;
 # Update postgresql.conf to include/load pg_stat_monitor library
 open my $conf, '>>', "$pgdata/postgresql.conf";
 print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
-print $conf "pg_stat_monitor.pgsm_bucket_time = 10000\n"; 
-print $conf "pg_stat_monitor.pgsm_query_shared_buffer = 1\n";
-print $conf "pg_stat_monitor.pgsm_normalized_query = 'yes'\n";
+print $conf "pg_stat_monitor.pgsm_extract_comments = 'yes'\n";
 close $conf;
 
 # Start server
@@ -76,78 +74,31 @@ chmod(0640 , $out_filename_with_path)
 ok($cmdret == 0, "Reset PGSM Extension");
 TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT * from pg_stat_monitor_settings where name='pg_stat_monitor.pgsm_query_shared_buffer';", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT * from pg_stat_monitor_settings where name = 'pg_stat_monitor.pgsm_extract_comments';", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "Print PGSM Extension Settings");
 TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
 
-# Create example database and run pgbench init
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'CREATE database example;', extra_params => ['-a']);
-print "cmdret $cmdret\n";
-ok($cmdret == 0, "Create Database example");
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT 1 AS num /* First comment */, 'John' as Name /* Second comment*/;", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
 
-my $port = $node->port;
-print "port $port \n";
-
-my $out = system ("pgbench -i -s 10 -p $port example");
-print " out: $out \n" ;
-ok($cmdret == 0, "Perform pgbench init");
-
-$out = system ("pgbench -c 10 -j 2 -t 100 -p $port example");
-print " out: $out \n" ;
-ok($cmdret == 0, "Run pgbench");
-
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'select datname, substr(query,0,150) as query, calls from pg_stat_monitor order by datname, query, calls desc Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
-print "cmdret $cmdret\n";
-ok($cmdret == 0, "Select XXX from pg_stat_monitor");
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT query, comments FROM pg_stat_monitor ORDER BY query COLLATE "C";', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
 
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_query_shared_buffer = 100\n");
+$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_extract_comments = 'no'\n");
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT pg_stat_monitor_reset();', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "Reset PGSM Extension");
 TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT * from pg_stat_monitor_settings where name='pg_stat_monitor.pgsm_query_shared_buffer';", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT * from pg_stat_monitor_settings where name = 'pg_stat_monitor.pgsm_extract_comments';", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "Print PGSM Extension Settings");
 TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
 
-$out = system ("pgbench -i -s 10 -p $port example");
-print " out: $out \n" ;
-ok($cmdret == 0, "Perform pgbench init");
-
-$out = system ("pgbench -c 10 -j 2 -t 100 -p $port example");
-print " out: $out \n" ;
-ok($cmdret == 0, "Run pgbench");
-
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'select datname, substr(query,0,150) as query, calls from pg_stat_monitor order by datname, query, calls desc Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
-print "cmdret $cmdret\n";
-ok($cmdret == 0, "Select XXX from pg_stat_monitor");
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT 1 AS num /* First comment */, 'John' as Name /* Second comment*/;", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
 
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_query_shared_buffer = 20\n");
-$node->restart();
-
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT pg_stat_monitor_reset();', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
-ok($cmdret == 0, "Reset PGSM Extension");
-TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
-
-($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT * from pg_stat_monitor_settings where name='pg_stat_monitor.pgsm_query_shared_buffer';", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
-ok($cmdret == 0, "Print PGSM Extension Settings");
-TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
-
-$out = system ("pgbench -i -s 10 -p $port example");
-print " out: $out \n" ;
-ok($cmdret == 0, "Perform pgbench init");
-
-$out = system ("pgbench -c 10 -j 2 -t 100 -p $port example");
-print " out: $out \n" ;
-ok($cmdret == 0, "Run pgbench");
-
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'select datname, substr(query,0,150) as query, calls from pg_stat_monitor order by datname, query, calls desc Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
-print "cmdret $cmdret\n";
-ok($cmdret == 0, "Select XXX from pg_stat_monitor");
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT query, comments FROM pg_stat_monitor ORDER BY query COLLATE "C";', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 TestLib::append_to_file($out_filename_with_path, $stdout . "\n");
 
 # Drop extension
@@ -166,4 +117,3 @@ is($compare,0,"Compare Files: $expected_filename_with_path and $out_filename_wit
 
 # Done testing for this testcase file.
 done_testing();
-
