@@ -47,19 +47,22 @@ CREATE FUNCTION pg_stat_monitor_internal(IN showtext boolean,
     OUT bucket_start_time   text,
 
 	OUT calls         		int8,  -- 16
-    OUT total_time          float8,
-    OUT min_time            float8,
-    OUT max_time            float8,
-    OUT mean_time           float8,
-    OUT stddev_time         float8,
-    OUT rows_retrieved       int8,
+
+    OUT total_exec_time     float8,
+    OUT min_exec_time       float8,
+    OUT max_exec_time       float8,
+    OUT mean_exec_time      float8,
+    OUT stddev_exec_time    float8,
+
+    OUT rows_retrieved      int8,
 
 	OUT plans_calls    	 	int8,  -- 23
-    OUT plan_total_time     float8,
-    OUT plan_min_time       float8,
-    OUT plan_max_time       float8,
-    OUT plan_mean_time      float8,
-    OUT plan_stddev_time    float8,
+   
+    OUT total_plan_time     float8,
+    OUT min_plan_time       float8,
+    OUT max_plan_time       float8,
+    OUT mean_plan_time      float8,
+    OUT stddev_plan_time    float8,
 
 	OUT shared_blks_hit     int8, -- 29
     OUT shared_blks_read    int8,
@@ -79,9 +82,9 @@ CREATE FUNCTION pg_stat_monitor_internal(IN showtext boolean,
     OUT wal_records 		int8,
     OUT wal_fpi 			int8,
     OUT wal_bytes 			numeric,
-    OUT comments            TEXT,
+    OUT comments 			TEXT,
     OUT toplevel            BOOLEAN
-  )
+)
 RETURNS SETOF record
 AS 'MODULE_PATHNAME', 'pg_stat_monitor'
 LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
@@ -161,12 +164,22 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	sqlcode,
 	message,
     calls,
-	total_time,
-	min_time,
-	max_time,
-	mean_time,
-	stddev_time,
+	total_exec_time,
+	min_exec_time,
+	max_exec_time,
+	mean_exec_time,
+	stddev_exec_time,
+
 	rows_retrieved,
+
+    plans_calls,
+
+	total_plan_time,
+	min_plan_time,
+	max_plan_time,
+	mean_plan_time,
+    stddev_plan_time,
+
 	shared_blks_hit,
     shared_blks_read,
     shared_blks_dirtied,
@@ -225,7 +238,7 @@ end loop;
 END
 $$ language plpgsql;
 
--- CREATE FUNCTION pg_stat_monitor_hook_stats(
+--CREATE FUNCTION pg_stat_monitor_hook_stats(
 --    OUT hook text,
 --    OUT min_time float8,
 --    OUT max_time float8,
@@ -246,10 +259,43 @@ $$ language plpgsql;
 --    ROUND(CAST(total_time / greatest(sum(total_time) OVER(), 0.00000001) * 100 as numeric), 2)::text || '%' as load_comparison
 -- FROM pg_stat_monitor_hook_stats();
 
+CREATE FUNCTION pg_stat_monitor_errors(
+    OUT code       int,
+    OUT message    text,
+    OUT msgtime    text,
+    OUT calls      int8
+)
+RETURNS SETOF record
+AS 'MODULE_PATHNAME', 'pg_stat_monitor_errors'
+LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
+
+CREATE OR REPLACE FUNCTION pgsm_log_code_as_text(code int) RETURNS TEXT AS
+$$
+SELECT
+    CASE
+          WHEN code = 1 THEN 'UNEXPECTED'
+         WHEN code = 2 THEN 'OVERFLOW'
+    WHEN code > 22 THEN 'ERROR'
+  END
+$$
+LANGUAGE SQL PARALLEL SAFE;
+
+CREATE VIEW pg_stat_monitor_errors AS SELECT
+    pgsm_log_code_as_text(code) as code, message, msgtime time, calls
+FROM pg_stat_monitor_errors();
+
+CREATE FUNCTION pg_stat_monitor_reset_errors()
+RETURNS void
+AS 'MODULE_PATHNAME'
+LANGUAGE C PARALLEL SAFE;
+
+GRANT SELECT ON pg_stat_monitor_errors TO PUBLIC;
+
+-- Don't want this to be available to non-superusers.
+REVOKE ALL ON FUNCTION pg_stat_monitor_reset_errors() FROM PUBLIC;
+
 GRANT SELECT ON pg_stat_monitor TO PUBLIC;
 GRANT SELECT ON pg_stat_monitor_settings TO PUBLIC;
 
 -- Don't want this to be available to non-superusers.
 REVOKE ALL ON FUNCTION pg_stat_monitor_reset() FROM PUBLIC;
-
-

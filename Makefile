@@ -1,10 +1,12 @@
 # contrib/pg_stat_monitor/Makefile
 
-MODULE_big = pg_stat_monitor
-OBJS = hash_query.o guc.o pg_stat_monitor.o $(WIN32RES)
+PG_CONFIG = pg_config
+PG_VERSION := $(shell pg_config --version | awk {'print $$1 $$2'})
+MAJOR := $(shell echo $(PG_VERSION) | sed -e 's/\.[^./]*$$//')
 
-EXTENSION = pg_stat_monitor
-DATA = pg_stat_monitor--1.0.sql
+DATA = pg_stat_monitor--1.0.sql \
+       pg_stat_monitor--2.0.sql \
+       pg_stat_monitor--1.0--2.0.sql
 
 PGFILEDESC = "pg_stat_monitor - execution statistics of SQL statements"
 
@@ -17,17 +19,16 @@ REGRESS = basic version guc counters relations database error_insert application
 # which typical installcheck users do not have (e.g. buildfarm clients).
 # NO_INSTALLCHECK = 1
 
-
-PG_CONFIG = pg_config
-PG_VERSION := $(shell pg_config --version | awk {'print $$1 $$2'})
-MAJOR := $(shell echo $(PG_VERSION) | sed -e 's/\.[^./]*$$//')
-
 ifneq (,$(findstring PostgreSQL14,$(MAJOR)))
-  ifneq (,$(wildcard ../pg_stat_monitor--1.0.14.sql.in))
-    CP := $(shell cp ../pg_stat_monitor--1.0.14.sql.in ../pg_stat_monitor--1.0.sql)
+  ifneq (,$(wildcard ../sql/pg_stat_monitor--1.0.14.sql.in))
+    CP := $(shell cp ../sql/pg_stat_monitor--1.0.14.sql.in ../pg_stat_monitor--1.0.sql)
+    CP := $(shell cp ../sql/pg_stat_monitor--2.0.14.sql.in ../pg_stat_monitor--2.0.sql)
+    CP := $(shell cp ../sql/pg_stat_monitor--1.0--2.0.sql.in ../pg_stat_monitor--1.0--2.0.sql)
   endif
-  ifneq (,$(wildcard pg_stat_monitor--1.0.14.sql.in))
-    CP := $(shell cp pg_stat_monitor--1.0.14.sql.in pg_stat_monitor--1.0.sql)
+  ifneq (,$(wildcard sql/pg_stat_monitor--1.0.14.sql.in))
+    CP := $(shell cp sql/pg_stat_monitor--1.0.14.sql.in pg_stat_monitor--1.0.sql)
+    CP := $(shell cp sql/pg_stat_monitor--2.0.14.sql.in pg_stat_monitor--2.0.sql)
+    CP := $(shell cp sql/pg_stat_monitor--1.0--2.0.sql.in pg_stat_monitor--1.0--2.0.sql)
   endif
   TAP_TESTS = 1
 endif
@@ -35,9 +36,13 @@ endif
 ifneq (,$(findstring PostgreSQL13,$(MAJOR)))
   ifneq (,$(wildcard ../pg_stat_monitor--1.0.13.sql.in))
     CP := $(shell cp ../pg_stat_monitor--1.0.13.sql.in ../pg_stat_monitor--1.0.sql)
+    CP := $(shell cp ../sql/pg_stat_monitor--2.0.13.sql.in ../pg_stat_monitor--2.0.sql)
+    CP := $(shell cp ../sql/pg_stat_monitor--1.0--2.0.sql.in ../pg_stat_monitor--1.0--2.0.sql)
   endif
   ifneq (,$(wildcard pg_stat_monitor--1.0.13.sql.in))
     CP := $(shell cp pg_stat_monitor--1.0.13.sql.in pg_stat_monitor--1.0.sql)
+    CP := $(shell cp sql/pg_stat_monitor--2.0.13.sql.in pg_stat_monitor--2.0.sql)
+    CP := $(shell cp sql/pg_stat_monitor--1.0--2.0.sql.in pg_stat_monitor--1.0--2.0.sql)
   endif
   TAP_TESTS = 1
 endif
@@ -45,20 +50,33 @@ endif
 ifneq (,$(findstring PostgreSQL12,$(MAJOR)))
   ifneq (,$(wildcard ../pg_stat_monitor--1.0.sql.in))
     CP := $(shell cp ../pg_stat_monitor--1.0.sql.in ../pg_stat_monitor--1.0.sql)
+    CP := $(shell cp ../sql/pg_stat_monitor--2.0.sql.in ../pg_stat_monitor--2.0.sql)
+    CP := $(shell cp ../sql/pg_stat_monitor--1.0--2.0.sql.in ../pg_stat_monitor--1.0--2.0.sql)
   endif
   ifneq (,$(wildcard pg_stat_monitor--1.0.sql.in))
     CP := $(shell cp pg_stat_monitor--1.0.sql.in pg_stat_monitor--1.0.sql)
+    CP := $(shell cp sql/pg_stat_monitor--2.0.sql.in pg_stat_monitor--2.0.sql)
+    CP := $(shell cp sql/pg_stat_monitor--1.0--2.0.sql.in pg_stat_monitor--1.0--2.0.sql)
   endif
 endif
 
 ifneq (,$(findstring PostgreSQL11,$(MAJOR)))
   ifneq (,$(wildcard ../pg_stat_monitor--1.0.sql.in))
     CP := $(shell cp ../pg_stat_monitor--1.0.sql.in ../pg_stat_monitor--1.0.sql)
+    CP := $(shell cp ../sql/pg_stat_monitor--2.0.sql.in ../pg_stat_monitor--2.0.sql)
+    CP := $(shell cp ../sql/pg_stat_monitor--1.0--2.0.sql.in ../pg_stat_monitor--1.0--2.0.sql)
   endif
   ifneq (,$(wildcard pg_stat_monitor--1.0.sql.in))
     CP := $(shell cp pg_stat_monitor--1.0.sql.in pg_stat_monitor--1.0.sql)
+    CP := $(shell cp sql/pg_stat_monitor--2.0.sql.in pg_stat_monitor--2.0.sql)
+    CP := $(shell cp sql/pg_stat_monitor--1.0--2.0.sql.in pg_stat_monitor--1.0--2.0.sql)
   endif
 endif
+
+MODULE_big = pg_stat_monitor
+OBJS = hash_query.o guc.o errors.o pg_stat_monitor.o $(WIN32RES)
+
+EXTENSION = pg_stat_monitor
 
 ifdef USE_PGXS
 PGXS := $(shell $(PG_CONFIG) --pgxs)

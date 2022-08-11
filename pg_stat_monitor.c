@@ -23,6 +23,7 @@
 #include <time.h> /* clock() */
 #endif
 #include "commands/explain.h"
+
 #include "pg_stat_monitor.h"
 
 PG_MODULE_MAGIC;
@@ -82,7 +83,6 @@ static struct pg_hook_stats_t *pg_hook_stats;
 
 static void extract_query_comments(const char *query, char *comments, size_t max_len);
 static int  get_histogram_bucket(double q_time);
-static bool IsSystemInitialized(void);
 static bool dump_queries_buffer(int bucket_id, unsigned char *buf, int buf_len);
 static double time_diff(struct timeval end, struct timeval start);
 
@@ -259,8 +259,8 @@ _PG_init(void)
 	 * the postmaster process.)  We'll allocate or attach to the shared
 	 * resources in pgss_shmem_startup().
 	 */
-	RequestAddinShmemSpace(hash_memsize() + HOOK_STATS_SIZE);
-	RequestNamedLWLockTranche("pg_stat_monitor", 1);
+	RequestAddinShmemSpace(hash_memsize() + pgsm_errors_size() + HOOK_STATS_SIZE);
+	RequestNamedLWLockTranche("pg_stat_monitor", 2);
 
 	/*
 	 * Install hooks.
@@ -674,7 +674,7 @@ pgss_ExecutorEnd(QueryDesc *queryDesc)
 		 */
 		InstrEndLoop(queryDesc->totaltime);
 		if(getrusage(RUSAGE_SELF, &rusage_end) != 0)
-			elog(DEBUG1, "pg_stat_monitor: failed to execute getrusage");
+			pgsm_log_error("pgss_ExecutorEnd: failed to execute getrusage");
 
 		sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
 		sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
@@ -1594,7 +1594,7 @@ pgss_store(uint64 queryid,
 				LWLockRelease(pgss->lock);
 				if (norm_query)
 					pfree(norm_query);
-				elog(DEBUG1, "pgss_store: insufficient shared space for query.");
+				pgsm_log_overflow("pgss_store: insufficient shared space for query.");
 				return;
 			}
 			/*
@@ -1746,7 +1746,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 	/* Build a tuple descriptor for our result type */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
-		elog(ERROR, "pg_stat_monitor: return type must be a row type");
+	{
+		pgsm_log_error("pg_stat_monitor_internal: call_result_type must return a row type");
+		return;
+	}
 
 	if (tupdesc->natts != 51)
 		elog(ERROR, "pg_stat_monitor: incorrect number of output arguments, required %d", tupdesc->natts);
@@ -1786,10 +1789,24 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		if (read_query(pgss_qbuf, queryid, query_txt, entry->query_pos) == 0)
 		{
-			int rc;
-			rc = read_query_buffer(bucketid, queryid, query_txt, entry->query_pos);
-			if (rc != 1)
-				snprintf(query_txt, 32, "%s", "<insufficient disk/shared space>");
+			/*
+			 * Failed to locate the query in memory,
+			 * If overflow is enabled we try to find the query in a dump file in disk.
+			 */
+			if (PGSM_OVERFLOW_TARGET == OVERFLOW_TARGET_DISK)
+			{
+				int rc;
+				rc = read_query_buffer(bucketid, queryid, query_txt, entry->query_pos);
+				if (rc != 1)
+				{
+					pgsm_log_error("pg_stat_monitor_internal: can't find query in dump file.");
+					continue;
+				}
+			} else
+			{
+				pgsm_log_overflow("pg_stat_monitor_internal: insufficient shared space.");
+				continue;
+			}
 		}
 
 		/* copy counters to a local variable to keep locking time short */
@@ -1820,9 +1837,13 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			{
 				int rc = read_query_buffer(bucketid, tmp.info.parentid, parent_query_txt, 0);
 				if (rc != 1)
-					snprintf(parent_query_txt, 32, "%s", "<insufficient disk/shared space>");
-			}
-		}
+                {
+				    pgsm_log_overflow("pg_stat_monitor_internal: insufficient shared space.");
+			        continue;
+                }
+                
+		    }
+        }
 		/* bucketid at column number 0 */
 		values[i++] = Int64GetDatumFast(bucketid);
 
@@ -2293,7 +2314,7 @@ JumbleRangeTable(JumbleState *jstate, List *rtable, CmdType cmd_type)
 				APP_JUMB_STRING(rte->enrname);
 				break;
 			default:
-				elog(ERROR, "unrecognized RTE kind: %d", (int) rte->rtekind);
+				pgsm_log_error("JumbleRangeTable: unrecognized RTE kind: %d", (int) rte->rtekind);
 				break;
 		}
 	}
@@ -2794,7 +2815,7 @@ JumbleExpr(JumbleState *jstate, Node *node)
 			break;
 		default:
 			/* Only a warning, since we can stumble along anyway */
-			elog(INFO, "unrecognized node type: %d",
+			pgsm_log_error("JumbleExpr: unrecognized node type: %d",
 				 (int) nodeTag(node));
 			break;
 	}
@@ -3200,11 +3221,6 @@ read_query(unsigned char *buf, uint64 queryid, char * query, size_t pos)
 		rlen += query_len;
 	}
 exit:
-	if (PGSM_OVERFLOW_TARGET == OVERFLOW_TARGET_NONE)
-	{
-		sprintf(query, "%s", "<insufficient shared space>");
-		return -1;
-	}
 	return 0;
 }
 
@@ -3235,7 +3251,7 @@ SaveQueryText(uint64 bucketid,
 
 				if (pgss->overflow)
 				{
-					elog(DEBUG1, "query buffer overflowed twice");
+					pgsm_log_overflow("SaveQueryText: query buffer overflowed twice");
 					return false;
 				}
 
@@ -3451,10 +3467,16 @@ pg_stat_monitor_hook_stats(PG_FUNCTION_ARGS)
 
 	/* Build a tuple descriptor for our result type */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
-		elog(ERROR, "pg_stat_monitor: return type must be a row type");
+	{
+		pgsm_log_error("pg_stat_monitor_hook_stats: return type must be a row type");
+		return (Datum) 0;
+	}
 
 	if (tupdesc->natts != 5)
-		elog(ERROR, "pg_stat_monitor: incorrect number of output arguments, required %d", tupdesc->natts);
+	{
+		pgsm_log_error("pg_stat_monitor_hook_stats: incorrect number of output arguments, required: 5, found %d", tupdesc->natts);
+		return (Datum) 0;
+	}
 
 	tupstore = tuplestore_begin_heap(true, false, work_mem);
 	rsinfo->returnMode = SFRM_Materialize;
@@ -3781,16 +3803,20 @@ extract_query_comments(const char *query, char *comments, size_t max_len)
 		comment_len = pmatch.rm_eo - pmatch.rm_so;
 
 		if (total_len + comment_len > max_len)
-			break;  /* TODO: log error in error view, insufficient space for comment. */
-
+        {
+            pgsm_log_overflow("extract_query_comments: insufficient space");                
+            break;
+        }
 		total_len += comment_len;
 
 		/* Not 1st iteration, append ", " before next comment. */
 		if (s != query)
 		{
 			if (total_len + 2 > max_len)
-				break;  /* TODO: log error in error view, insufficient space for ", " + comment. */
-
+            {
+                pgsm_log_overflow("extract_query_comments: insufficient space");                
+                break;
+            }
 			memcpy(comments, ", ", 2);
 			comments += 2;
 			total_len += 2;

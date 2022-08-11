@@ -389,6 +389,7 @@ bool SaveQueryText(uint64 bucketid,
 void init_guc(void);
 GucVariable *get_conf(int i);
 
+bool IsSystemInitialized(void);
 /* hash_create.c */
 bool IsHashInitialize(void);
 void pgss_shmem_startup(void);
@@ -510,6 +511,40 @@ void update_hook_stats(enum pg_hook_stats_id hook_id, double time_elapsed);
 #define HOOK(name) name##_benchmark
 
 #else /* #ifdef BENCHMARK */
+
+/* errors.c */
+/* Maximum allowed error message length. */
+#define ERROR_MSG_MAX_LEN 128
+
+#define ERROR_CODE_UNEXPECTED   1
+#define ERROR_CODE_OVERFLOW    2
+
+typedef struct
+{
+    char   message[ERROR_MSG_MAX_LEN];  /* message is also the hash key (MUST BE FIRST). */
+    char   time[60];                    /* last timestamp in which this error was reported. */
+    int64  calls;                       /* how many times this error was reported. */
+} ErrorEntry;
+
+/*
+ * Must be called during module startup, creates the hash table
+ * used to store pg_stat_monitor error messages.
+ */
+void psgm_errors_init(void);
+
+/*
+ * Returns an estimate of the hash table size.
+ * Used to reserve space on Postmaster's shared memory.
+ */
+size_t pgsm_errors_size(void);
+
+/*
+ * Add an error message to the hash table.
+ * Increment no. of calls if message already exists.
+ */
+void pgsm_log(uint64 code, const char *format, ...);
+void pgsm_log_error(const char *format, ...);
+void pgsm_log_overflow(const char *format, ...);
 
 #define DECLARE_HOOK(hook, ...) \
         static hook(__VA_ARGS__);

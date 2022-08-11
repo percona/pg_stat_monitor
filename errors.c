@@ -27,12 +27,25 @@
 #include <utils/hsearch.h>
 
 #include "pg_stat_monitor.h"
-#include "pgsm_errors.h"
 
 
 PG_FUNCTION_INFO_V1(pg_stat_monitor_errors);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_reset_errors);
 
+
+typedef struct pgssHashErrorKey
+{
+    uint64      code;      /* error code */
+    uint64      msg_hash;  /* hash of message */
+} pgssHashErrorKey;
+
+typedef struct pgssHashErrorEntry
+{
+    pgssHashErrorKey key;
+    char        message[ERROR_MSG_MAX_LEN];  /* message is also the hash key (MUST BE FIRST). */
+    char   time[60];                    /* last timestamp in which this error was reported. */
+    int64  calls;                       /* how many times this error was reported. */
+} pgssHashErrorEntry;
 
 /*
  * Maximum number of error messages tracked.
@@ -47,64 +60,73 @@ static HTAB *pgsm_errors_ht = NULL;
 void psgm_errors_init(void)
 {
 	HASHCTL info;
-#if PG_VERSION_NUM >= 140000
-	int flags = HASH_ELEM | HASH_STRINGS;
-#else
-	int flags = HASH_ELEM | HASH_BLOBS;
-#endif
-
 
 	memset(&info, 0, sizeof(info));
 	info.keysize = ERROR_MSG_MAX_LEN;
-	info.entrysize = sizeof(ErrorEntry);
+	info.entrysize = sizeof(pgssHashErrorEntry);
 	pgsm_errors_ht = ShmemInitHash("pg_stat_monitor: errors hashtable",
 									PSGM_ERRORS_MAX,  /* initial size */
 									PSGM_ERRORS_MAX,  /* maximum size */
 									&info,
-									flags);
+									HASH_ELEM | HASH_STRINGS);
 }
 
 size_t pgsm_errors_size(void)
 {
-    return hash_estimate_size(PSGM_ERRORS_MAX, sizeof(ErrorEntry));
+    return hash_estimate_size(PSGM_ERRORS_MAX, sizeof(pgssHashErrorEntry));
 }
 
-void pgsm_log(PgsmLogSeverity severity, const char *format, ...)
+void pgsm_log_error(const char *format, ...)
 {
-	char key[ERROR_MSG_MAX_LEN];
-	ErrorEntry *entry;
-	bool found = false;
-	va_list ap;
-	int n;
-	struct timeval tv;
-	struct tm *lt;
-	pgssSharedState *pgss;
+    pgsm_log(ERROR_CODE_UNEXPECTED, format);
+}
+
+void pgsm_log_overflow(const char *format, ...)
+{
+    pgsm_log(ERROR_CODE_OVERFLOW, format);
+}
+
+void pgsm_log(uint64 code, const char *format, ...)
+{
+	pgssHashErrorKey key;
+	pgssHashErrorEntry       *entry;
+	bool             found = false;
+    char message[ERROR_MSG_MAX_LEN];
+	va_list          ap;
+	int              n;
+	struct timeval   tv;
+	struct tm        *lt;
+	pgssSharedState  *pgss;
 
 	va_start(ap, format);
-	n = vsnprintf(key, ERROR_MSG_MAX_LEN, format, ap);
+	n = vsnprintf(message, ERROR_MSG_MAX_LEN, format, ap);
 	va_end(ap);
-
 	if (n < 0)
 		return;
+
+    key.code = code;
+    key.msg_hash = DatumGetUInt64(message);
 
 	pgss = pgsm_get_ss();
 	LWLockAcquire(pgss->errors_lock, LW_EXCLUSIVE);
 
-	entry = (ErrorEntry *) hash_search(pgsm_errors_ht, key, HASH_ENTER_NULL, &found);
+	entry = (pgssHashErrorEntry *) hash_search(pgsm_errors_ht, &key, HASH_ENTER_NULL, &found);
 	if (!entry)
 	{
 		LWLockRelease(pgss->errors_lock);
 		/* 
 		* We're out of memory, can't track this error message.
+		* In this case we must fallback to PostgreSQL log facility.
 		*/
+		elog(WARNING, "pgsm_log: OUT OF MEMORY");
 		return;
 	}
 
 	if (!found)
-	{
-		entry->severity = severity;
-		entry->calls = 0;
-	}
+    {
+        entry->calls = 0;
+        snprintf(entry->message, ERROR_MSG_MAX_LEN, "%s", message);
+    }
 
 	/* Update message timestamp. */
 	gettimeofday(&tv, NULL);
@@ -130,7 +152,7 @@ Datum
 pg_stat_monitor_reset_errors(PG_FUNCTION_ARGS)
 {
 	HASH_SEQ_STATUS 	hash_seq;
-	ErrorEntry         *entry;
+	pgssHashErrorEntry  *entry;
 	pgssSharedState     *pgss = pgsm_get_ss();
 
 	/* Safety check... */
@@ -143,7 +165,7 @@ pg_stat_monitor_reset_errors(PG_FUNCTION_ARGS)
 
 	hash_seq_init(&hash_seq, pgsm_errors_ht);
 	while ((entry = hash_seq_search(&hash_seq)) != NULL)
-		entry = hash_search(pgsm_errors_ht, &entry->message, HASH_REMOVE, NULL);
+		entry = hash_search(pgsm_errors_ht, &entry->key, HASH_REMOVE, NULL);
 
 	LWLockRelease(pgss->errors_lock);
 	PG_RETURN_VOID();
@@ -163,7 +185,7 @@ pg_stat_monitor_errors(PG_FUNCTION_ARGS)
 	MemoryContext		per_query_ctx;
 	MemoryContext		oldcontext;
 	HASH_SEQ_STATUS     hash_seq;
-	ErrorEntry          *error_entry;
+	pgssHashErrorEntry  *entry;
 	pgssSharedState     *pgss = pgsm_get_ss();
 
 	/* Safety check... */
@@ -176,7 +198,7 @@ pg_stat_monitor_errors(PG_FUNCTION_ARGS)
 	if (rsinfo == NULL || !IsA(rsinfo, ReturnSetInfo))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					errmsg("pg_stat_monitor: set-valued function called in context that cannot accept a set")));
+                 errmsg("pg_stat_monitor: set-valued function called in context that cannot accept a set")));
 
 	/* Switch into long-lived context to construct returned data structures */
 	per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
@@ -199,18 +221,19 @@ pg_stat_monitor_errors(PG_FUNCTION_ARGS)
 	LWLockAcquire(pgss->errors_lock, LW_SHARED);
 
 	hash_seq_init(&hash_seq, pgsm_errors_ht);
-	while ((error_entry = hash_seq_search(&hash_seq)) != NULL)
+	while ((entry = hash_seq_search(&hash_seq)) != NULL)
 	{
 		Datum		values[4];
 		bool		nulls[4];
 		int			i = 0;
+
 		memset(values, 0, sizeof(values));
 		memset(nulls, 0, sizeof(nulls));
 
-		values[i++] = Int64GetDatumFast(error_entry->severity);
-		values[i++] = CStringGetTextDatum(error_entry->message);
-		values[i++] = CStringGetTextDatum(error_entry->time);
-		values[i++] = Int64GetDatumFast(error_entry->calls);
+		values[i++] = Int64GetDatumFast(entry->key.code);
+        values[i++] = CStringGetTextDatum(entry->message);
+		values[i++] = CStringGetTextDatum(entry->time);
+		values[i++] = Int64GetDatumFast(entry->calls);
 
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}

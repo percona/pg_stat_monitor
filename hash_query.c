@@ -54,7 +54,9 @@ pgss_startup(void)
 	if (!found)
 	{
 		/* First time through ... */
-		pgss->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
+		LWLockPadded *pgsm_locks = GetNamedLWLockTranche("pg_stat_monitor");
+		pgss->lock = &(pgsm_locks[0].lock);
+		pgss->errors_lock = &(pgsm_locks[1].lock);
 		SpinLockInit(&pgss->mutex);
 		ResetSharedState(pgss);
 	}
@@ -67,6 +69,8 @@ pgss_startup(void)
 
 	pgss_hash = hash_init("pg_stat_monitor: bucket hashtable", sizeof(pgssHashKey), sizeof(pgssEntry), MAX_BUCKET_ENTRIES);
 	pgss_query_hash = hash_init("pg_stat_monitor: queryID hashtable", sizeof(uint64), sizeof(pgssQueryEntry), MAX_BUCKET_ENTRIES);
+
+	psgm_errors_init();
 
 	LWLockRelease(AddinShmemInitLock);
 
@@ -135,13 +139,13 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 
 	if (hash_get_num_entries(pgss_hash) >= MAX_BUCKET_ENTRIES)
 	{
-		elog(DEBUG1, "pg_stat_monitor: out of memory");
+		pgsm_log_error("pg_stat_monitor: out of memory");
 		return NULL;
 	}
 	/* Find or create an entry with desired hash code */
 	entry = (pgssEntry *) hash_search(pgss_hash, key, HASH_ENTER_NULL, &found);
 	if (entry == NULL)
-		elog(DEBUG1, "hash_entry_alloc: OUT OF MEMORY");
+		pgsm_log_error("hash_entry_alloc: OUT OF MEMORY");
 	else if (!found)
 	{
 		pgss->bucket_entry[pg_atomic_read_u64(&pgss->current_wbucket)]++;
@@ -216,7 +220,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 				pgssEntry *bkp_entry = malloc(sizeof(pgssEntry));
 				if (!bkp_entry)
 				{
-					elog(DEBUG1, "hash_entry_dealloc: out of memory");
+					pgsm_log_error("hash_entry_dealloc: out of memory");
 					/*
 					 * No memory, If the entry has calls > 1 then we change the state to finished,
 					 * as the pending query will likely finish execution during the new bucket
@@ -272,7 +276,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 
 		new_entry = (pgssEntry *) hash_search(pgss_hash, &old_entry->key, HASH_ENTER_NULL, &found);
 		if (new_entry == NULL)
-			elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
+			pgsm_log_error("hash_entry_dealloc: out of memory");
 		else if (!found)
 		{
 			/* Restore counters and other data. */
