@@ -289,16 +289,11 @@ CREATE FUNCTION pg_stat_monitor_reset_errors()
 RETURNS void                                                                                                            
 AS 'MODULE_PATHNAME'                                                                                                    
 LANGUAGE C PARALLEL SAFE;                                                                                               
-                                                                                                                         
-                                                                                                                         
-GRANT SELECT ON pg_stat_monitor_errors TO PUBLIC;                               
-                                                                                                                         
--- Don't want this to be available to non-superusers.                           
-REVOKE ALL ON FUNCTION pg_stat_monitor_reset_errors() FROM PUBLIC;              
-
 
 GRANT SELECT ON pg_stat_monitor TO PUBLIC;
 GRANT SELECT ON pg_stat_monitor_settings TO PUBLIC;
+GRANT SELECT ON pg_stat_monitor_errors TO PUBLIC;                               
 
 -- Don't want this to be available to non-superusers.
 REVOKE ALL ON FUNCTION pg_stat_monitor_reset() FROM PUBLIC;
+REVOKE ALL ON FUNCTION pg_stat_monitor_reset_errors() FROM PUBLIC;              

@@ -1,4 +1,4 @@
-/* contrib/pg_stat_monitor/pg_stat_monitor--1.1.sql */
+/* contrib/pg_stat_monitor/pg_stat_monitor--1.0.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "CREATE EXTENSION pg_stat_monitor" to load this file. \quit
@@ -225,40 +225,26 @@ SELECT
 $$
 LANGUAGE SQL PARALLEL SAFE;
 
-CREATE FUNCTION histogram(_bucket int, _quryid text)
-RETURNS SETOF RECORD AS $$
-DECLARE
- rec record;
-BEGIN
-for rec in
-        with stat as (select queryid, bucket, unnest(range()) as range, unnest(resp_calls)::int freq from pg_stat_monitor) select range, freq, repeat('■', (freq::float / max(freq) over() * 30)::int) as bar from stat where queryid = _quryid and bucket = _bucket
-loop
-return next rec;
-end loop;
-END
+-- Histogram Translation function                                               
+CREATE FUNCTION histogram(_bucket int, _quryid text)                            
+RETURNS SETOF RECORD AS $$                                                      
+DECLARE                                                                         
+rec record;                                                                    
+BEGIN                                                                           
+FOR rec in                                                                      
+         WITH stat AS                                                            
+         (                                                                       
+             SELECT queryid, bucket, unnest(range()) as range, unnest(resp_calls)::int freq
+             FROM pg_stat_monitor)                                               
+                 SELECT range, freq, repeat('■', (freq::float / max(freq) over() * 30)::int) AS bar
+                 FROM stat WHERE queryid = _quryid and bucket = _bucket          
+LOOP                                                                            
+RETURN next rec;                                                                
+END LOOP;                                                                       
+END                                                                             
 $$ language plpgsql;
 
---CREATE FUNCTION pg_stat_monitor_hook_stats(
---    OUT hook text,
---    OUT min_time float8,
---    OUT max_time float8,
---    OUT total_time float8,
---    OUT ncalls int8
---)
---RETURNS SETOF record
---AS 'MODULE_PATHNAME', 'pg_stat_monitor_hook_stats'
---LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
-
---CREATE VIEW pg_stat_monitor_hook_stats AS SELECT
---    hook,
---    min_time,
---    max_time,
---    total_time,
---    total_time / greatest(ncalls, 1) as avg_time,
---    ncalls,
---    ROUND(CAST(total_time / greatest(sum(total_time) OVER(), 0.00000001) * 100 as numeric), 2)::text || '%' as load_comparison
--- FROM pg_stat_monitor_hook_stats();
-
+-- Grant access to public.
 GRANT SELECT ON pg_stat_monitor TO PUBLIC;
 GRANT SELECT ON pg_stat_monitor_settings TO PUBLIC;
 

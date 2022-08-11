@@ -61,10 +61,6 @@ pgss_startup(void)
 		ResetSharedState(pgss);
 	}
 
-#ifdef BENCHMARK
-	init_hook_stats();
-#endif
-
 	set_qbuf((unsigned char *)ShmemAlloc(MAX_QUERY_BUF));
 
 	pgss_hash = hash_init("pg_stat_monitor: bucket hashtable", sizeof(pgssHashKey), sizeof(pgssEntry), MAX_BUCKET_ENTRIES);
