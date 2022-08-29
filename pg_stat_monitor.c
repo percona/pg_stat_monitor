@@ -2146,7 +2146,6 @@ static uint64
 get_next_wbucket(pgssSharedState *pgss)
 {
 	struct timeval tv;
-	uint64		current_sec;
 	uint64		current_bucket_sec;
 	uint64		new_bucket_id;
 	uint64		prev_bucket_id;
@@ -2154,7 +2153,6 @@ get_next_wbucket(pgssSharedState *pgss)
 	bool		update_bucket = false;
 
 	gettimeofday(&tv, NULL);
-	current_sec = (TimestampTz) tv.tv_sec - ((POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE) * SECS_PER_DAY);
 	current_bucket_sec = pg_atomic_read_u64(&pgss->prev_bucket_sec);
 
 	/*
@@ -2172,9 +2170,9 @@ get_next_wbucket(pgssSharedState *pgss)
 	 * definitely make the while condition to fail, we can stop the loop as
 	 * another thread has already updated prev_bucket_sec.
 	 */
-	while ((current_sec - current_bucket_sec) > ((uint64)PGSM_BUCKET_TIME))
+	while ((tv.tv_sec - (uint)current_bucket_sec) > ((uint)PGSM_BUCKET_TIME))
 	{
-		if (pg_atomic_compare_exchange_u64(&pgss->prev_bucket_sec, &current_bucket_sec, current_sec))
+		if (pg_atomic_compare_exchange_u64(&pgss->prev_bucket_sec, &current_bucket_sec, (uint64)tv.tv_sec))
 		{
 			update_bucket = true;
 			break;
@@ -2216,6 +2214,9 @@ get_next_wbucket(pgssSharedState *pgss)
 
 		tv.tv_sec = (tv.tv_sec) - (tv.tv_sec % PGSM_BUCKET_TIME);
 		lt = localtime(&tv.tv_sec);
+
+		/* Allign the value in prev_bucket_sec to the bucket start time */
+		pg_atomic_exchange_u64(&pgss->prev_bucket_sec, (uint64)tv.tv_sec);
 
 		snprintf(pgss->bucket_start_time[new_bucket_id], sizeof(pgss->bucket_start_time[new_bucket_id]),
 			"%04d-%02d-%02d %02d:%02d:%02d", lt->tm_year + 1900, lt->tm_mon + 1, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec);
