@@ -1276,35 +1276,35 @@ pgss_update_entry(pgssEntry *entry,
 		e->counters.calls.rows += rows;
 		if (bufusage)
 		{
-			e->counters.blocks.shared_blks_hit += bufusage->shared_blks_hit;
-			e->counters.blocks.shared_blks_read += bufusage->shared_blks_read;
-			e->counters.blocks.shared_blks_dirtied += bufusage->shared_blks_dirtied;
-			e->counters.blocks.shared_blks_written += bufusage->shared_blks_written;
-			e->counters.blocks.local_blks_hit += bufusage->local_blks_hit;
-			e->counters.blocks.local_blks_read += bufusage->local_blks_read;
-			e->counters.blocks.local_blks_dirtied += bufusage->local_blks_dirtied;
-			e->counters.blocks.local_blks_written += bufusage->local_blks_written;
-			e->counters.blocks.temp_blks_read += bufusage->temp_blks_read;
-			e->counters.blocks.temp_blks_written += bufusage->temp_blks_written;
-			e->counters.blocks.blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
-			e->counters.blocks.blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
-			#if PG_VERSION_NUM >= 150000
-				e->counters.blocks.temp_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
-				e->counters.blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
-			#endif
+			e->counters.blocks.shared_blks_hit += (int64)(bufusage->shared_blks_hit - e->counters.blocks.shared_blks_hit)/e->counters.calls.calls;
+			e->counters.blocks.shared_blks_read += (int64)(bufusage->shared_blks_read - e->counters.blocks.shared_blks_read)/e->counters.calls.calls;
+			e->counters.blocks.shared_blks_dirtied += (int64)(bufusage->shared_blks_dirtied - e->counters.blocks.shared_blks_dirtied)/e->counters.calls.calls;
+			e->counters.blocks.shared_blks_written += (int64)(bufusage->shared_blks_written - e->counters.blocks.shared_blks_written)/e->counters.calls.calls;
+			e->counters.blocks.local_blks_hit += (int64)(bufusage->local_blks_hit - e->counters.blocks.local_blks_hit)/e->counters.calls.calls;
+			e->counters.blocks.local_blks_read += (int64)(bufusage->local_blks_read - e->counters.blocks.local_blks_read)/e->counters.calls.calls;
+			e->counters.blocks.local_blks_dirtied += (int64)(bufusage->local_blks_dirtied - e->counters.blocks.local_blks_dirtied)/e->counters.calls.calls;
+			e->counters.blocks.local_blks_written += (int64)(bufusage->local_blks_written - e->counters.blocks.local_blks_written)/e->counters.calls.calls;
+			e->counters.blocks.temp_blks_read += (int64)(bufusage->temp_blks_read - e->counters.blocks.temp_blks_read)/e->counters.calls.calls;
+			e->counters.blocks.temp_blks_written += (int64)(bufusage->temp_blks_written - e->counters.blocks.temp_blks_written)/e->counters.calls.calls;
+			e->counters.blocks.blk_read_time += (int64)(INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time) - e->counters.blocks.blk_read_time)/e->counters.calls.calls;
+			e->counters.blocks.blk_write_time += (int64)(INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time) - e->counters.blocks.blk_write_time)/e->counters.calls.calls;
+#if PG_VERSION_NUM >= 150000
+			e->counters.blocks.temp_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
+			e->counters.blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
+#endif
 		}
-		e->counters.calls.usage += USAGE_EXEC(total_time);
 		if (sys_info)
 		{
-			e->counters.sysinfo.utime += sys_info->utime;
-			e->counters.sysinfo.stime += sys_info->stime;
+			e->counters.sysinfo.utime = (int64)(sys_info->utime - e->counters.sysinfo.utime)/e->counters.calls.calls;
+			e->counters.sysinfo.stime = (int64)(sys_info->stime - e->counters.sysinfo.stime)/e->counters.calls.calls;
 		}
 		if (walusage)
 		{
-			e->counters.walusage.wal_records += walusage->wal_records;
-			e->counters.walusage.wal_fpi += walusage->wal_fpi;
-			e->counters.walusage.wal_bytes += walusage->wal_bytes;
+			e->counters.walusage.wal_records +=(int64) (walusage->wal_records - e->counters.walusage.wal_records)/e->counters.calls.calls;
+			e->counters.walusage.wal_fpi +=(int64) (walusage->wal_fpi - e->counters.walusage.wal_fpi)/e->counters.calls.calls;
+			e->counters.walusage.wal_bytes += (int64)( walusage->wal_bytes - e->counters.walusage.wal_bytes)/e->counters.calls.calls;
 		}
+		e->counters.calls.usage += USAGE_EXEC(total_time);
 		if (jitusage)
 		{
 			e->counters.jitinfo.jit_functions += jitusage->created_functions;
