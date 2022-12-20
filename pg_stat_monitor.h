@@ -205,7 +205,7 @@ typedef struct pgssHashKey
 typedef struct QueryInfo
 {
 	uint64		parentid;		/* parent queryid of current query */
-	dsa_pointer	parent_query;
+	dsa_pointer parent_query;
 	int64		type;			/* type of query, options are query, info,
 								 * warning, error, fatal */
 	char		application_name[APPLICATIONNAME_LEN];
@@ -247,24 +247,24 @@ typedef struct Blocks
 	double		blk_read_time;	/* time spent reading, in msec */
 	double		blk_write_time; /* time spent writing, in msec */
 
-	double      temp_blk_read_time; /* time spent reading temp blocks, in msec */
-	double      temp_blk_write_time;    /* time spent writing temp blocks, in
-                                          * msec */
+	double		temp_blk_read_time; /* time spent reading temp blocks, in msec */
+	double		temp_blk_write_time;	/* time spent writing temp blocks, in
+										 * msec */
 }			Blocks;
 
 typedef struct JitInfo
 {
-     int64       jit_functions;  /* total number of JIT functions emitted */
-     double      jit_generation_time;    /* total time to generate jit code */
-     int64       jit_inlining_count; /* number of times inlining time has been
-                                      * > 0 */
-     double      jit_inlining_time;  /* total time to inline jit code */
-     int64       jit_optimization_count; /* number of times optimization time
-                                          * has been > 0 */
-     double      jit_optimization_time;  /* total time to optimize jit code */
-     int64       jit_emission_count; /* number of times emission time has been
-                                      * > 0 */
-     double      jit_emission_time;  /* total time to emit jit code */
+	int64		jit_functions;	/* total number of JIT functions emitted */
+	double		jit_generation_time;	/* total time to generate jit code */
+	int64		jit_inlining_count; /* number of times inlining time has been
+									 * > 0 */
+	double		jit_inlining_time;	/* total time to inline jit code */
+	int64		jit_optimization_count; /* number of times optimization time
+										 * has been > 0 */
+	double		jit_optimization_time;	/* total time to optimize jit code */
+	int64		jit_emission_count; /* number of times emission time has been
+									 * > 0 */
+	double		jit_emission_time;	/* total time to emit jit code */
 }			JitInfo;
 
 typedef struct SysInfo
@@ -312,7 +312,7 @@ typedef struct pgssEntry
 	Counters	counters;		/* the statistics for this query */
 	int			encoding;		/* query text encoding */
 	slock_t		mutex;			/* protects the counters only */
-	dsa_pointer	query_pos;		/* query location within query buffer */
+	dsa_pointer query_pos;		/* query location within query buffer */
 } pgssEntry;
 
 /*
@@ -328,9 +328,10 @@ typedef struct pgssSharedState
 	pg_atomic_uint64 current_wbucket;
 	pg_atomic_uint64 prev_bucket_sec;
 	uint64		bucket_entry[MAX_BUCKETS];
-	struct tm   bucket_start_time[MAX_BUCKETS]; /* start time of the bucket */
+	struct tm	bucket_start_time[MAX_BUCKETS]; /* start time of the bucket */
 	LWLock	   *errors_lock;	/* protects errors hashtable
 								 * search/modification */
+
 	/*
 	 * These variables are used when pgsm_overflow_target is ON.
 	 *
@@ -344,8 +345,8 @@ typedef struct pgssSharedState
 	 * slowdown queries to the pg_stat_monitor view.
 	 */
 	size_t		n_bucket_cycles;
-	int         hash_tranche_id;
-	void        *raw_dsa_area;
+	int			hash_tranche_id;
+	void	   *raw_dsa_area;
 	dshash_table_handle hash_handle;
 } pgssSharedState;
 
@@ -354,7 +355,7 @@ typedef struct pgsmLocalState
 	pgssSharedState *shared_pgssState;
 	dsa_area   *dsa;
 	dshash_table *shared_hash;
-}pgsmLocalState;
+}			pgsmLocalState;
 
 #define ResetSharedState(x) \
 do { \
@@ -418,7 +419,7 @@ GucVariable *get_conf(int i);
 
 /* hash_create.c */
 dsa_area   *get_dsa_area_for_query_text(void);
-dshash_table	*get_pgssHash(void);
+dshash_table *get_pgssHash(void);
 void		pgsm_attach_shmem(void);
 bool		IsHashInitialize(void);
 void		pgss_shmem_startup(void);
@@ -473,4 +474,3 @@ static const struct config_enum_entry track_options[] =
 #define HOOK(name) name
 #define HOOK_STATS_SIZE 0
 #endif
-

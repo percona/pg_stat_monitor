@@ -1,11 +1,24 @@
 /*-------------------------------------------------------------------------
- *
  * pg_stat_monitor.c
  *		Track statement execution times across a whole database cluster.
+ * pg_stat_monitor is a PostgreSQL extension that provides a set of views and
+ * functions for monitoring various aspects of a PostgreSQL database server. It
+ * includes views and functions for monitoring database activity, resource usage,
+ * and performance. The pg_stat_monitor extension includes a set of views that
+ * provide real-time information about the activity and performance of a PostgreSQL
+ * database server. These views provide information about the number of connections,
+ * queries, and transactions being processed by the server, as well as resource usage
+ * and performance metrics such as CPU and memory usage. The extension also includes
+ * a set of functions that allow users to retrieve historical data from these views,
+ * allowing them to track changes in database activity and performance over time.
+ * This can be useful for identifying trends and patterns in database usage, as well
+ * as for identifying and troubleshooting performance issues. Overall, pg_stat_monitor
+ * is a useful tool for monitoring and analyzing the performance and activity of a
+ * PostgreSQL database server.
  *
- * Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
+ * Portions Copyright © 2018-2022, Percona LLC and/or its affiliates
  *
- * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2022, PostgreSQL Global Development Group
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
  *
@@ -23,45 +36,45 @@
 #include "commands/explain.h"
 #include "pg_stat_monitor.h"
 
- /*
-  * Extension version number, for supporting older extension versions' objects
-  */
- typedef enum pgsmVersion
- {
-     PGSM_V1_0 = 0,
-     PGSM_V2_0
- } pgsmVersion;
+/*
+ * Extension version number, for supporting older extension versions' objects
+ */
+typedef enum pgsmVersion
+{
+	PGSM_V1_0 = 0,
+	PGSM_V2_0
+}			pgsmVersion;
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION                   "2.0.0-dev"
+#define BUILD_VERSION "2.0.0-dev"
 
 /* Number of output arguments (columns) for various API versions */
-#define PG_STAT_MONITOR_COLS_V1_0    52
-#define PG_STAT_MONITOR_COLS_V2_0    61
-#define PG_STAT_MONITOR_COLS         61	/* maximum of above */
+#define PG_STAT_MONITOR_COLS_V1_0 52
+#define PG_STAT_MONITOR_COLS_V2_0 61
+#define PG_STAT_MONITOR_COLS 61 /* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
 
-#define roundf(x,d) ((floor(((x)*pow(10,d))+.5))/pow(10,d))
+#define roundf(x, d) ((floor(((x)*pow(10, d)) + .5)) / pow(10, d))
 
-#define PGUNSIXBIT(val) (((val) & 0x3F) + '0')
+#define PGUNSIXBIT(val) (((val)&0x3F) + '0')
 
-#define _snprintf(_str_dst, _str_src, _len, _max_len)\
-  memcpy((void *)_str_dst, _str_src, _len < _max_len ? _len : _max_len)
+#define _snprintf(_str_dst, _str_src, _len, _max_len) \
+	memcpy((void *)_str_dst, _str_src, _len < _max_len ? _len : _max_len)
 
-#define pgsm_enabled(level) \
-    (!IsParallelWorker() && \
-    (PGSM_TRACK == PGSM_TRACK_ALL || \
-    (PGSM_TRACK == PGSM_TRACK_TOP && (level) == 0)))
+#define pgsm_enabled(level)         \
+	(!IsParallelWorker() &&           \
+	 (PGSM_TRACK == PGSM_TRACK_ALL || \
+		(PGSM_TRACK == PGSM_TRACK_TOP && (level) == 0)))
 
-#define _snprintf2(_str_dst, _str_src, _len1, _len2)\
-do                                                      \
-{                                                       \
-	int i;                                            \
-	for(i = 0; i < _len1; i++)                        \
-		strlcpy((char *)_str_dst[i], _str_src[i], _len2); \
-}while(0)
+#define _snprintf2(_str_dst, _str_src, _len1, _len2)    \
+	do                                                    \
+	{                                                     \
+		int i;                                              \
+		for (i = 0; i < _len1; i++)                         \
+			strlcpy((char *)_str_dst[i], _str_src[i], _len2); \
+	} while (0)
 
 /*---- Initicalization Function Declarations ----*/
 void		_PG_init(void);
@@ -77,7 +90,7 @@ static int	plan_nested_level = 0;
 
 /* The array to store outer layer query id*/
 uint64	   *nested_queryids;
-char	   **nested_query_txts;
+char	  **nested_query_txts;
 
 /* Regex object used to extract query comments. */
 static regex_t preg_query_comments;
@@ -95,7 +108,6 @@ static int	get_histogram_bucket(double q_time);
 static bool IsSystemInitialized(void);
 static double time_diff(struct timeval end, struct timeval start);
 static void request_additional_shared_resources(void);
-
 
 /* Saved hook values in case of unload */
 
@@ -171,9 +183,9 @@ DECLARE_HOOK(void pgss_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 #endif
 char	   *unpack_sql_state(int sql_state);
 
-#define PGSM_HANDLED_UTILITY(n)  (!IsA(n, ExecuteStmt) && \
-									!IsA(n, PrepareStmt) && \
-									!IsA(n, DeallocateStmt))
+#define PGSM_HANDLED_UTILITY(n) (!IsA(n, ExecuteStmt) && \
+																 !IsA(n, PrepareStmt) && \
+																 !IsA(n, DeallocateStmt))
 
 static void pgss_store_error(uint64 queryid, const char *query, ErrorData *edata);
 
@@ -228,6 +240,7 @@ static uint64 djb2_hash(unsigned char *str, size_t len);
 
 /* Same as above, but stores the calculated string length into *out_len (small optimization) */
 static uint64 djb2_hash_str(unsigned char *str, int *out_len);
+
 /*
  * Module load callback
  */
@@ -243,9 +256,9 @@ _PG_init(void)
 	 * In order to create our shared memory area, we have to be loaded via
 	 * shared_preload_libraries.  If not, fall out without hooking into any of
 	 * the main system.  (We don't throw error here because it seems useful to
-	 * allow the pg_stat_monitor functions to be created even when the
-	 * module isn't active.  The functions must protect themselves against
-	 * being called then, however.)
+	 * allow the pg_stat_monitor functions to be created even when the module
+	 * isn't active.  The functions must protect themselves against being
+	 * called then, however.)
 	 */
 	if (!process_shared_preload_libraries_in_progress)
 		return;
@@ -261,7 +274,6 @@ _PG_init(void)
 	 */
 	EnableQueryId();
 #endif
-
 
 	EmitWarningsOnPlaceholders("pg_stat_monitor");
 
@@ -307,7 +319,7 @@ _PG_init(void)
 	ExecutorCheckPerms_hook = HOOK(pgss_ExecutorCheckPerms);
 
 	nested_queryids = (uint64 *) malloc(sizeof(uint64) * max_stack_depth);
-	nested_query_txts = (char **) malloc(sizeof(char*) * max_stack_depth);
+	nested_query_txts = (char **) malloc(sizeof(char *) * max_stack_depth);
 
 	system_init = true;
 }
@@ -362,6 +374,7 @@ request_additional_shared_resources(void)
 	RequestAddinShmemSpace(pgsm_ShmemSize() + HOOK_STATS_SIZE);
 	RequestNamedLWLockTranche("pg_stat_monitor", 1);
 }
+
 /*
  * Select the version of pg_stat_monitor.
  */
@@ -380,7 +393,7 @@ static void
 pgss_shmem_request(void)
 {
 	if (prev_shmem_request_hook)
-			prev_shmem_request_hook();
+		prev_shmem_request_hook();
 	request_additional_shared_resources();
 }
 #endif
@@ -422,21 +435,21 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 	 * anyway, so there's no need for an early entry.
 	 */
 	if (jstate && jstate->clocations_count > 0)
-		pgss_store(query->queryId,          /* query id */
-					pstate->p_sourcetext,   /* query */
-					query->stmt_location,   /* query location */
-					query->stmt_len,        /* query length */
-					NULL,                   /* PlanInfo */
-					query->commandType,     /* CmdType */
-					NULL,                   /* SysInfo */
-					NULL,                   /* ErrorInfo */
-					0,                      /* totaltime */
-					0,                      /* rows */
-					NULL,                   /* bufusage */
-					NULL,                   /* walusage */
-					NULL,					/* jitusage */
-					jstate,                 /* JumbleState */
-					PGSS_PARSE);            /* pgssStoreKind */
+		pgss_store(query->queryId,	/* query id */
+				   pstate->p_sourcetext,	/* query */
+				   query->stmt_location,	/* query location */
+				   query->stmt_len, /* query length */
+				   NULL,		/* PlanInfo */
+				   query->commandType,	/* CmdType */
+				   NULL,		/* SysInfo */
+				   NULL,		/* ErrorInfo */
+				   0,			/* totaltime */
+				   0,			/* rows */
+				   NULL,		/* bufusage */
+				   NULL,		/* walusage */
+				   NULL,		/* jitusage */
+				   jstate,		/* JumbleState */
+				   PGSS_PARSE); /* pgssStoreKind */
 }
 #else
 
@@ -480,22 +493,22 @@ pgss_post_parse_analyze(ParseState *pstate, Query *query)
 	if (query->queryId == UINT64CONST(0))
 		query->queryId = UINT64CONST(1);
 
-       if (jstate.clocations_count > 0)
-               pgss_store(query->queryId,                /* query id */
-							pstate->p_sourcetext,        /* query */
-							query->stmt_location,        /* query location */
-							query->stmt_len,    /* query length */
-							NULL,               /* PlanInfo */
-							query->commandType, /* CmdType */
-							NULL,               /* SysInfo */
-							NULL,               /* ErrorInfo */
-							0,                  /* totaltime */
-							0,                  /* rows */
-							NULL,               /* bufusage */
-							NULL,               /* walusage */
-							NULL,				/* jitusage */
-							&jstate,            /* JumbleState */
-							PGSS_PARSE);        /* pgssStoreKind */
+	if (jstate.clocations_count > 0)
+		pgss_store(query->queryId,	/* query id */
+				   pstate->p_sourcetext,	/* query */
+				   query->stmt_location,	/* query location */
+				   query->stmt_len, /* query length */
+				   NULL,		/* PlanInfo */
+				   query->commandType,	/* CmdType */
+				   NULL,		/* SysInfo */
+				   NULL,		/* ErrorInfo */
+				   0,			/* totaltime */
+				   0,			/* rows */
+				   NULL,		/* bufusage */
+				   NULL,		/* walusage */
+				   NULL,		/* jitusage */
+				   &jstate,		/* JumbleState */
+				   PGSS_PARSE); /* pgssStoreKind */
 }
 #endif
 
@@ -541,7 +554,6 @@ pgss_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	}
 }
 
-
 /*
  * ExecutorRun hook: all we need do is track nesting depth
  */
@@ -566,7 +578,7 @@ pgss_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 		if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
 		{
 			nested_queryids[exec_nested_level] = UINT64CONST(0);
-			if(nested_query_txts[exec_nested_level])
+			if (nested_query_txts[exec_nested_level])
 				free(nested_query_txts[exec_nested_level]);
 			nested_query_txts[exec_nested_level] = NULL;
 		}
@@ -577,7 +589,7 @@ pgss_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 		if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
 		{
 			nested_queryids[exec_nested_level] = UINT64CONST(0);
-			if(nested_query_txts[exec_nested_level])
+			if (nested_query_txts[exec_nested_level])
 				free(nested_query_txts[exec_nested_level]);
 			nested_query_txts[exec_nested_level] = NULL;
 		}
@@ -847,7 +859,6 @@ pgss_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	return result;
 }
 #endif
-
 
 /*
  * ProcessUtility hook
@@ -1189,7 +1200,6 @@ pgss_update_entry(pgssEntry *entry,
 	int			sqlcode_len = error_info ? strlen(error_info->sqlcode) : 0;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
-
 	/* volatile block */
 	{
 		volatile pgssEntry *e = (volatile pgssEntry *) entry;
@@ -1271,14 +1281,15 @@ pgss_update_entry(pgssEntry *entry,
 		{
 			if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
 			{
-				int		parent_query_len = nested_query_txts[exec_nested_level - 1]?
-												strlen(nested_query_txts[exec_nested_level - 1]): 0;
+				int			parent_query_len = nested_query_txts[exec_nested_level - 1] ? strlen(nested_query_txts[exec_nested_level - 1]) : 0;
+
 				e->counters.info.parentid = nested_queryids[exec_nested_level - 1];
 				if (parent_query_len > 0)
 				{
-					char		*qry_buff;
-					dsa_area	*query_dsa_area = get_dsa_area_for_query_text();
-					dsa_pointer qry = dsa_allocate(query_dsa_area, parent_query_len+1);
+					char	   *qry_buff;
+					dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
+					dsa_pointer qry = dsa_allocate(query_dsa_area, parent_query_len + 1);
+
 					qry_buff = dsa_get_address(query_dsa_area, qry);
 					memcpy(qry_buff, nested_query_txts[exec_nested_level - 1], parent_query_len);
 					qry_buff[parent_query_len] = 0;
@@ -1286,7 +1297,6 @@ pgss_update_entry(pgssEntry *entry,
 				}
 				else
 					e->counters.info.parent_query = InvalidDsaPointer;
-
 			}
 		}
 		else
@@ -1316,10 +1326,10 @@ pgss_update_entry(pgssEntry *entry,
 			e->counters.blocks.temp_blks_written += bufusage->temp_blks_written;
 			e->counters.blocks.blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
 			e->counters.blocks.blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
-			#if PG_VERSION_NUM >= 150000
-				e->counters.blocks.temp_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
-				e->counters.blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
-			#endif
+#if PG_VERSION_NUM >= 150000
+			e->counters.blocks.temp_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
+			e->counters.blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
+#endif
 		}
 		e->counters.calls.usage += USAGE_EXEC(total_time);
 		if (sys_info)
@@ -1520,8 +1530,7 @@ pgss_store(uint64 queryid,
 	if (!entry)
 	{
 		dsa_pointer dsa_query_pointer;
-		char*	query_buff;
-
+		char	   *query_buff;
 
 		/*
 		 * Create a new, normalized query string if caller asked.  We don't
@@ -1547,8 +1556,9 @@ pgss_store(uint64 queryid,
 		LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
 
 		/* Save the query text in raw dsa area */
-		dsa_area* query_dsa_area = get_dsa_area_for_query_text();
-		dsa_query_pointer = dsa_allocate(query_dsa_area, query_len+1);
+		dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
+
+		dsa_query_pointer = dsa_allocate(query_dsa_area, query_len + 1);
 		query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
 		memcpy(query_buff, norm_query ? norm_query : query, query_len);
 		query_buff[query_len] = 0;
@@ -1566,7 +1576,6 @@ pgss_store(uint64 queryid,
 	}
 	else
 		dshash_release_lock(get_pgssHash(), entry);
-
 
 	if (jstate == NULL)
 		pgss_update_entry(entry,	/* entry */
@@ -1628,8 +1637,8 @@ pg_stat_monitor_2_0(PG_FUNCTION_ARGS)
 }
 
 /*
-  * Legacy entry point for pg_stat_monitor() API versions 1.0
-  */
+ * Legacy entry point for pg_stat_monitor() API versions 1.0
+ */
 Datum
 pg_stat_monitor(PG_FUNCTION_ARGS)
 {
@@ -1671,7 +1680,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	pgssSharedState *pgss = pgsm_get_ss();
 	char	   *query_txt = NULL;
 	char	   *parent_query_txt = NULL;
-	int        expected_columns = (api_version >= PGSM_V2_0)?PG_STAT_MONITOR_COLS_V2_0:PG_STAT_MONITOR_COLS_V1_0;
+	int			expected_columns = (api_version >= PGSM_V2_0) ? PG_STAT_MONITOR_COLS_V2_0 : PG_STAT_MONITOR_COLS_V1_0;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1687,7 +1696,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	if (!(rsinfo->allowedModes & SFRM_Materialize))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("pg_stat_monitor: materialize mode required, but it is not " \
+				 errmsg("pg_stat_monitor: materialize mode required, but it is not "
 						"allowed in this context")));
 
 	/* Switch into long-lived context to construct returned data structures */
@@ -1708,7 +1717,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 	MemoryContextSwitchTo(oldcontext);
 
-	// LWLockAcquire(pgss->lock, LW_SHARED);
+	/* LWLockAcquire(pgss->lock, LW_SHARED); */
 
 	dshash_seq_init(&hstat, get_pgssHash(), false);
 
@@ -1727,8 +1736,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		uint64		userid = entry->key.userid;
 		int64		ip = entry->key.ip;
 		uint64		planid = entry->key.planid;
-		dsa_area	*query_dsa_area;
-		char 		*query_ptr;
+		dsa_area   *query_dsa_area;
+		char	   *query_ptr;
 #if PG_VERSION_NUM < 140000
 		bool		toplevel = 1;
 		bool		is_allowed_role = is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_STATS);
@@ -1843,7 +1852,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 		}
 
-		/* state at column number 8 for V1.0 API*/
+		/* state at column number 8 for V1.0 API */
 		if (api_version <= PGSM_V1_0)
 			values[i++] = Int64GetDatumFast(tmp.state);
 
@@ -1899,7 +1908,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		if (tmp.info.cmd_type == CMD_NOTHING)
 			nulls[i++] = true;
 		else
-			values[i++] = Int64GetDatumFast((int64)tmp.info.cmd_type);
+			values[i++] = Int64GetDatumFast((int64) tmp.info.cmd_type);
 
 		/* elevel at column number 12 */
 		values[i++] = Int64GetDatumFast(tmp.error.elevel);
@@ -1919,7 +1928,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* bucket_start_time at column number 15 */
 		{
 			TimestampTz tm;
-			tm2timestamp((struct pg_tm*) &pgss->bucket_start_time[entry->key.bucket_id], 0, NULL, &tm);
+
+			tm2timestamp((struct pg_tm *) &pgss->bucket_start_time[entry->key.bucket_id], 0, NULL, &tm);
 			values[i++] = TimestampGetDatum(tm);
 		}
 		if (tmp.calls.calls == 0)
@@ -2048,7 +2058,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
 				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
 			}
-
 		}
 		values[i++] = BoolGetDatum(toplevel);
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgss->current_wbucket) != bucketid);
@@ -2059,9 +2068,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	/* clean up and return the tuplestore */
 	dshash_seq_term(&hstat);
 
-	if(query_txt)
+	if (query_txt)
 		pfree(query_txt);
-	if(parent_query_txt)
+	if (parent_query_txt)
 		pfree(parent_query_txt);
 
 	tuplestore_donestoring(tupstore);
@@ -2095,9 +2104,9 @@ get_next_wbucket(pgssSharedState *pgss)
 	 * definitely make the while condition to fail, we can stop the loop as
 	 * another thread has already updated prev_bucket_sec.
 	 */
-	while ((tv.tv_sec - (uint)current_bucket_sec) >= ((uint)PGSM_BUCKET_TIME))
+	while ((tv.tv_sec - (uint) current_bucket_sec) >= ((uint) PGSM_BUCKET_TIME))
 	{
-		if (pg_atomic_compare_exchange_u64(&pgss->prev_bucket_sec, &current_bucket_sec, (uint64)tv.tv_sec))
+		if (pg_atomic_compare_exchange_u64(&pgss->prev_bucket_sec, &current_bucket_sec, (uint64) tv.tv_sec))
 		{
 			update_bucket = true;
 			break;
@@ -2121,6 +2130,7 @@ get_next_wbucket(pgssSharedState *pgss)
 
 		tv.tv_sec = (tv.tv_sec) - (tv.tv_sec % PGSM_BUCKET_TIME);
 		lt = localtime(&tv.tv_sec);
+
 		/*
 		 * Year is 1900 behind and month is 0 based, therefore we need to
 		 * adjust that.
@@ -2129,7 +2139,7 @@ get_next_wbucket(pgssSharedState *pgss)
 		lt->tm_mon += 1;
 
 		/* Allign the value in prev_bucket_sec to the bucket start time */
-		pg_atomic_exchange_u64(&pgss->prev_bucket_sec, (uint64)tv.tv_sec);
+		pg_atomic_exchange_u64(&pgss->prev_bucket_sec, (uint64) tv.tv_sec);
 		memcpy(&pgss->bucket_start_time[new_bucket_id], lt, sizeof(struct tm));
 		return new_bucket_id;
 	}
@@ -2180,9 +2190,9 @@ AppendJumble(JumbleState *jstate, const unsigned char *item, Size size)
  * of individual local variable elements.
  */
 #define APP_JUMB(item) \
-	AppendJumble(jstate, (const unsigned char *) &(item), sizeof(item))
+	AppendJumble(jstate, (const unsigned char *)&(item), sizeof(item))
 #define APP_JUMB_STRING(str) \
-	AppendJumble(jstate, (const unsigned char *) (str), strlen(str) + 1)
+	AppendJumble(jstate, (const unsigned char *)(str), strlen(str) + 1)
 
 /*
  * JumbleQuery: Selectively serialize the query tree, appending significant
@@ -3087,7 +3097,7 @@ comp_location(const void *a, const void *b)
 		return 0;
 }
 
-#define MAX_STRING_LEN	1024
+#define MAX_STRING_LEN 1024
 /* Convert array into Text dataum */
 static Datum
 intarray_get_datum(int32 arr[], int len)
@@ -3111,9 +3121,7 @@ intarray_get_datum(int32 arr[], int len)
 		strcat(str, tmp);
 	}
 	return CStringGetTextDatum(str);
-
 }
-
 
 Datum
 pg_stat_monitor_settings(PG_FUNCTION_ARGS)
@@ -3244,13 +3252,11 @@ pg_stat_monitor_settings(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
-
 Datum
 pg_stat_monitor_hook_stats(PG_FUNCTION_ARGS)
 {
 	return (Datum) 0;
 }
-
 
 void
 pgsm_emit_log_hook(ErrorData *edata)
@@ -3287,67 +3293,126 @@ IsSystemInitialized(void)
 	return (system_init && IsHashInitialize());
 }
 
-
-static double
+/*
+ * time_diff - calculate the difference between two timestamps
+ * This function calculates the difference between two timestamps, in
+ * milliseconds. The timestamps are given as struct timeval values.
+ * The function returns the difference as a long integer.
+ */
+double
 time_diff(struct timeval end, struct timeval start)
 {
-	double		mstart;
-	double		mend;
+	/*
+	 * Calculate the difference between the timestamps in seconds and
+	 * microseconds
+	 */
+	long		sec_diff = end.tv_sec - start.tv_sec;
+	long		usec_diff = end.tv_usec - start.tv_usec;
 
-	mend = ((double) end.tv_sec * 1000.0 + (double) end.tv_usec / 1000.0);
-	mstart = ((double) start.tv_sec * 1000.0 + (double) start.tv_usec / 1000.0);
-	return mend - mstart;
+	/* Convert the difference to milliseconds and return the result */
+	return sec_diff * 1000 + usec_diff / 1000;
 }
 
+/*
+ * unpack_sql_state - convert packed SQLSTATE string to regular string
+ * This function converts a packed SQLSTATE string to a regular null-terminated
+ * string. The packed string consists of five 6-bit ASCII characters packed into
+ * a single 32-bit integer.
+ * The function returns a pointer to a static buffer containing the unpacked
+ * string.
+ */
 char *
 unpack_sql_state(int sql_state)
 {
 	static char buf[12];
 	int			i;
 
+	/* Unpack each character of the packed string */
 	for (i = 0; i < 5; i++)
 	{
+		/* Extract the next 6-bit character */
 		buf[i] = PGUNSIXBIT(sql_state);
+
+		/* Shift the packed string right 6 bits for the next iteration */
 		sql_state >>= 6;
 	}
 
+	/* Null-terminate the unpacked string */
 	buf[i] = '\0';
+
+	/* Return a pointer to the unpacked string */
 	return buf;
 }
 
+/*
+ * This function returns the index of the bucket in which the given query
+ * time falls in the logarithmic histogram. The histogram has a range from
+ * PGSM_HISTOGRAM_MIN to PGSM_HISTOGRAM_MAX, with PGSM_HISTOGRAM_BUCKETS number of buckets.
+ * q_time: The query time.
+ * return: The index of the bucket in which the given query time falls in the histogram.
+ */
 static int
 get_histogram_bucket(double q_time)
 {
-	double		q_min = PGSM_HISTOGRAM_MIN;
-	double		q_max = PGSM_HISTOGRAM_MAX;
-	int			b_count = PGSM_HISTOGRAM_BUCKETS;
-	int			index = 0;
-	double		b_max;
-	double		b_min;
-	double		bucket_size;
+	const double q_min = PGSM_HISTOGRAM_MIN;
+	const double q_max = PGSM_HISTOGRAM_MAX;
+	const int	b_count = PGSM_HISTOGRAM_BUCKETS;
 
+	/* Shift the query time by the minimum query time. */
 	q_time -= q_min;
 
-	b_max = log(q_max - q_min);
-	b_min = 0;
+	/* Calculate the maximum and minimum values for the logarithmic histogram. */
+	const double b_max = log(q_max - q_min);
+	const double b_min = 0;
 
-	bucket_size = (b_max - b_min) / (double) b_count;
+	/* Calculate the size of each bucket. */
+	const double bucket_size = (b_max - b_min) / (double) b_count;
 
-	for (index = 1; index <= b_count; index++)
+	/*
+	 * Iterate through each bucket and find the one in which the query time
+	 * falls.
+	 */
+	for (int index = 1; index <= b_count; index++)
 	{
-		int64		b_start = (index == 1) ? 0 : exp(bucket_size * (index - 1));
-		int64		b_end = exp(bucket_size * index);
+		 /**/ Calculate the start and end values for the current bucket.* /
+					const int64_t b_start = (index == 1)
+			? 0 : exp(bucket_size * (index - 1));
+		const		int64_t b_end = exp(bucket_size * index);
 
-		if ((index == 1 && q_time < b_start)
-			|| (q_time >= b_start && q_time <= b_end)
-			|| (index == b_count && q_time > b_end))
+		/* Check if the query time falls within the current bucket. */
+		if ((index == 1 && q_time < b_start) || (q_time >= b_start && q_time <= b_end) || (index == b_count && q_time > b_end))
 		{
 			return index - 1;
 		}
 	}
+	/* Return 0 if the query time falls outside of the histogram range. */
 	return 0;
 }
 
+/*
+ * The function get_histogram_timings is used to generate a string representation
+ * of a histogram of query execution times in a PostgreSQL database. The histogram
+ * is logarithmic, with the minimum and maximum execution times specified by
+ * PGSM_HISTOGRAM_MIN and PGSM_HISTOGRAM_MAX, respectively, and the number of buckets
+ * in the histogram specified by PGSM_HISTOGRAM_BUCKETS. The function begins by
+ * allocating two buffers, tmp_str and text_str, which will be used to store the
+ * string representation of the histogram as it is generated. The minimum and
+ * maximum values for the logarithmic histogram are then calculated. Next, the
+ * size of each bucket in the histogram is calculated based on the number of
+ * buckets and the minimum and maximum values.
+ *
+ * The function then enters a loop which iterates b_count times, generating
+ * the string representation of each bucket in the histogram.
+ * For each iteration of the loop, the start and end values of the current bucket
+ * are calculated based on the logarithmic scale of the histogram. The string
+ * representation of the current bucket is then formatted and added to the
+ * text_str buffer. If this is the first iteration of the loop, no comma is added
+ * before the bucket string. Otherwise, a comma and a space are added before the
+ * bucket string to separate it from the previous bucket.
+ *
+ * After the loop completes, the function frees the tmp_str buffer and returns the
+ * string representation of the histogram stored in the text_str buffer.
+ */
 Datum
 get_histogram_timings(PG_FUNCTION_ARGS)
 {
@@ -3359,32 +3424,63 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 	double		b_min;
 	double		bucket_size;
 	bool		first = true;
+
+	/* Buffers for holding the string representation of the histogram. */
 	char	   *tmp_str = palloc0(MAX_STRING_LEN);
 	char	   *text_str = palloc0(MAX_STRING_LEN);
 
+	/* Calculate the minimum and maximum values for the logarithmic histogram. */
 	b_max = log(q_max - q_min);
 	b_min = 0;
+
+	/* Calculate the size of each bucket in the histogram. */
 	bucket_size = (b_max - b_min) / (double) b_count;
+
+	/* Generate the histogram. */
 	for (index = 1; index <= b_count; index++)
 	{
 		int64		b_start = (index == 1) ? 0 : exp(bucket_size * (index - 1));
 		int64		b_end = exp(bucket_size * index);
 
+		/*
+		 * Format the string representation of the current bucket. If this is
+		 * the first bucket, no comma should be added.
+		 */
 		if (first)
 		{
-			snprintf(text_str, MAX_STRING_LEN, "(%ld - %ld)}", b_start, b_end);
+			snprintf(text_str, MAX_STRING_LEN, "(%ld - %ld)", b_start, b_end);
 			first = false;
 		}
 		else
 		{
-			snprintf(tmp_str, MAX_STRING_LEN, "%s, (%ld - %ld)}", text_str, b_start, b_end);
+			snprintf(tmp_str, MAX_STRING_LEN, "%s, (%ld - %ld)", text_str, b_start, b_end);
 			snprintf(text_str, MAX_STRING_LEN, "%s", tmp_str);
 		}
 	}
+
+	/*
+	 * Free the temporary buffer and return the string representation of the
+	 * histogram.
+	 */
 	pfree(tmp_str);
 	return CStringGetTextDatum(text_str);
 }
 
+/*
+ * extract_query_comments - extract comments from a query string
+ * This function extracts comments from the given query string, and stores
+ * them in the comments buffer. The max_len parameter specifies the maximum
+ * length of the comments buffer.
+ * The function uses a regular expression to match comments in the query string.
+ * If a match is found, the comment is extracted and stored in the comments
+ * buffer. The function continues to search for additional comments until either
+ * the end of the query string is reached, or the comments buffer is full.
+ * If multiple comments are found, they are separated by ", " in the comments
+ * buffer.
+ * The function returns the total length of the extracted comments. If the
+ * comments buffer is not large enough to store all of the comments, the
+ * function returns -1 and logs an error message.
+ */
 static void
 extract_query_comments(const char *query, char *comments, size_t max_len)
 {
@@ -3428,6 +3524,16 @@ extract_query_comments(const char *query, char *comments, size_t max_len)
 }
 
 #if PG_VERSION_NUM < 140000
+/*
+ * get_query_id - compute the query ID for a given query
+ * This function takes in a JumbleState and a Query, and returns a uint64
+ * representing the query ID. The query ID is computed by jumbling the query
+ * (see JumbleQuery) and then hashing it with hash_any_extended.
+ * The JumbleState is used to store intermediate state during the jumbling
+ * process, including the jumbled query, an array of LocationLen structs
+ * representing the locations of constants in the query, and the highest
+ * external parameter ID in the query.
+ */
 static uint64
 get_query_id(JumbleState *jstate, Query *query)
 {
@@ -3448,33 +3554,59 @@ get_query_id(JumbleState *jstate, Query *query)
 }
 #endif
 
+/*
+ * djb2_hash - Hash a string using the DJB2 algorithm
+ * @str: Pointer to the string to be hashed
+ * @len: Length of the string
+ *
+ * Returns: The hash value of the string as a uint64
+ */
 static uint64
 djb2_hash(unsigned char *str, size_t len)
 {
-	uint64		hash = 5381LLU;
+	uint64		hash = 5381LLU; /* Initialize the hash value to a fixed prime
+								 * number */
 
+	/*
+	 * Iterate through the string, updating the hash value using the DJB2
+	 * algorithm
+	 */
 	while (len--)
 		hash = ((hash << 5) + hash) ^ *str++;
 	/* hash(i - 1) * 33 ^ str[i] */
 
-	return hash;
+	return hash;				/* Return the final hash value */
 }
 
+/*
+ * djb2_hash_str - Hash a string using the DJB2 algorithm
+ * @str: Pointer to the string to be hashed
+ * @out_len: Pointer to an int where the length of the string will be stored
+ *
+ * Returns: The hash value of the string as a uint64
+ */
 static uint64
 djb2_hash_str(unsigned char *str, int *out_len)
 {
-	uint64		hash = 5381LLU;
-	unsigned char *start = str;
-	unsigned char c;
+	uint64		hash = 5381LLU; /* Initialize the hash value to a fixed prime
+								 * number */
+	unsigned char *start = str; /* Save a pointer to the start of the string */
+	unsigned char c;			/* Declare a variable to store each character
+								 * as we iterate through the string */
 
+	/* Iterate through the string, using the null terminator to mark the end */
 	while ((c = *str) != '\0')
 	{
+		/*
+		 * Update the hash value using the DJB2 algorithm: hash(i - 1) * 33 ^
+		 * str[i]
+		 */
 		hash = ((hash << 5) + hash) ^ c;
-		/* hash(i - 1) * 33 ^ str[i] */
-		++str;
+		++str;					/* Move to the next character in the string */
 	}
 
+	/* Store the length of the string in the output variable */
 	*out_len = str - start;
 
-	return hash;
+	return hash;				/* Return the final hash value */
 }

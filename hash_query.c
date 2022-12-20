@@ -18,38 +18,41 @@
 #include "nodes/pg_list.h"
 #include "pg_stat_monitor.h"
 
-static pgsmLocalState	pgsmStateLocal;
+static pgsmLocalState pgsmStateLocal;
 
 /* parameter for the shared hash */
- static dshash_parameters dsh_params = {
-     sizeof(pgssHashKey),
-     sizeof(pgssEntry),
-     dshash_memcmp,
-     dshash_memhash
- };
+static dshash_parameters dsh_params = {
+	sizeof(pgssHashKey),
+	sizeof(pgssEntry),
+	dshash_memcmp,
+	dshash_memhash
+};
 static void pgsm_proc_exit(int code, Datum arg);
 
 static Size
 pgsm_query_area_size(void)
 {
-	Size	sz = MAXALIGN(MAX_QUERY_BUF);
-	return 	MAXALIGN(sz);
+	Size		sz = MAXALIGN(MAX_QUERY_BUF);
+
+	return MAXALIGN(sz);
 }
 
 Size
 pgsm_ShmemSize(void)
- {
-    Size	sz = MAXALIGN(sizeof(pgssSharedState));
-    sz = add_size(sz, pgsm_query_area_size());
+{
+	Size		sz = MAXALIGN(sizeof(pgssSharedState));
+
+	sz = add_size(sz, pgsm_query_area_size());
 	sz = add_size(sz, hash_estimate_size(MAX_BUCKET_ENTRIES, sizeof(pgssEntry)));
-    return sz;
- }
+	return sz;
+}
 
 void
 pgss_startup(void)
 {
 	bool		found = false;
 	pgssSharedState *pgss;
+
 	/* reset in case this is a restart within the postmaster */
 	pgsmStateLocal.dsa = NULL;
 	pgsmStateLocal.shared_hash = NULL;
@@ -66,7 +69,7 @@ pgss_startup(void)
 		/* First time through ... */
 		dsa_area   *dsa;
 		dshash_table *dsh;
-		char	*p = (char *) pgss;
+		char	   *p = (char *) pgss;
 
 		pgss->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
 		SpinLockInit(&pgss->mutex);
@@ -75,8 +78,8 @@ pgss_startup(void)
 		p += MAXALIGN(sizeof(pgssSharedState));
 		pgss->raw_dsa_area = p;
 		dsa = dsa_create_in_place(pgss->raw_dsa_area,
-                                   pgsm_query_area_size(),
-                                   LWLockNewTrancheId(), 0);
+								  pgsm_query_area_size(),
+								  LWLockNewTrancheId(), 0);
 		dsa_pin(dsa);
 		dsa_set_size_limit(dsa, pgsm_query_area_size());
 
@@ -91,12 +94,13 @@ pgss_startup(void)
 			dsa_set_size_limit(dsa, -1);
 
 		pgsmStateLocal.shared_pgssState = pgss;
+
 		/*
-		* Postmaster will never access these again, thus free the local
-		* dsa/dshash references.
-		*/
-         dshash_detach(dsh);
-         dsa_detach(dsa);
+		 * Postmaster will never access these again, thus free the local
+		 * dsa/dshash references.
+		 */
+		dshash_detach(dsh);
+		dsa_detach(dsa);
 	}
 
 #ifdef BENCHMARK
@@ -116,32 +120,33 @@ void
 pgsm_attach_shmem(void)
 {
 	MemoryContext oldcontext;
+
 	if (pgsmStateLocal.dsa)
 		return;
 
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 
 	pgsmStateLocal.dsa = dsa_attach_in_place(pgsmStateLocal.shared_pgssState->raw_dsa_area,
-                                           NULL);
+											 NULL);
 	dsa_pin_mapping(pgsmStateLocal.dsa);
 
 	dsh_params.tranche_id = pgsmStateLocal.shared_pgssState->hash_tranche_id;
 	pgsmStateLocal.shared_hash = dshash_attach(pgsmStateLocal.dsa, &dsh_params,
-                                             pgsmStateLocal.shared_pgssState->hash_handle, 0);
+											   pgsmStateLocal.shared_pgssState->hash_handle, 0);
 
 	on_proc_exit(pgsm_proc_exit, 0);
 
 	MemoryContextSwitchTo(oldcontext);
 }
 
-dsa_area*
+dsa_area *
 get_dsa_area_for_query_text(void)
 {
 	pgsm_attach_shmem();
 	return pgsmStateLocal.dsa;
 }
 
-dshash_table*
+dshash_table *
 get_pgssHash(void)
 {
 	pgsm_attach_shmem();
@@ -166,7 +171,7 @@ void
 pgss_shmem_shutdown(int code, Datum arg)
 {
 	/* Don't try to dump during a crash. */
-	elog(LOG,"pgss_shmem_shutdown");
+	elog(LOG, "pgss_shmem_shutdown");
 	if (code)
 		return;
 
@@ -194,7 +199,11 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 
 	/* Find or create an entry with desired hash code */
 	entry = (pgssEntry *) dshash_find_or_insert(pgsmStateLocal.shared_hash, key, &found);
-	// entry = (pgssEntry *) hash_search(pgss_hash, key, HASH_ENTER_NULL, &found);
+
+	/*
+	 * entry = (pgssEntry *) hash_search(pgss_hash, key, HASH_ENTER_NULL,
+	 * &found);
+	 */
 	if (entry == NULL)
 		elog(DEBUG1, "hash_entry_alloc: OUT OF MEMORY");
 	else if (!found)
@@ -231,6 +240,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 {
 	dshash_seq_status hstat;
 	pgssEntry  *entry = NULL;
+
 	/* Store pending query ids from the previous bucket. */
 	List	   *pending_entries = NIL;
 	ListCell   *pending_entry;
@@ -255,6 +265,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 		{
 			pdsa = entry->query_pos;
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
+
 			dshash_delete_current(&hstat);
 			dsa_free(pgsmStateLocal.dsa, pdsa);
 
@@ -337,6 +348,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 		}
 	}
 	dshash_seq_term(&hstat);
+
 	/*
 	 * Iterate over the list of pending queries in order to add them back to
 	 * the hash table with the updated bucket id.
@@ -384,6 +396,7 @@ hash_entry_reset()
 	while ((entry = dshash_seq_next(&hstat)) != NULL)
 	{
 		dsa_pointer pdsa = entry->query_pos;
+
 		dshash_delete_current(&hstat);
 		dsa_free(pgsmStateLocal.dsa, pdsa);
 	}
