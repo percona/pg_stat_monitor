@@ -21,6 +21,8 @@ REGRESS = basic version guc counters relations database error_insert application
 PG_CONFIG = pg_config
 PGSM_INPUT_SQL_VERSION := 1.0
 
+PG_CPPFLAGS += -std=c99 -g -ggdb
+
 ifdef USE_PGXS
 MAJORVERSION := $(shell pg_config --version | awk {'print $$2'} | cut -f1 -d".")
 PGXS := $(shell $(PG_CONFIG) --pgxs)
@@ -48,3 +50,8 @@ endif
 clean:
 	rm -rf ${DATA}
 	rm -rf t/results
+	rm -rf /experdb/app/postgres/lib/pg_stat_monitor.so
+	rm -rf /experdb/app/postgres/share/extension/pg_stat_monitor.control
+	rm -rf /experdb/app/postgres/share/extension/pg_stat_monitor--1.0.sql
+	rm -rf *.o
+	rm -rf *.so

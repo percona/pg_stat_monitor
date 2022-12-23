@@ -201,8 +201,14 @@ static void RecordConstLocation(JumbleState *jstate, int location);
 static const char *CleanQuerytext(const char *query, int *location, int *len);
 #endif
 
+#ifdef BINDPARAM
 static char *generate_normalized_query(JumbleState *jstate, const char *query,
-									   int query_loc, int *query_len_p, int encoding);
+						 int query_loc, int *query_len_p, int encoding,
+						char* bind_variables, int *bind_var_len_p);
+#else
+static char *generate_normalized_query(JumbleState *jstate, const char *query,
+						int query_loc, int *query_len_p, int encoding);
+#endif
 static void fill_in_constant_lengths(JumbleState *jstate, const char *query, int query_loc);
 static int	comp_location(const void *a, const void *b);
 
@@ -1296,7 +1302,165 @@ pg_get_client_addr(bool *ok)
 
 	return ntohl(inet_addr(remote_host));
 }
+#ifdef BINDPARAM
+static void
+pgss_update_entry(pgssEntry *entry,
+				  int bucketid,
+				  uint64 queryid,
+				  const char *query,
+				  const char *comments,
+				  const char *bind_variables,
+				  PlanInfo * plan_info,
+				  CmdType cmd_type,
+				  SysInfo * sys_info,
+				  ErrorInfo * error_info,
+				  double total_time,
+				  uint64 rows,
+				  BufferUsage *bufusage,
+				  WalUsage *walusage,
+				  bool reset,
+				  pgssStoreKind kind,
+				  const char *app_name,
+				  size_t app_name_len)
+{
+	int			index;
+	double		old_mean;
+	int			message_len = error_info ? strlen(error_info->message) : 0;
+	int			comments_len = comments ? strlen(comments) : 0;
+	int			bind_variables_len = bind_variables ? strlen(bind_variables): 0;
+	int			sqlcode_len = error_info ? strlen(error_info->sqlcode) : 0;
+	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
+	/* volatile block */
+	{
+		volatile pgssEntry *e = (volatile pgssEntry *) entry;
+
+		SpinLockAcquire(&e->mutex);
+		/* Start collecting data for next bucket and reset all counters */
+		if (reset)
+			memset(&entry->counters, 0, sizeof(Counters));
+
+		if (comments_len > 0)
+			_snprintf(e->counters.info.comments, comments, comments_len + 1, COMMENTS_LEN);
+
+		e->counters.state = kind;
+		if (kind == PGSS_PLAN)
+		{
+			if (e->counters.plancalls.calls == 0)
+				e->counters.plancalls.usage = USAGE_INIT;
+			e->counters.plancalls.calls += 1;
+			e->counters.plantime.total_time += total_time;
+
+			if (e->counters.plancalls.calls == 1)
+			{
+				e->counters.plantime.min_time = total_time;
+				e->counters.plantime.max_time = total_time;
+				e->counters.plantime.mean_time = total_time;
+			}
+
+			/* Increment the counts, except when jstate is not NULL */
+			old_mean = e->counters.plantime.mean_time;
+			e->counters.plantime.mean_time += (total_time - old_mean) / e->counters.plancalls.calls;
+			e->counters.plantime.sum_var_time += (total_time - old_mean) * (total_time - e->counters.plantime.mean_time);
+
+			/* calculate min and max time */
+			if (e->counters.plantime.min_time > total_time)
+				e->counters.plantime.min_time = total_time;
+			if (e->counters.plantime.max_time < total_time)
+				e->counters.plantime.max_time = total_time;
+		}
+		else if (kind == PGSS_FINISHED)
+		{
+			if (e->counters.calls.calls == 0)
+				e->counters.calls.usage = USAGE_INIT;
+			e->counters.calls.calls += 1;
+			e->counters.time.total_time += total_time;
+
+			if (e->counters.calls.calls == 1)
+			{
+				e->counters.time.min_time = total_time;
+				e->counters.time.max_time = total_time;
+				e->counters.time.mean_time = total_time;
+			}
+
+			/* Increment the counts, except when jstate is not NULL */
+			old_mean = e->counters.time.mean_time;
+			e->counters.time.mean_time += (total_time - old_mean) / e->counters.calls.calls;
+			e->counters.time.sum_var_time += (total_time - old_mean) * (total_time - e->counters.time.mean_time);
+
+			/* calculate min and max time */
+			if (e->counters.time.min_time > total_time)
+				e->counters.time.min_time = total_time;
+			if (e->counters.time.max_time < total_time)
+				e->counters.time.max_time = total_time;
+
+			index = get_histogram_bucket(total_time);
+			e->counters.resp_calls[index]++;
+		}
+
+		if (plan_text_len > 0 && !e->counters.planinfo.plan_text[0])
+			_snprintf(e->counters.planinfo.plan_text, plan_info->plan_text, plan_text_len + 1, PLAN_TEXT_LEN);
+
+		if (bind_variables_len > 0 && !e->counters.info.bind_variables[0])
+			_snprintf(e->counters.info.bind_variables, bind_variables, bind_variables_len  + 1, VAR_LEN);
+
+		if (app_name_len > 0 && !e->counters.info.application_name[0])
+			_snprintf(e->counters.info.application_name, app_name, app_name_len + 1, APPLICATIONNAME_LEN);
+
+
+		e->counters.info.num_relations = num_relations;
+		_snprintf2(e->counters.info.relations, relations, num_relations, REL_LEN);
+
+		e->counters.info.cmd_type = cmd_type;
+
+		if (exec_nested_level > 0)
+		{
+			if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+				e->counters.info.parentid = nested_queryids[exec_nested_level - 1];
+		}
+		else
+		{
+			e->counters.info.parentid = UINT64CONST(0);
+		}
+
+		if (error_info)
+		{
+			e->counters.error.elevel = error_info->elevel;
+			_snprintf(e->counters.error.sqlcode, error_info->sqlcode, sqlcode_len, SQLCODE_LEN);
+			_snprintf(e->counters.error.message, error_info->message, message_len, ERROR_MESSAGE_LEN);
+		}
+		e->counters.calls.rows += rows;
+		if (bufusage)
+		{
+			e->counters.blocks.shared_blks_hit += bufusage->shared_blks_hit;
+			e->counters.blocks.shared_blks_read += bufusage->shared_blks_read;
+			e->counters.blocks.shared_blks_dirtied += bufusage->shared_blks_dirtied;
+			e->counters.blocks.shared_blks_written += bufusage->shared_blks_written;
+			e->counters.blocks.local_blks_hit += bufusage->local_blks_hit;
+			e->counters.blocks.local_blks_read += bufusage->local_blks_read;
+			e->counters.blocks.local_blks_dirtied += bufusage->local_blks_dirtied;
+			e->counters.blocks.local_blks_written += bufusage->local_blks_written;
+			e->counters.blocks.temp_blks_read += bufusage->temp_blks_read;
+			e->counters.blocks.temp_blks_written += bufusage->temp_blks_written;
+			e->counters.blocks.blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
+			e->counters.blocks.blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
+		}
+		e->counters.calls.usage += USAGE_EXEC(total_time);
+		if (sys_info)
+		{
+			e->counters.sysinfo.utime += sys_info->utime;
+			e->counters.sysinfo.stime += sys_info->stime;
+		}
+		if (walusage)
+		{
+			e->counters.walusage.wal_records += walusage->wal_records;
+			e->counters.walusage.wal_fpi += walusage->wal_fpi;
+			e->counters.walusage.wal_bytes += walusage->wal_bytes;
+		}
+		SpinLockRelease(&e->mutex);
+	}
+}
+#else
 static void
 pgss_update_entry(pgssEntry *entry,
 				  int bucketid,
@@ -1448,6 +1612,7 @@ pgss_update_entry(pgssEntry *entry,
 		SpinLockRelease(&e->mutex);
 	}
 }
+#endif
 
 static void
 pgss_store_error(uint64 queryid,
@@ -1516,6 +1681,11 @@ pgss_store(uint64 queryid,
 	uint64		planid;
 	uint64		appid = 0;
 	char		comments[512] = "";
+#ifdef BINDPARAM
+	char		bind_variables[VAR_LEN] = "";
+	char		*bind_variables_ptr = &bind_variables[0];
+	int 		bind_var_len = 0;
+#endif
 	char	   *norm_query = NULL;
 	bool		found_app_name = false;
 	bool		found_client_addr = false;
@@ -1631,10 +1801,21 @@ pgss_store(uint64 queryid,
 		if (jstate && PGSM_NORMALIZED_QUERY)
 		{
 			LWLockRelease(pgss->lock);
+#ifdef BINDPARAM
+
 			norm_query = generate_normalized_query(jstate, query,
-												   query_location,
-												   &query_len,
-												   GetDatabaseEncoding());
+										   query_location,
+										   &query_len,
+										   GetDatabaseEncoding(),
+										   bind_variables_ptr,
+										   &bind_var_len);
+
+#else
+			norm_query = generate_normalized_query(jstate, query,
+										   query_location,
+										   &query_len,
+										   GetDatabaseEncoding());
+#endif
 			LWLockAcquire(pgss->lock, LW_SHARED);
 		}
 
@@ -1699,7 +1880,27 @@ pgss_store(uint64 queryid,
 		entry->query_pos = query_entry->query_pos;
 	}
 
-	if (jstate == NULL)
+	if (jstate == NULL || (PGSM_EXTRACT_VARIABLES && bind_var_len > 0))
+#ifdef BINDPARAM
+		pgss_update_entry(entry,	/* entry */
+						  bucketid, /* bucketid */
+						  queryid,	/* queryid */
+						  query,	/* query */
+						  comments, /* comments */
+						  bind_variables_ptr, /* bind variables */
+						  plan_info,	/* PlanInfo */
+						  cmd_type, /* CmdType */
+						  sys_info, /* SysInfo */
+						  error_info,	/* ErrorInfo */
+						  total_time,	/* total_time */
+						  rows, /* rows */
+						  bufusage, /* bufusage */
+						  walusage, /* walusage */
+						  reset,	/* reset */
+						  kind, /* kind */
+						  app_name_ptr,
+						  app_name_len);
+#else
 		pgss_update_entry(entry,	/* entry */
 						  bucketid, /* bucketid */
 						  queryid,	/* queryid */
@@ -1717,6 +1918,7 @@ pgss_store(uint64 queryid,
 						  kind, /* kind */
 						  app_name_ptr,
 						  app_name_len);
+#endif
 
 	LWLockRelease(pgss->lock);
 	if (norm_query)
@@ -1828,8 +2030,11 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	/* Build a tuple descriptor for our result type */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "pg_stat_monitor: return type must be a row type");
-
+#ifdef BINDPARAM
+	if (tupdesc->natts != 52)
+#else
 	if (tupdesc->natts != 51)
+#endif
 		elog(ERROR, "pg_stat_monitor: incorrect number of output arguments, required %d", tupdesc->natts);
 
 	tupstore = tuplestore_begin_heap(true, false, work_mem);
@@ -1996,6 +2201,14 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = CStringGetTextDatum(tmp.info.application_name);
 		else
 			nulls[i++] = true;
+
+#ifdef BINDPARAM
+		/* bind_variables at column number 48 */
+		if (strlen(tmp.info.bind_variables) > 0)
+			values[i++] = CStringGetTextDatum(tmp.info.bind_variables);
+		else
+			nulls[i++] = true;
+#endif
 
 		/* relations at column number 10 */
 		if (tmp.info.num_relations > 0)
@@ -2980,6 +3193,106 @@ CleanQuerytext(const char *query, int *location, int *len)
  *
  * Returns a palloc'd string.
  */
+#ifdef BINDPARAM
+static char *
+generate_normalized_query(JumbleState *jstate, const char *query,
+				 int query_loc, int *query_len_p, int encoding,
+				char* bind_variables, int *bind_var_len_p)
+{
+	char	   *norm_query;
+	char	    bind_var[VAR_LEN];
+	int			query_len = *query_len_p;
+	int			bind_var_len;
+	int			i,
+				norm_query_buflen,	/* Space allowed for norm_query */
+				len_to_wrt,		/* Length (in bytes) to write */
+				quer_loc = 0,	/* Source query byte location */
+				n_quer_loc = 0, /* Normalized query byte location */
+				n_var_loc = 0, /* bind_variables byte location */
+				last_off = 0,	/* Offset from start for previous tok */
+				last_tok_len = 0;	/* Length (in bytes) of that tok */
+
+	/*
+	 * Get constants' lengths (core system only gives us locations).  Note
+	 * this also ensures the items are sorted by location.
+	 */
+	fill_in_constant_lengths(jstate, query, query_loc);
+
+	/*
+	 * Allow for $n symbols to be longer than the constants they replace.
+	 * Constants must take at least one byte in text form, while a $n symbol
+	 * certainly isn't more than 11 bytes, even if n reaches INT_MAX.  We
+	 * could refine that limit based on the max value of n for the current
+	 * query, but it hardly seems worth any extra effort to do so.
+	 */
+	norm_query_buflen = query_len + jstate->clocations_count * 10;
+
+	/* Allocate result buffer */
+	norm_query = palloc(norm_query_buflen + 1);
+
+	/* Allocate bind buffer */
+	memset(bind_var, 0x00, VAR_LEN);
+
+	for (i = 0; i < jstate->clocations_count; i++)
+	{
+		int			off,		/* Offset from start for cur tok */
+					tok_len;	/* Length (in bytes) of that tok */
+
+		off = jstate->clocations[i].location;
+		/* Adjust recorded location if we're dealing with partial string */
+		off -= query_loc;
+
+		tok_len = jstate->clocations[i].length;
+
+		if (tok_len < 0)
+			continue;			/* ignore any duplicates */
+
+		/* Copy next chunk (what precedes the next constant) */
+		len_to_wrt = off - last_off;
+		len_to_wrt -= last_tok_len;
+
+		Assert(len_to_wrt >= 0);
+		memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
+		n_quer_loc += len_to_wrt;
+
+		/* And insert a param symbol in place of the constant token */
+		n_quer_loc += sprintf(norm_query + n_quer_loc, "$%d",
+							  i + 1 + jstate->highest_extern_param_id);
+
+		quer_loc = off + tok_len;
+		last_off = off;
+		last_tok_len = tok_len;
+		if (PGSM_EXTRACT_VARIABLES){
+			memcpy(bind_variables + n_var_loc, query + quer_loc - tok_len, tok_len);
+			n_var_loc += tok_len;
+			memcpy(bind_variables + n_var_loc , ",", 1);
+			n_var_loc ++;
+		}
+	}
+
+	/*
+	 * We've copied up until the last ignorable constant.  Copy over the
+	 * remaining bytes of the original query string.
+	 */
+	len_to_wrt = query_len - quer_loc;
+
+	Assert(len_to_wrt >= 0);
+	memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
+	n_quer_loc += len_to_wrt;
+
+	Assert(n_quer_loc <= norm_query_buflen);
+	norm_query[n_quer_loc] = '\0';
+
+	*query_len_p = n_quer_loc;
+
+	if (PGSM_EXTRACT_VARIABLES){
+		bind_var_len = n_var_loc-1;
+		bind_variables[bind_var_len] = '\0';
+		*bind_var_len_p = bind_var_len;
+	}
+	return norm_query;
+}
+#else
 static char *
 generate_normalized_query(JumbleState *jstate, const char *query,
 						  int query_loc, int *query_len_p, int encoding)
@@ -3059,6 +3372,7 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 	*query_len_p = n_quer_loc;
 	return norm_query;
 }
+#endif
 
 /*
  * Given a valid SQL string and an array of constant-location records,
