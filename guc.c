@@ -237,6 +237,20 @@ init_guc(void)
 			.guc_value = &PGSM_TRACK_PLANNING
 	};
 	DefineBoolGUC(&conf[i++]);
+#ifdef BINDPARAM
+	conf[i] = (GucVariable)
+	{
+		.guc_name = "pg_stat_monitor.pgsm_extract_bind_variables",
+			.guc_desc = "Selects whether extracting bind variables from queries.",
+			.guc_default = 0,
+			.guc_min = 0,
+			.guc_max = 0,
+			.guc_restart = false,
+			.guc_unit = 0,
+			.guc_value = &PGSM_EXTRACT_VARIABLES
+	};
+	DefineBoolGUC(&conf[i++]);
+#endif
 #endif
 }
 

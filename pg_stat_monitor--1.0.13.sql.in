@@ -38,7 +38,7 @@ CREATE FUNCTION pg_stat_monitor_internal(IN showtext boolean,
     OUT top_queryid         text,
     OUT top_query           text,
 	OUT application_name	text,
-
+	OUT bind_variables	text,
 	OUT relations			text, -- 11
 	OUT cmd_type			int,
 	OUT elevel              int,
@@ -157,6 +157,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	query_plan,
     top_query,
 	application_name,
+	bind_variables,
 	string_to_array(relations, ',') AS relations,
 	cmd_type,
 	get_cmd_type(cmd_type) AS cmd_type_text,
