@@ -107,14 +107,17 @@
 /* Update this if need a enum GUC with more options. */
 #define MAX_ENUM_OPTIONS 6
 
-/*
- * Before PG15 dynamic shared memory hash does not support
- * sequence scan. So use clasic shared memory hash for older
- * versions
- * */
-#if PG_VERSION_NUM >= 150000
-	#define USE_DYNAMIC_HASH 1
-#endif
+extern volatile bool __pgsm_do_not_capture_error;
+#define PGSM_DISABLE_ERROR_CAPUTRE() \
+	do { \
+		__pgsm_do_not_capture_error = true
+
+#define PGSM_END_DISABLE_ERROR_CAPTURE() \
+	__pgsm_do_not_capture_error = false; \
+	} while (0)
+
+#define PGSM_ERROR_CAPTURE_ENABLED \
+	__pgsm_do_not_capture_error == false
 
 #ifdef USE_DYNAMIC_HASH
 	#define	PGSM_HASH_TABLE	dshash_table

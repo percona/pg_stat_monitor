@@ -32,23 +32,28 @@ static dshash_parameters dsh_params = {
 };
 #endif
 
-static void pgsm_proc_exit(int code, Datum arg);
-
 static Size
 pgsm_query_area_size(void)
 {
-	Size	sz = MAXALIGN(MAX_QUERY_BUF);
-	return 	MAXALIGN(sz);
+	Size	sz = MAX_QUERY_BUF;
+	#if USE_DYNAMIC_HASH
+	/* Dynamic hash also lives DSA area */
+	sz = add_size(sz, MAX_BUCKETS_MEM);
+	#endif
+	return MAXALIGN(sz);
 }
 
 Size
 pgsm_ShmemSize(void)
 {
     Size	sz = MAXALIGN(sizeof(pgssSharedState));
-    sz = add_size(sz, pgsm_query_area_size());
+    sz = add_size(sz, MAX_QUERY_BUF);
+	#if USE_DYNAMIC_HASH
+	sz = add_size(sz, MAX_BUCKETS_MEM);
+	#else
 	sz = add_size(sz, hash_estimate_size(MAX_BUCKET_ENTRIES, sizeof(pgssEntry)));
-
-    return sz;
+	#endif
+    return MAXALIGN(sz);
 }
 
 static Size
@@ -167,8 +172,6 @@ pgsm_attach_shmem(void)
 	pgsmStateLocal.shared_hash = pgsmStateLocal.shared_pgssState->hash_handle;
 #endif
 
-	on_proc_exit(pgsm_proc_exit, 0);
-
 	MemoryContextSwitchTo(oldcontext);
 }
 
@@ -214,24 +217,11 @@ pgss_shmem_shutdown(int code, Datum arg)
 		return;
 }
 
-static void
-pgsm_proc_exit(int code, Datum arg)
-{
-	Assert(pgsmStateLocal.dsa);
-#if USE_DYNAMIC_HASH
-	dshash_detach(pgsmStateLocal.shared_hash);
-	pgsmStateLocal.shared_hash = NULL;
-#endif
-	dsa_detach(pgsmStateLocal.dsa);
-	pgsmStateLocal.dsa = NULL;
-}
-
 pgssEntry *
 hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 {
 	pgssEntry  *entry = NULL;
 	bool		found = false;
-
 	/* Find or create an entry with desired hash code */
 	entry = (pgssEntry*) pgsm_hash_find_or_insert(pgsmStateLocal.shared_hash, key, &found);
 	if (entry == NULL)
@@ -242,16 +232,20 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 		/* New entry, initialize it */
 		/* reset the statistics */
 		memset(&entry->counters, 0, sizeof(Counters));
+		entry->query_pos = InvalidDsaPointer;
+		entry->counters.info.parent_query = InvalidDsaPointer;
+
 		/* set the appropriate initial usage count */
 		/* re-initialize the mutex each time ... we assume no one using it */
 		SpinLockInit(&entry->mutex);
 		/* ... and don't forget the query text metadata */
 		entry->encoding = encoding;
 	}
+	#if USE_DYNAMIC_HASH
+	if(entry)
+		dshash_release_lock(pgsmStateLocal.shared_hash, entry);
+	#endif
 
-#if USE_DYNAMIC_HASH
-	dshash_release_lock(pgsmStateLocal.shared_hash, entry);
-#endif
 	return entry;
 }
 
@@ -294,15 +288,17 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 			(entry->key.bucket_id == new_bucket_id &&
 			 (entry->counters.state == PGSS_FINISHED || entry->counters.state == PGSS_ERROR)))
 		{
-			pdsa = entry->query_pos;
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
+			pdsa = entry->query_pos;
 
 			pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
 
-			dsa_free(pgsmStateLocal.dsa, pdsa);
+			if (DsaPointerIsValid(pdsa))
+				dsa_free(pgsmStateLocal.dsa, pdsa);
 
 			if (DsaPointerIsValid(parent_qdsa))
 				dsa_free(pgsmStateLocal.dsa, parent_qdsa);
+			continue;
 		}
 
 		/*
@@ -341,7 +337,8 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 					{
 						pdsa = entry->query_pos;
 						pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
-						dsa_free(pgsmStateLocal.dsa, pdsa);
+						if (DsaPointerIsValid(pdsa))
+							dsa_free(pgsmStateLocal.dsa, pdsa);
 					}
 					continue;
 				}
@@ -373,7 +370,9 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 				{
 					pdsa = entry->query_pos;
 					pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
-					dsa_free(pgsmStateLocal.dsa, pdsa);
+					/* We should not delete the Query in DSA here
+					 * as the same will get reused when the entry gets inserted into new bucket
+					 */
 				}
 			}
 		}
@@ -390,7 +389,10 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 		pgssEntry  *old_entry = (pgssEntry *) lfirst(pending_entry);
 
 
-		new_entry = (pgssEntry*) pgsm_hash_find_or_insert(pgsmStateLocal.shared_hash, &old_entry->key, &found);
+		PGSM_DISABLE_ERROR_CAPUTRE();
+		{
+			new_entry = (pgssEntry*) pgsm_hash_find_or_insert(pgsmStateLocal.shared_hash, &old_entry->key, &found);
+		}PGSM_END_DISABLE_ERROR_CAPTURE();
 
 		if (new_entry == NULL)
 			elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
@@ -402,13 +404,12 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 			new_entry->encoding = old_entry->encoding;
 			new_entry->query_pos = old_entry->query_pos;
 		}
-		free(old_entry);
 		#if USE_DYNAMIC_HASH
-		dshash_release_lock(pgsmStateLocal.shared_hash, entry);
+		if(new_entry)
+			dshash_release_lock(pgsmStateLocal.shared_hash, new_entry);
 		#endif
-
+		free(old_entry);
 	}
-
 	list_free(pending_entries);
 }
 
@@ -430,7 +431,8 @@ hash_entry_reset()
 	{
 		dsa_pointer pdsa = entry->query_pos;
 		pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
-		dsa_free(pgsmStateLocal.dsa, pdsa);
+		if (DsaPointerIsValid(pdsa))
+			dsa_free(pgsmStateLocal.dsa, pdsa);
 	}
 
 	pgsm_hash_seq_term(&hstat);
@@ -451,7 +453,9 @@ void *
 pgsm_hash_find_or_insert(PGSM_HASH_TABLE *shared_hash, pgssHashKey *key, bool* found)
 {
 	#if USE_DYNAMIC_HASH
-	return dshash_find_or_insert(shared_hash, key, found);
+	void *entry;
+	entry = dshash_find_or_insert(shared_hash, key, found);
+	return entry;
 	#else
 	return hash_search(shared_hash, key, HASH_ENTER_NULL, found);
 	#endif
@@ -461,7 +465,7 @@ void *
 pgsm_hash_find(PGSM_HASH_TABLE *shared_hash, pgssHashKey *key, bool* found)
 {
 	#if USE_DYNAMIC_HASH
-	return dshash_find(shared_hash, key, found);
+	return dshash_find(shared_hash, key, false);
 	#else
 	return hash_search(shared_hash, key, HASH_FIND, found);
 	#endif

@@ -71,6 +71,8 @@ void		_PG_fini(void);
 
 /* Current nesting depth of ExecutorRun+ProcessUtility calls */
 static int	exec_nested_level = 0;
+volatile bool __pgsm_do_not_capture_error = false;
+
 #if PG_VERSION_NUM >= 130000
 static int	plan_nested_level = 0;
 #endif
@@ -1273,19 +1275,20 @@ pgss_update_entry(pgssEntry *entry,
 				int		parent_query_len = nested_query_txts[exec_nested_level - 1]?
 												strlen(nested_query_txts[exec_nested_level - 1]): 0;
 				e->counters.info.parentid = nested_queryids[exec_nested_level - 1];
+				e->counters.info.parent_query = InvalidDsaPointer;
 				if (parent_query_len > 0)
 				{
 					char		*qry_buff;
 					dsa_area	*query_dsa_area = get_dsa_area_for_query_text();
-					dsa_pointer qry = dsa_allocate(query_dsa_area, parent_query_len+1);
-					qry_buff = dsa_get_address(query_dsa_area, qry);
-					memcpy(qry_buff, nested_query_txts[exec_nested_level - 1], parent_query_len);
-					qry_buff[parent_query_len] = 0;
-					e->counters.info.parent_query = qry;
+					dsa_pointer qry = dsa_allocate_extended(query_dsa_area, parent_query_len+1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
+					if (DsaPointerIsValid(qry))
+					{
+						qry_buff = dsa_get_address(query_dsa_area, qry);
+						memcpy(qry_buff, nested_query_txts[exec_nested_level - 1], parent_query_len);
+						qry_buff[parent_query_len] = 0;
+						e->counters.info.parent_query = qry;
+					}
 				}
-				else
-					e->counters.info.parent_query = InvalidDsaPointer;
-
 			}
 		}
 		else
@@ -1425,6 +1428,7 @@ pgss_store(uint64 queryid,
 	bool		found_app_name = false;
 	bool		found_client_addr = false;
 	uint		client_addr = 0;
+	bool 		found;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1515,12 +1519,12 @@ pgss_store(uint64 queryid,
 
 	LWLockAcquire(pgss->lock, LW_SHARED);
 
-	entry = (pgssEntry *) pgsm_hash_find(get_pgssHash(), &key, false);
+	entry = (pgssEntry *) pgsm_hash_find(get_pgssHash(), &key, &found);
 	if (!entry)
 	{
 		dsa_pointer dsa_query_pointer;
-		char*	query_buff;
-
+		dsa_area	*query_dsa_area;
+		char		*query_buff;
 
 		/*
 		 * Create a new, normalized query string if caller asked.  We don't
@@ -1541,24 +1545,45 @@ pgss_store(uint64 queryid,
 		if (query_len > PGSM_QUERY_MAX_LEN)
 			query_len = PGSM_QUERY_MAX_LEN;
 
-		/* Need exclusive lock to make a new hashtable entry - promote */
-		LWLockRelease(pgss->lock);
-		LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
-
 		/* Save the query text in raw dsa area */
-		dsa_area* query_dsa_area = get_dsa_area_for_query_text();
-		dsa_query_pointer = dsa_allocate(query_dsa_area, query_len+1);
+		query_dsa_area = get_dsa_area_for_query_text();
+		dsa_query_pointer = dsa_allocate_extended(query_dsa_area, query_len+1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
+		if (!DsaPointerIsValid(dsa_query_pointer))
+		{
+			LWLockRelease(pgss->lock);
+			if (norm_query)
+				pfree(norm_query);
+			return;
+		}
 		query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
 		memcpy(query_buff, norm_query ? norm_query : query, query_len);
-		query_buff[query_len] = 0;
-
 		/* OK to create a new hashtable entry */
-		entry = hash_entry_alloc(pgss, &key, GetDatabaseEncoding());
+
+		PGSM_DISABLE_ERROR_CAPUTRE();
+		{
+			PG_TRY();
+			{
+				entry = hash_entry_alloc(pgss, &key, GetDatabaseEncoding());
+			}
+			PG_CATCH();
+			{
+				LWLockRelease(pgss->lock);
+				if (norm_query)
+					pfree(norm_query);
+				if (DsaPointerIsValid(dsa_query_pointer))
+					dsa_free(query_dsa_area, dsa_query_pointer);
+				PG_RE_THROW();
+			}
+			PG_END_TRY();
+		}PGSM_END_DISABLE_ERROR_CAPTURE();
+
 		if (entry == NULL)
 		{
 			LWLockRelease(pgss->lock);
 			if (norm_query)
 				pfree(norm_query);
+			if (DsaPointerIsValid(dsa_query_pointer))
+				dsa_free(query_dsa_area, dsa_query_pointer);
 			return;
 		}
 		entry->query_pos = dsa_query_pointer;
@@ -1566,7 +1591,8 @@ pgss_store(uint64 queryid,
 	else
 	{
 		#if USE_DYNAMIC_HASH
-		dshash_release_lock(get_pgssHash(), entry);
+		if(entry)
+			dshash_release_lock(get_pgssHash(), entry);
 		#endif
 	}
 
@@ -1739,9 +1765,14 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		bool		toplevel = entry->key.toplevel;
 #endif
 		/* Load the query text from dsa area */
-		query_dsa_area = get_dsa_area_for_query_text();
-		query_ptr = dsa_get_address(query_dsa_area, entry->query_pos);
-		query_txt = pstrdup(query_ptr);
+		if (DsaPointerIsValid(entry->query_pos))
+		{
+			query_dsa_area = get_dsa_area_for_query_text();
+			query_ptr = dsa_get_address(query_dsa_area, entry->query_pos);
+			query_txt = pstrdup(query_ptr);
+		}
+		else
+			query_txt = pstrdup("Query string not available");/* Should never happen. Just a safty check*/
 
 		/* copy counters to a local variable to keep locking time short */
 		{
@@ -3138,7 +3169,8 @@ pgsm_emit_log_hook(ErrorData *edata)
 	if (MyProc == NULL)
 		goto exit;
 
-	if ((edata->elevel == ERROR || edata->elevel == WARNING || edata->elevel == INFO || edata->elevel == DEBUG1))
+	if (PGSM_ERROR_CAPTURE_ENABLED &&
+		(edata->elevel == ERROR || edata->elevel == WARNING || edata->elevel == INFO || edata->elevel == DEBUG1))
 	{
 		uint64		queryid = 0;
 
