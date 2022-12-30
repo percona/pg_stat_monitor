@@ -38,8 +38,8 @@ PG_MODULE_MAGIC;
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
-#define PG_STAT_MONITOR_COLS_V2_0    61
-#define PG_STAT_MONITOR_COLS         61	/* maximum of above */
+#define PG_STAT_MONITOR_COLS_V2_0    62
+#define PG_STAT_MONITOR_COLS         62	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
 
@@ -160,7 +160,6 @@ DECLARE_HOOK(void pgss_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 			 ParamListInfo params, QueryEnvironment *queryEnv,
 			 DestReceiver *dest,
 			 QueryCompletion *qc);
-static uint64 pgss_hash_string(const char *str, int len);
 #else
 static void BufferUsageAccumDiff(BufferUsage *bufusage, BufferUsage *pgBufferUsage, BufferUsage *bufusage_start);
 
@@ -170,6 +169,7 @@ DECLARE_HOOK(void pgss_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 			 DestReceiver *dest,
 			 char *completionTag);
 #endif
+static 		uint64 pgss_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
 
 #define PGSM_HANDLED_UTILITY(n)  (!IsA(n, ExecuteStmt) && \
@@ -647,7 +647,7 @@ pgss_ExecutorEnd(QueryDesc *queryDesc)
 		MemoryContext mct = MemoryContextSwitchTo(TopMemoryContext);
 
 		plan_info.plan_len = snprintf(plan_info.plan_text, PLAN_TEXT_LEN, "%s", pgss_explain(queryDesc));
-		plan_info.planid = DatumGetUInt64(hash_any_extended((const unsigned char *) plan_info.plan_text, plan_info.plan_len, 0));
+		plan_info.planid = pgss_hash_string(plan_info.plan_text, plan_info.plan_len);
 		plan_ptr = &plan_info;
 		MemoryContextSwitchTo(mct);
 	}
@@ -1085,7 +1085,6 @@ BufferUsageAccumDiff(BufferUsage *bufusage, BufferUsage *pgBufferUsage, BufferUs
 }
 #endif
 
-#if PG_VERSION_NUM < 140000
 /*
  * Given an arbitrarily long query string, produce a hash for the purposes of
  * identifying the query, without normalizing constants.  Used when hashing
@@ -1097,7 +1096,6 @@ pgss_hash_string(const char *str, int len)
 	return DatumGetUInt64(hash_any_extended((const unsigned char *) str,
 											len, 0));
 }
-#endif
 
 static PgBackendStatus *
 pg_get_backend_status(void)
@@ -1418,13 +1416,15 @@ pgss_store(uint64 queryid,
 	char		app_name[APPLICATIONNAME_LEN] = "";
 	int			app_name_len = 0;
 	bool		reset = false;
+	uint64		pgsm_query_id = 0;
 	uint64		bucketid;
 	uint64		prev_bucket_id;
 	uint64		userid;
 	uint64		planid;
 	uint64		appid = 0;
-	char		comments[512] = "";
+	int			norm_query_len = 0;
 	char	   *norm_query = NULL;
+	char		comments[512] = "";
 	bool		found_app_name = false;
 	bool		found_client_addr = false;
 	uint		client_addr = 0;
@@ -1533,12 +1533,31 @@ pgss_store(uint64 queryid,
 		 * in the interval where we don't hold the lock below.  That case is
 		 * handled by entry_alloc.
 		 */
-		if (jstate && PGSM_NORMALIZED_QUERY)
+		if (jstate && jstate->clocations_count > 0)
 		{
+			norm_query_len = query_len;
+
+			LWLockRelease(pgss->lock);
 			norm_query = generate_normalized_query(jstate, query,
 												   query_location,
-												   &query_len,
+												   &norm_query_len,
 												   GetDatabaseEncoding());
+			LWLockAcquire(pgss->lock, LW_SHARED);
+
+			pgsm_query_id = pgss_hash_string(norm_query, norm_query_len);
+
+			/* Free up norm_query if we don't intend to show normalized version in the view */
+			if (!PGSM_NORMALIZED_QUERY)
+			{
+				if (norm_query)
+					pfree(norm_query);
+
+				norm_query = NULL;
+			}
+		}
+		else
+		{
+			pgsm_query_id = pgss_hash_string(query, query_len);
 		}
 
 		/* New query, truncate length if necessary. */
@@ -1587,6 +1606,8 @@ pgss_store(uint64 queryid,
 			return;
 		}
 		entry->query_pos = dsa_query_pointer;
+		entry->pgsm_query_id = pgsm_query_id;
+
 	}
 	else
 	{
@@ -1755,6 +1776,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		uint64		userid = entry->key.userid;
 		int64		ip = entry->key.ip;
 		uint64		planid = entry->key.planid;
+    uint64		pgsm_query_id = entry->pgsm_query_id;
 		dsa_area	*query_dsa_area;
 		char 		*query_ptr;
 #if PG_VERSION_NUM < 140000
@@ -1875,6 +1897,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 		}
+
+		values[i++] = Int64GetDatumFast(pgsm_query_id);
 
 		/* state at column number 8 for V1.0 API*/
 		if (api_version <= PGSM_V1_0)
@@ -2195,8 +2219,7 @@ AppendJumble(JumbleState *jstate, const unsigned char *item, Size size)
 		{
 			uint64		start_hash;
 
-			start_hash = DatumGetUInt64(hash_any_extended(jumble,
-														  JUMBLE_SIZE, 0));
+			start_hash = pgss_hash_string((char *)jumble, JUMBLE_SIZE);
 			memcpy(jumble, &start_hash, sizeof(start_hash));
 			jumble_len = sizeof(start_hash);
 		}
@@ -3175,7 +3198,7 @@ pgsm_emit_log_hook(ErrorData *edata)
 		uint64		queryid = 0;
 
 		if (debug_query_string)
-			queryid = DatumGetUInt64(hash_any_extended((const unsigned char *) debug_query_string, strlen(debug_query_string), 0));
+			queryid = pgss_hash_string(debug_query_string, strlen(debug_query_string));
 
 		pgss_store_error(queryid,
 						 debug_query_string ? debug_query_string : "",
@@ -3348,7 +3371,7 @@ get_query_id(JumbleState *jstate, Query *query)
 
 	/* Compute query ID and mark the Query node with it */
 	JumbleQuery(jstate, query);
-	queryid = DatumGetUInt64(hash_any_extended(jstate->jumble, jstate->jumble_len, 0));
+	queryid = pgss_hash_string((const char *)jstate->jumble, jstate->jumble_len);
 	return queryid;
 }
 #endif
