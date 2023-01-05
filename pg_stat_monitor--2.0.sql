@@ -71,7 +71,7 @@ BEGIN
     FOR rec IN
         WITH stat AS (select queryid, bucket, unnest(range()) AS range, 
             unnest(resp_calls)::int freq FROM pg_stat_monitor) select range, 
-            freq, repeat('■', (freq::float / max(freq) over() * 30)::int) AS bar 
+            freq, repeat('■', freq) AS bar 
             FROM stat WHERE queryid = _quryid and bucket = _bucket
     LOOP
         RETURN next rec;

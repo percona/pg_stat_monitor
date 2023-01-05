@@ -2042,7 +2042,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		}
 
 		/* resp_calls at column number 41 */
-		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, PGSM_HISTOGRAM_BUCKETS);
+		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, PGSM_HISTOGRAM_BUCKETS + 2);
 
 		/* utime at column number 42 */
 		values[i++] = Float8GetDatumFast(roundf(tmp.sysinfo.utime, 4));
@@ -3542,74 +3542,109 @@ unpack_sql_state(int sql_state)
 	return buf;
 }
 
-static int
-get_histogram_bucket(double q_time)
+#include <math.h>
+
+/*
+ * Calculates the appropriate histogram bucket for a given value.
+ *
+ * q_time: The value to place in a histogram bucket.
+ * Returns: The index of the histogram bucket that q_time belongs to.
+ */
+int get_histogram_bucket(double q_time)
 {
-	double		q_min = PGSM_HISTOGRAM_MIN;
-	double		q_max = PGSM_HISTOGRAM_MAX;
-	int			b_count = PGSM_HISTOGRAM_BUCKETS;
-	int			index = 0;
-	double		b_max;
-	double		b_min;
-	double		bucket_size;
+    /* Constants for the histogram range and number of buckets */
+    const double q_min = PGSM_HISTOGRAM_MIN;
+    const double q_max = PGSM_HISTOGRAM_MAX;
+    const int b_count = PGSM_HISTOGRAM_BUCKETS + 2;
 
-	q_time -= q_min;
+    /* Index for the current bucket */
+    int index = 0;
+    /* Maximum and minimum values for the buckets */
+    double b_max;
+    double b_min;
+    /* Size of each bucket */
+    double bucket_size;
 
-	b_max = log(q_max - q_min);
-	b_min = 0;
+    /* If q_time is less than the minimum value, return the 0th bucket */
+    if (q_time < q_min) {
+        return 0;
+    }
+    /* If q_time is greater than the maximum value, return the last bucket */
+    else if (q_time > q_max) {
+        return b_count - 1;
 
-	bucket_size = (b_max - b_min) / (double) b_count;
+    }
 
-	for (index = 1; index <= b_count; index++)
-	{
-		int64		b_start = (index == 1) ? 0 : exp(bucket_size * (index - 1));
-		int64		b_end = exp(bucket_size * index);
+    /* Adjust q_time so that it is relative to the minimum value */
+    q_time -= q_min;
 
-		if ((index == 1 && q_time < b_start)
-			|| (q_time >= b_start && q_time <= b_end)
-			|| (index == b_count && q_time > b_end))
-		{
-			return index - 1;
-		}
-	}
-	return 0;
+    /* Calculate the maximum and minimum values for the buckets */
+    b_max = log(q_max - q_min);
+    b_min = 0;
+
+    /* Calculate the size of each bucket */
+    bucket_size = (b_max - b_min) / b_count;
+
+    /* Iterate through each bucket */
+    for (index = 1; index <= b_count; index++) {
+        /* Calculate the start and end values for the current bucket */
+        const int64 b_start = (index == 1) ? 0 : exp(bucket_size * (index - 1));
+        const int64 b_end = exp(bucket_size * index);
+
+        /* If q_time falls within the range of the current bucket, return the index of the bucket */
+        if ((index == 1 && q_time < b_start) ||
+            (q_time >= b_start && q_time <= b_end) ||
+            (index == b_count && q_time > b_end)) {
+            return index - 1;
+        }
+    }
+
+    /* If q_time does not fall within the range of any bucket, return 0 */
+    return 0;
 }
 
+
+/* get_histogram_timings: Generates a histogram based on the given parameters:
+ *
+ * q_min: the minimum value for the range of values that the histogram covers
+ * q_max: the maximum value for the range of values that the histogram covers
+ * b_count: the number of buckets in the histogram
+ * It returns a string representation of the histogram in the form of a list of ranges 
+ * that the buckets cover, e.g. "(0 - 10), (10 - 20), (20 - infinity)"
+*/
 Datum
 get_histogram_timings(PG_FUNCTION_ARGS)
 {
-	double		q_min = PGSM_HISTOGRAM_MIN;
-	double		q_max = PGSM_HISTOGRAM_MAX;
-	int			b_count = PGSM_HISTOGRAM_BUCKETS;
-	int			index = 0;
-	double		b_max;
-	double		b_min;
-	double		bucket_size;
-	bool		first = true;
-	char	   *tmp_str = palloc0(MAX_STRING_LEN);
-	char	   *text_str = palloc0(MAX_STRING_LEN);
+    double      q_min = PGSM_HISTOGRAM_MIN;  /* lower bound of range covered by histogram */
+    double      q_max = PGSM_HISTOGRAM_MAX;  /* upper bound of range covered by histogram */
+    int         b_count = PGSM_HISTOGRAM_BUCKETS;  /* number of buckets in the histogram */
+    int         index = 0;  /* loop variable */
+    double      b_max;  /* upper bound of bucket range */
+    double      b_min;  /* lower bound of bucket range */
+    double      bucket_size;  /* size of each bucket */
 
-	b_max = log(q_max - q_min);
-	b_min = 0;
-	bucket_size = (b_max - b_min) / (double) b_count;
-	for (index = 1; index <= b_count; index++)
-	{
-		int64		b_start = (index == 1) ? 0 : exp(bucket_size * (index - 1));
-		int64		b_end = exp(bucket_size * index);
+    StringInfoData histogram_str;  /* StringInfoData struct for building the histogram string */
+    initStringInfo(&histogram_str);  /* Initialize the StringInfoData struct */
 
-		if (first)
-		{
-			snprintf(text_str, MAX_STRING_LEN, "(%ld - %ld)}", b_start, b_end);
-			first = false;
-		}
-		else
-		{
-			snprintf(tmp_str, MAX_STRING_LEN, "%s, (%ld - %ld)}", text_str, b_start, b_end);
-			snprintf(text_str, MAX_STRING_LEN, "%s", tmp_str);
-		}
-	}
-	pfree(tmp_str);
-	return CStringGetTextDatum(text_str);
+    b_max = log(q_max - q_min);  /* set the upper bound of the bucket range */
+    b_min = 0;  /* set the lower bound of the bucket range to 0 */
+
+    /* Initialize the histogram string with the range for the first bucket */
+    appendStringInfo(&histogram_str, "(%d - %ld)", 0, (int64)q_min);
+    bucket_size = (b_max - b_min) / (double) b_count;  /* calculate the size of each bucket */
+    for (index = 1; index <= b_count; index++)
+    {    
+        int64       b_start = exp(bucket_size * (index - 1));  /* start of the current bucket's range */
+        int64       b_end = exp(bucket_size * index);  /* end of the current bucket's range */
+
+        /* Append the current bucket's range to the histogram string */
+        appendStringInfo(&histogram_str, ", (%ld - %ld)", b_start, b_end);
+    }
+    /* Append the final bucket, which covers the range (q_max, infinity) */
+    appendStringInfo(&histogram_str, ", (%ld - infinity)", (uint64)q_max);
+
+    /* Return the histogram string as a Datum */
+    return CStringGetTextDatum(histogram_str.data);
 }
 
 static void
