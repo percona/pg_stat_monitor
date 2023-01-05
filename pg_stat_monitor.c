@@ -3542,7 +3542,6 @@ unpack_sql_state(int sql_state)
 	return buf;
 }
 
-#include <math.h>
 
 /*
  * Calculates the appropriate histogram bucket for a given value.
