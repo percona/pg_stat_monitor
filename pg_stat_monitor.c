@@ -1547,7 +1547,11 @@ pgss_store(uint64 queryid,
 			pgsm_query_id = pgss_hash_string(norm_query, norm_query_len);
 
 			/* Free up norm_query if we don't intend to show normalized version in the view */
-			if (!PGSM_NORMALIZED_QUERY)
+			if (PGSM_NORMALIZED_QUERY)
+			{
+				query_len = norm_query_len;
+			}
+			else
 			{
 				if (norm_query)
 					pfree(norm_query);
