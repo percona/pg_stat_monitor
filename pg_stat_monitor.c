@@ -3002,7 +3002,8 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 			memcpy(bind_variables + n_var_loc, query + quer_loc - tok_len, tok_len);
 			n_var_loc += tok_len;
 			memcpy(bind_variables + n_var_loc , ",", 1);
-			n_var_loc ++;
+			if (++n_var_loc >= VAR_LEN-1)
+				break;
 		}
 	}
 
