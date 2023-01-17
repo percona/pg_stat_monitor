@@ -2061,13 +2061,13 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Int64GetDatumFast(tmp.blocks.local_blks_written);
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_read);
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_written);
-		values[i++] = Float8GetDatumFast(tmp.blocks.blk_read_time);
-		values[i++] = Float8GetDatumFast(tmp.blocks.blk_write_time);
+		values[i++] = Float8GetDatumFast(roundf(tmp.blocks.blk_read_time, 4));
+		values[i++] = Float8GetDatumFast(roundf(tmp.blocks.blk_write_time, 4));
 
 		if (api_version >= PGSM_V2_0)
 		{
-			values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_read_time);
-			values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
+			values[i++] = Float8GetDatumFast(roundf(tmp.blocks.temp_blk_read_time, 4));
+			values[i++] = Float8GetDatumFast(roundf(tmp.blocks.temp_blk_write_time, 4));
 		}
 
 		/* resp_calls at column number 41 */
