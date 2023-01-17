@@ -1724,7 +1724,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	MemoryContext oldcontext;
 	PGSM_HASH_SEQ_STATUS hstat;
 	pgssEntry  *entry;
-	char		parentid_txt[32];
 	pgssSharedState *pgss;
 	char	   *query_txt = NULL;
 	char	   *parent_query_txt = NULL;
@@ -1778,15 +1777,13 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		int			i = 0;
 		Counters	tmp;
 		double		stddev;
-		char		queryid_text[32] = {0};
-		char		planid_text[32] = {0};
 		uint64		queryid = entry->key.queryid;
 		int64		bucketid = entry->key.bucket_id;
 		uint64		dbid = entry->key.dbid;
 		uint64		userid = entry->key.userid;
 		int64		ip = entry->key.ip;
 		uint64		planid = entry->key.planid;
-    uint64		pgsm_query_id = entry->pgsm_query_id;
+		uint64		pgsm_query_id = entry->pgsm_query_id;
 		dsa_area	*query_dsa_area;
 		char 		*query_ptr;
 #if PG_VERSION_NUM < 140000
@@ -1863,14 +1860,12 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			nulls[i++] = true;
 
 		/* queryid at column number 4 */
-		snprintf(queryid_text, 32, "%08lX", queryid);
-		values[i++] = CStringGetTextDatum(queryid_text);
+		values[i++] = Int64GetDatumFast(queryid);
 
 		/* planid at column number 5 */
 		if (planid)
 		{
-			snprintf(planid_text, 32, "%08lX", planid);
-			values[i++] = CStringGetTextDatum(planid_text);
+			values[i++] = Int64GetDatumFast(planid);
 		}
 		else
 		{
@@ -1917,8 +1912,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* parentid at column number 9 */
 		if (tmp.info.parentid != UINT64CONST(0))
 		{
-			snprintf(parentid_txt, 32, "%08lX", tmp.info.parentid);
-			values[i++] = CStringGetTextDatum(parentid_txt);
+			values[i++] = Int64GetDatumFast(tmp.info.parentid);
 			values[i++] = CStringGetTextDatum(parent_query_txt);
 		}
 		else
