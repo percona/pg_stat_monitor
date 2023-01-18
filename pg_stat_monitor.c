@@ -1860,12 +1860,12 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			nulls[i++] = true;
 
 		/* queryid at column number 4 */
-		values[i++] = Int64GetDatumFast(queryid);
+		values[i++] = UInt64GetDatum(queryid);
 
 		/* planid at column number 5 */
 		if (planid)
 		{
-			values[i++] = Int64GetDatumFast(planid);
+			values[i++] = UInt64GetDatum(planid);
 		}
 		else
 		{
@@ -1903,7 +1903,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 		}
 
-		values[i++] = Int64GetDatumFast(pgsm_query_id);
+		values[i++] = UInt64GetDatum(pgsm_query_id);
 
 		/* state at column number 8 for V1.0 API*/
 		if (api_version <= PGSM_V1_0)
@@ -1912,7 +1912,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* parentid at column number 9 */
 		if (tmp.info.parentid != UINT64CONST(0))
 		{
-			values[i++] = Int64GetDatumFast(tmp.info.parentid);
+			values[i++] = UInt64GetDatum(tmp.info.parentid);
 			values[i++] = CStringGetTextDatum(parent_query_txt);
 		}
 		else
