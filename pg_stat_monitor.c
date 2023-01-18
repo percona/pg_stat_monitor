@@ -2107,13 +2107,13 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			if (api_version >= PGSM_V2_0)
 			{
 				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
+				values[i++] = Float8GetDatumFast(roundf(tmp.jitinfo.jit_generation_time, 4));
 				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_inlining_time);
+				values[i++] = Float8GetDatumFast(roundf(tmp.jitinfo.jit_inlining_time, 4));
 				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_optimization_count);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_optimization_time);
+				values[i++] = Float8GetDatumFast(roundf(tmp.jitinfo.jit_optimization_time, 4));
 				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
+				values[i++] = Float8GetDatumFast(roundf(tmp.jitinfo.jit_emission_time, 4));
 			}
 
 		}
