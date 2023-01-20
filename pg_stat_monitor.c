@@ -2999,11 +2999,13 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 		last_tok_len = tok_len;
 
 		if (PGSM_EXTRACT_VARIABLES){
-			memcpy(bind_variables + n_var_loc, query + quer_loc - tok_len, tok_len);
-			n_var_loc += tok_len;
-			memcpy(bind_variables + n_var_loc , ",", 1);
-			if (++n_var_loc >= VAR_LEN-1)
-				break;
+			if (n_var_loc+tok_len + 1 < VAR_LEN-1){
+				memcpy(bind_variables + n_var_loc, query + quer_loc - tok_len, tok_len);
+				n_var_loc += tok_len;
+				memcpy(bind_variables + n_var_loc , ",", 1);
+				n_var_loc ++;
+			}
+			
 		}
 	}
 
