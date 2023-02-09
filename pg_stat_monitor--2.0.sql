@@ -85,7 +85,7 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT bucket              int8,   -- 0
     OUT userid              oid,
     OUT dbid                oid,
-    OUT client_ip           int8,
+    OUT client_ip           int4,
 
     OUT queryid             int8,  -- 4
     OUT planid              int8,

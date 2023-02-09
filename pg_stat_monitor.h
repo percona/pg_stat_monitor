@@ -196,23 +196,23 @@ typedef enum OVERFLOW_TARGET
 	OVERFLOW_TARGET_DISK
 }			OVERFLOW_TARGET;
 
-typedef enum pgssStoreKind
+typedef enum pgsmStoreKind
 {
-	PGSS_INVALID = -1,
+	PGSM_INVALID = -1,
 
 	/*
-	 * PGSS_PLAN and PGSS_EXEC must be respectively 0 and 1 as they're used to
+	 * PGSM_PLAN and PGSM_EXEC must be respectively 0 and 1 as they're used to
 	 * reference the underlying values in the arrays in the Counters struct,
-	 * and this order is required in pg_stat_statements_internal().
+	 * and this order is required in pg_stat_monitor_internal().
 	 */
-	PGSS_PARSE = 0,
-	PGSS_PLAN,
-	PGSS_EXEC,
-	PGSS_FINISHED,
-	PGSS_ERROR,
+	PGSM_PARSE = 0,
+	PGSM_PLAN,
+	PGSM_EXEC,
+	PGSM_STORE,
+	PGSM_ERROR,
 
 	PGSS_NUMKIND				/* Must be last value of this enum */
-} pgssStoreKind;
+} pgsmStoreKind;
 
 /* the assumption of query max nested level */
 #define DEFAULT_MAX_NESTED_LEVEL	10
@@ -251,12 +251,12 @@ typedef struct pgssHashKey
 {
 	uint64		bucket_id;		/* bucket number */
 	uint64		queryid;		/* query identifier */
-	uint64		userid;			/* user OID */
-	uint64		dbid;			/* database OID */
-	uint64		ip;				/* client ip address */
 	uint64		planid;			/* plan identifier */
 	uint64		appid;			/* hash of application name */
-	uint64		toplevel;		/* query executed at top level */
+	Oid			userid;			/* user OID */
+	Oid			dbid;			/* database OID */
+	uint32		ip;				/* client ip address */
+	bool		toplevel;		/* query executed at top level */
 } pgssHashKey;
 
 typedef struct QueryInfo
@@ -339,7 +339,6 @@ typedef struct Wal_Usage
 
 typedef struct Counters
 {
-	uint64		bucket_id;		/* bucket id */
 	Calls		calls;
 	QueryInfo	info;
 	CallTime	time;
@@ -479,8 +478,6 @@ void		pgss_shmem_startup(void);
 void		pgss_shmem_shutdown(int code, Datum arg);
 int			pgsm_get_bucket_size(void);
 pgssSharedState *pgsm_get_ss(void);
-void		hash_entry_reset(void);
-void		hash_query_entryies_reset(void);
 void		hash_query_entries();
 void		hash_query_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer[]);
 void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
