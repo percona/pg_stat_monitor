@@ -369,7 +369,11 @@ typedef struct pgssEntry
 	Counters	counters;		/* the statistics for this query */
 	int			encoding;		/* query text encoding */
 	slock_t		mutex;			/* protects the counters only */
-	dsa_pointer	query_pos;		/* query location within query buffer */
+	union
+	{
+		dsa_pointer	query_pos;		/* query location within query buffer */
+		char*	query_pointer;
+	}query_text;
 } pgssEntry;
 
 /*
