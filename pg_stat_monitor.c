@@ -416,6 +416,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	pgssEntry *entry;
 	const char *query_text;
 	char *norm_query = NULL;
+	int norm_query_len;
 	int location;
 	int query_len;
 
@@ -466,19 +467,18 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	Assert(query_text);
 	query_text = CleanQuerytext(query_text, &location, &query_len);
 
+	norm_query_len = query_len;
+
 	/* Generate a normalized query */
 	if (jstate && jstate->clocations_count > 0)
 	{
-		int norm_query_len = query_len;
-
 		norm_query = generate_normalized_query(jstate, 
 												query_text,   		/* query */
 												location,   		/* query location */
 												&norm_query_len,
 												GetDatabaseEncoding());
 
-		if (PGSM_NORMALIZED_QUERY)
-			query_len = norm_query_len;
+		Assert(norm_query);
 	}
 
 	/*
@@ -490,7 +490,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	entry = pgsm_create_hash_entry(0, query->queryId, NULL);
 
 	/* Update other member that are not counters, so that we don't have to worry about these. */
-	entry->pgsm_query_id = pgss_hash_string(norm_query ? norm_query : query_text, query_len);
+	entry->pgsm_query_id = pgss_hash_string(norm_query ? norm_query : query_text, norm_query_len);
 	entry->counters.info.cmd_type = query->commandType;
 
 	/*
@@ -504,7 +504,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	 * it is put in the relevant memory context.
 	 */
 	if (PGSM_NORMALIZED_QUERY && norm_query)
-		pgsm_add_to_list(entry, norm_query, query_len, true);
+		pgsm_add_to_list(entry, norm_query, norm_query_len, true);
 	else
 	{
 		pgsm_add_to_list(entry, (char *)query_text, query_len, true);
@@ -512,6 +512,9 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 
 	/* Check that we've not exceeded max_stack_depth */
 	Assert(list_length(lentries) <= max_stack_depth);
+
+	if (norm_query)
+		pfree(norm_query);
 }
 
 #if PG_VERSION_NUM >= 140000
@@ -1083,19 +1086,19 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		location = pstmt->stmt_location;
 		query_len = pstmt->stmt_len;
-		query_text = pnstrdup(CleanQuerytext(queryString, &location, &query_len), query_len);
+		query_text = (char *)CleanQuerytext(queryString, &location, &query_len);
 
 		entry->pgsm_query_id = pgss_hash_string(query_text, query_len);
 		entry->counters.info.cmd_type = 0;
 
-		pgsm_add_to_list(entry, query_text, query_len, false);
+		pgsm_add_to_list(entry, query_text, query_len, true);
 
 		/* Check that we've not exceeded max_stack_depth */
 		Assert(list_length(lentries) <= max_stack_depth);
 
 		/* The plan details are captured when the query finishes */
 		pgsm_update_entry(entry,								/* entry */
-						  query_text,							/* query */
+						  (char *)llast(lquery_text),			/* query */
 						  NULL,									/* PlanInfo */
 						  &sys_info, 							/* SysInfo */
 						  NULL,									/* ErrorInfo */
