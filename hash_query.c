@@ -288,7 +288,7 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 /*
  * Prepare resources for using the new bucket:
  *    - Deallocate finished hash table entries in new_bucket_id (entries whose
- *      state is PGSS_FINISHED or PGSS_FINISHED).
+ *      state is PGSM_EXEC or PGSM_ERROR).
  *    - Clear query buffer for new_bucket_id.
  *    - If old_bucket_id != -1, move all pending hash table entries in
  *      old_bucket_id to the new bucket id, also move pending queries from the
@@ -302,9 +302,6 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 {
 	PGSM_HASH_SEQ_STATUS hstat;
 	pgssEntry  *entry = NULL;
-	/* Store pending query ids from the previous bucket. */
-	List	   *pending_entries = NIL;
-	ListCell   *pending_entry;
 
 	if (!pgsmStateLocal.shared_hash)
 		return;
@@ -320,9 +317,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 		 * Remove all entries if new_bucket_id == -1. Otherwise remove entry
 		 * in new_bucket_id if it has finished already.
 		 */
-		if (new_bucket_id < 0 ||
-			(entry->key.bucket_id == new_bucket_id &&
-			 (entry->counters.state == PGSS_FINISHED || entry->counters.state == PGSS_ERROR)))
+		if (new_bucket_id < 0 || entry->key.bucket_id == new_bucket_id)
 		{
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
 			pdsa = entry->query_pos;
@@ -336,145 +331,9 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 				dsa_free(pgsmStateLocal.dsa, parent_qdsa);
 			continue;
 		}
-
-		/*
-		 * If we detect a pending query residing in the previous bucket id, we
-		 * add it to a list of pending elements to be moved to the new bucket
-		 * id. Can't update the hash table while iterating it inside this
-		 * loop, as this may introduce all sort of problems.
-		 */
-		if (old_bucket_id != -1 && entry->key.bucket_id == old_bucket_id)
-		{
-			if (entry->counters.state == PGSS_PARSE ||
-				entry->counters.state == PGSS_PLAN ||
-				entry->counters.state == PGSS_EXEC)
-			{
-				pgssEntry  *bkp_entry = malloc(sizeof(pgssEntry));
-
-				if (!bkp_entry)
-				{
-					elog(DEBUG1, "hash_entry_dealloc: out of memory");
-
-					/*
-					 * No memory, If the entry has calls > 1 then we change
-					 * the state to finished, as the pending query will likely
-					 * finish execution during the new bucket time window. The
-					 * pending query will vanish in this case, can't list it
-					 * until it completes.
-					 *
-					 * If there is only one call to the query and it's
-					 * pending, remove the entry from the previous bucket and
-					 * allow it to finish in the new bucket, in order to avoid
-					 * the query living in the old bucket forever.
-					 */
-					if (entry->counters.calls.calls > 1)
-						entry->counters.state = PGSS_FINISHED;
-					else
-					{
-						pdsa = entry->query_pos;
-						pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
-						if (DsaPointerIsValid(pdsa))
-							dsa_free(pgsmStateLocal.dsa, pdsa);
-					}
-					continue;
-				}
-
-				/* Save key/data from the previous entry. */
-				memcpy(bkp_entry, entry, sizeof(pgssEntry));
-
-				/* Update key to use the new bucket id. */
-				bkp_entry->key.bucket_id = new_bucket_id;
-
-				/* Add the entry to a list of nodes to be processed later. */
-				pending_entries = lappend(pending_entries, bkp_entry);
-
-				/*
-				 * If the entry has calls > 1 then we change the state to
-				 * finished in the previous bucket, as the pending query will
-				 * likely finish execution during the new bucket time window.
-				 * Can't remove it from the previous bucket as it may have
-				 * many calls and we would lose the query statistics.
-				 *
-				 * If there is only one call to the query and it's pending,
-				 * remove the entry from the previous bucket and allow it to
-				 * finish in the new bucket, in order to avoid the query
-				 * living in the old bucket forever.
-				 */
-				if (entry->counters.calls.calls > 1)
-					entry->counters.state = PGSS_FINISHED;
-				else
-				{
-					pdsa = entry->query_pos;
-					pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
-					/* We should not delete the Query in DSA here
-					 * as the same will get reused when the entry gets inserted into new bucket
-					 */
-				}
-			}
-		}
-	}
-	pgsm_hash_seq_term(&hstat);
-	/*
-	 * Iterate over the list of pending queries in order to add them back to
-	 * the hash table with the updated bucket id.
-	 */
-	foreach(pending_entry, pending_entries)
-	{
-		bool		found = false;
-		pgssEntry  *new_entry;
-		pgssEntry  *old_entry = (pgssEntry *) lfirst(pending_entry);
-
-
-		PGSM_DISABLE_ERROR_CAPUTRE();
-		{
-			new_entry = (pgssEntry*) pgsm_hash_find_or_insert(pgsmStateLocal.shared_hash, &old_entry->key, &found);
-		}PGSM_END_DISABLE_ERROR_CAPTURE();
-
-		if (new_entry == NULL)
-			elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
-		else if (!found)
-		{
-			/* Restore counters and other data. */
-			new_entry->counters = old_entry->counters;
-			SpinLockInit(&new_entry->mutex);
-			new_entry->encoding = old_entry->encoding;
-			new_entry->query_pos = old_entry->query_pos;
-		}
-		#if USE_DYNAMIC_HASH
-		if(new_entry)
-			dshash_release_lock(pgsmStateLocal.shared_hash, new_entry);
-		#endif
-		free(old_entry);
-	}
-	list_free(pending_entries);
-}
-
-/*
- * Release all entries.
- */
-void
-hash_entry_reset()
-{
-	pgssSharedState *pgss = pgsm_get_ss();
-	PGSM_HASH_SEQ_STATUS hstat;
-	pgssEntry  *entry;
-
-	LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
-
-	pgsm_hash_seq_init(&hstat, pgsmStateLocal.shared_hash, true);
-
-	while ((entry = pgsm_hash_seq_next(&hstat)) != NULL)
-	{
-		dsa_pointer pdsa = entry->query_pos;
-		pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
-		if (DsaPointerIsValid(pdsa))
-			dsa_free(pgsmStateLocal.dsa, pdsa);
 	}
 
 	pgsm_hash_seq_term(&hstat);
-
-	pg_atomic_write_u64(&pgss->current_wbucket, 0);
-	LWLockRelease(pgss->lock);
 }
 
 bool
