@@ -1447,10 +1447,10 @@ pgsm_update_entry(pgssEntry *entry,
 
 				if (e->counters.time.max_time < exec_total_time)
 					e->counters.time.max_time = exec_total_time;
-
-				index = get_histogram_bucket(exec_total_time);
-				e->counters.resp_calls[index]++;
 			}
+
+			index = get_histogram_bucket(exec_total_time);
+			e->counters.resp_calls[index]++;
 		}
 
 		if (plan_text_len > 0 && !e->counters.planinfo.plan_text[0])
