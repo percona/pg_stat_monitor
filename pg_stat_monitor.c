@@ -475,7 +475,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	 * that jstate is valid, it always will be for these versions.
 	 */
 #if PG_VERSION_NUM < 140000
-	query->queryId = get_query_id(&jstate, query);
+	query->queryId = get_query_id(jstate, query);
 #endif
 
 	/*
