@@ -189,7 +189,7 @@ char	   *unpack_sql_state(int sql_state);
 
 static pgssEntry *pgsm_create_hash_entry(MemoryContext context, uint64 bucket_id, uint64 queryid, PlanInfo *plan_info);
 static void pgsm_add_to_list(pgssEntry *entry, char *query_text, int query_len, bool should_dup);
-static pgssEntry* pgsm_get_entry_for_query(uint64 queryid, const char* query_text, int query_len, bool create);
+static pgssEntry* pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char* query_text, int query_len, bool create);
 static void pgsm_print_entrys_list(void);
 static void pgsm_cleanup_callback(void *arg);
 static void pgsm_store_error(const char *query, ErrorData *edata);
@@ -742,12 +742,15 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(exec_nested_level))
 	{
 		// elog(NOTICE,"**Hoping for list entryof query: %s",queryDesc->sourceText);
-		entry = pgsm_get_entry_for_query(queryId, queryDesc->sourceText, strlen(queryDesc->sourceText), true);
+		entry = pgsm_get_entry_for_query(queryId, plan_ptr, queryDesc->sourceText, strlen(queryDesc->sourceText), true);
 		if(!entry)
 		{
 			elog(NOTICE,"Failed to find entry for [%lu] %s",queryId, queryDesc->sourceText);
 			pgsm_print_entrys_list();
 		}
+
+		if (entry->key.planid == 0)
+			entry->key.planid = (plan_ptr) ? plan_ptr->planid : 0;
 
 		/*
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
@@ -878,7 +881,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	 */
 	// elog(NOTICE,"%s:%s",__FUNCTION__,query_string);
 	if (MemoryContextIsValid(MessageContext))
-		entry = pgsm_get_entry_for_query(parse->queryId, query_string, strlen(query_string), true);
+		entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true);
 
 
 	if (pgsm_enabled(plan_nested_level + exec_nested_level) &&
@@ -1450,12 +1453,16 @@ pgsm_update_entry(pgssEntry *entry,
 			}
 		}
 
+		if (plan_text_len > 0 && !e->counters.planinfo.plan_text[0])
+		{
+			e->counters.planinfo.planid = plan_info->planid;
+			e->counters.planinfo.plan_len = plan_text_len;
+			_snprintf(e->counters.planinfo.plan_text, plan_info->plan_text, plan_text_len + 1, PLAN_TEXT_LEN);
+		}
+
 		/* Only should process this once when storing the data */
 		if (kind == PGSM_STORE)
 		{
-			if (plan_text_len > 0 && !e->counters.planinfo.plan_text[0])
-				_snprintf(e->counters.planinfo.plan_text, plan_info->plan_text, plan_text_len + 1, PLAN_TEXT_LEN);
-
 			app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
 
 			if (app_name_len > 0 && !e->counters.info.application_name[0])
@@ -1620,7 +1627,7 @@ pgsm_add_to_list(pgssEntry *entry, char *query_text, int query_len, bool should_
 }
 
 static pgssEntry*
-pgsm_get_entry_for_query(uint64 queryid, const char* query_text, int query_len, bool create)
+pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char* query_text, int query_len, bool create)
 {
 	pgssEntry *entry = NULL;
 	ListCell   *lc = NULL;
@@ -1651,7 +1658,7 @@ pgsm_get_entry_for_query(uint64 queryid, const char* query_text, int query_len, 
 		* The correct bucket value will be needed then to search the hash table, or create
 		* the appropriate entry.
 		*/
-		entry = pgsm_create_hash_entry(MessageContext, 0, queryid, NULL);
+		entry = pgsm_create_hash_entry(MessageContext, 0, queryid, plan_info);
 
 		/* Update other member that are not counters, so that we don't have to worry about these. */
 		entry->pgsm_query_id = pgss_hash_string(query_text, query_len);
