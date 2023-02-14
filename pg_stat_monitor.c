@@ -199,7 +199,8 @@ static void pgsm_update_entry(pgssEntry *entry,
 					PlanInfo * plan_info,
 					SysInfo * sys_info,
 					ErrorInfo * error_info,
-					double total_time,
+					double plan_total_time,
+					double exec_total_time,
 					uint64 rows,
 					BufferUsage *bufusage,
 					WalUsage *walusage,
@@ -770,7 +771,8 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 						  plan_ptr,								/* PlanInfo */
 						  &sys_info, 							/* SysInfo */
 						  NULL,									/* ErrorInfo */
-						  queryDesc->totaltime->total * 1000.0,	/* total_time */
+						  0,									/* plan_total_time */
+						  queryDesc->totaltime->total * 1000.0,	/* exec_total_time */
 						  queryDesc->estate->es_processed, 		/* rows */
 						  &queryDesc->totaltime->bufusage,		/* bufusage */
 #if PG_VERSION_NUM >= 130000
@@ -938,7 +940,8 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 						  NULL,									/* PlanInfo */
 						  NULL, 								/* SysInfo */
 						  NULL,									/* ErrorInfo */
-						  INSTR_TIME_GET_MILLISEC(duration),	/* total_time */
+						  INSTR_TIME_GET_MILLISEC(duration),	/* plan_total_time */
+						  0,									/* exec_total_time */
 						  0, 									/* rows */
 						  &bufusage, 							/* bufusage */
 						  &walusage, 							/* walusage */
@@ -1164,7 +1167,8 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 						  NULL,									/* PlanInfo */
 						  &sys_info, 							/* SysInfo */
 						  NULL,									/* ErrorInfo */
-						  INSTR_TIME_GET_MILLISEC(duration),	/* total_time */
+						  0,									/* plan_total_time */
+						  INSTR_TIME_GET_MILLISEC(duration),	/* exec_total_time */
 						  rows, 								/* rows */
 						  &bufusage, 							/* bufusage */
 #if PG_VERSION_NUM >= 130000
@@ -1341,7 +1345,8 @@ pgsm_update_entry(pgssEntry *entry,
 				  PlanInfo * plan_info,
 				  SysInfo * sys_info,
 				  ErrorInfo * error_info,
-				  double total_time,
+				  double plan_total_time,
+				  double exec_total_time,
 				  uint64 rows,
 				  BufferUsage *bufusage,
 				  WalUsage *walusage,
@@ -1387,28 +1392,28 @@ pgsm_update_entry(pgssEntry *entry,
 				e->counters.plancalls.usage = USAGE_INIT;
 
 			e->counters.plancalls.calls += 1;
-			e->counters.plantime.total_time += total_time;
+			e->counters.plantime.total_time += plan_total_time;
 
 			if (e->counters.plancalls.calls == 1)
 			{
-				e->counters.plantime.min_time = total_time;
-				e->counters.plantime.max_time = total_time;
-				e->counters.plantime.mean_time = total_time;
+				e->counters.plantime.min_time = plan_total_time;
+				e->counters.plantime.max_time = plan_total_time;
+				e->counters.plantime.mean_time = plan_total_time;
 			}
 			else
 			{
 				/* Increment the counts, except when jstate is not NULL */
 				old_mean = e->counters.plantime.mean_time;
 
-				e->counters.plantime.mean_time += (total_time - old_mean) / e->counters.plancalls.calls;
-				e->counters.plantime.sum_var_time += (total_time - old_mean) * (total_time - e->counters.plantime.mean_time);
+				e->counters.plantime.mean_time += (plan_total_time - old_mean) / e->counters.plancalls.calls;
+				e->counters.plantime.sum_var_time += (plan_total_time - old_mean) * (plan_total_time - e->counters.plantime.mean_time);
 
 				/* calculate min and max time */
-				if (e->counters.plantime.min_time > total_time)
-					e->counters.plantime.min_time = total_time;
+				if (e->counters.plantime.min_time > plan_total_time)
+					e->counters.plantime.min_time = plan_total_time;
 
-				if (e->counters.plantime.max_time < total_time)
-					e->counters.plantime.max_time = total_time;
+				if (e->counters.plantime.max_time < plan_total_time)
+					e->counters.plantime.max_time = plan_total_time;
 			}
 		}
 
@@ -1418,29 +1423,29 @@ pgsm_update_entry(pgssEntry *entry,
 				e->counters.calls.usage = USAGE_INIT;
 
 			e->counters.calls.calls += 1;
-			e->counters.time.total_time += total_time;
+			e->counters.time.total_time += exec_total_time;
 
 			if (e->counters.calls.calls == 1)
 			{
-				e->counters.time.min_time = total_time;
-				e->counters.time.max_time = total_time;
-				e->counters.time.mean_time = total_time;
+				e->counters.time.min_time = exec_total_time;
+				e->counters.time.max_time = exec_total_time;
+				e->counters.time.mean_time = exec_total_time;
 			}
 			else
 			{
 				/* Increment the counts, except when jstate is not NULL */
 				old_mean = e->counters.time.mean_time;
-				e->counters.time.mean_time += (total_time - old_mean) / e->counters.calls.calls;
-				e->counters.time.sum_var_time += (total_time - old_mean) * (total_time - e->counters.time.mean_time);
+				e->counters.time.mean_time += (exec_total_time - old_mean) / e->counters.calls.calls;
+				e->counters.time.sum_var_time += (exec_total_time - old_mean) * (exec_total_time - e->counters.time.mean_time);
 
 				/* calculate min and max time */
-				if (e->counters.time.min_time > total_time)
-					e->counters.time.min_time = total_time;
+				if (e->counters.time.min_time > exec_total_time)
+					e->counters.time.min_time = exec_total_time;
 
-				if (e->counters.time.max_time < total_time)
-					e->counters.time.max_time = total_time;
+				if (e->counters.time.max_time < exec_total_time)
+					e->counters.time.max_time = exec_total_time;
 
-				index = get_histogram_bucket(total_time);
+				index = get_histogram_bucket(exec_total_time);
 				e->counters.resp_calls[index]++;
 			}
 		}
@@ -1520,9 +1525,17 @@ pgsm_update_entry(pgssEntry *entry,
 				e->counters.blocks.temp_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
 				e->counters.blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
 			#endif
+
+			memcpy((void *)&e->counters.blocks.instr_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
+			memcpy((void *)&e->counters.blocks.instr_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
+
+			#if PG_VERSION_NUM >= 150000
+				memcpy((void *)&e->counters.blocks.instr_temp_blk_read_time, &bufusage->temp_blk_read_time, sizeof(bufusage->temp_blk_read_time));
+				memcpy((void *)&e->counters.blocks.instr_temp_blk_write_time, &bufusage->temp_blk_write_time, sizeof(bufusage->temp_blk_write_time));
+			#endif
 		}
 
-		e->counters.calls.usage += USAGE_EXEC(total_time);
+		e->counters.calls.usage += USAGE_EXEC(exec_total_time + plan_total_time);
 
 		if (sys_info)
 		{
@@ -1551,6 +1564,11 @@ pgsm_update_entry(pgssEntry *entry,
 			if (INSTR_TIME_GET_MILLISEC(jitusage->emission_counter))
 				e->counters.jitinfo.jit_emission_count++;
 			e->counters.jitinfo.jit_emission_time += INSTR_TIME_GET_MILLISEC(jitusage->emission_counter);
+
+			memcpy((void *)&e->counters.jitinfo.instr_generation_counter, &jitusage->generation_counter, sizeof(instr_time));
+			memcpy((void *)&e->counters.jitinfo.instr_inlining_counter, &jitusage->inlining_counter, sizeof(instr_time));
+			memcpy((void *)&e->counters.jitinfo.instr_optimization_counter, &jitusage->optimization_counter, sizeof(instr_time));
+			memcpy((void *)&e->counters.jitinfo.instr_emission_counter, &jitusage->emission_counter, sizeof(instr_time));
 		}
 
 		if (kind == PGSM_STORE)
@@ -1748,6 +1766,9 @@ pgsm_store(pgssEntry *entry)
 	bool		reset = false;	/* Only used in update function - HAMID */
 	char	   *query;
 	int			query_len;
+	BufferUsage bufusage;
+	WalUsage    walusage;
+	JitInstrumentation jitusage;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1838,17 +1859,52 @@ pgsm_store(pgssEntry *entry)
 		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
 	}
 
-	pgsm_update_entry(shared_hash_entry,				/* entry */
-						query,							/* query */
-						&entry->counters.planinfo,		/* PlanInfo */
-						&entry->counters.sysinfo, 		/* SysInfo */
-						&entry->counters.error,			/* ErrorInfo */
-						0,								/* total_time */ /* HAMID - need to pass a proper value here */
-						entry->counters.calls.rows, 	/* rows */
-						NULL, // HAMID &entry->counters.blocks, 		/* bufusage */
-						NULL, // HAMID &entry->counters.walusage, 		/* walusage */
-						NULL, // HAMID &entry->counters.jitinfo,		/* jitusage */
-						reset,							/* reset */
+
+	/* bufusage */
+	bufusage.shared_blks_hit = entry->counters.blocks.shared_blks_hit;
+	bufusage.shared_blks_read = entry->counters.blocks.shared_blks_read;
+	bufusage.shared_blks_dirtied = entry->counters.blocks.shared_blks_dirtied;
+	bufusage.shared_blks_written = entry->counters.blocks.shared_blks_written;
+	bufusage.local_blks_hit = entry->counters.blocks.local_blks_hit;
+	bufusage.local_blks_read = entry->counters.blocks.local_blks_read;
+	bufusage.local_blks_dirtied = entry->counters.blocks.local_blks_dirtied;
+	bufusage.local_blks_written = entry->counters.blocks.local_blks_written;
+	bufusage.temp_blks_read = entry->counters.blocks.temp_blks_read;
+	bufusage.temp_blks_written = entry->counters.blocks.temp_blks_written;
+
+	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
+
+	#if PG_VERSION_NUM >= 150000
+		memcpy(&bufusage.temp_blk_read_time, &entry->counters.blocks.instr_temp_blk_read_time, sizeof(instr_time));
+		memcpy(&bufusage.temp_blk_write_time, &entry->counters.blocks.instr_temp_blk_write_time, sizeof(instr_time));
+	#endif
+
+	/* walusage */
+	walusage.wal_records = entry->counters.walusage.wal_records;
+	walusage.wal_fpi = entry->counters.walusage.wal_fpi;
+	walusage.wal_bytes = entry->counters.walusage.wal_bytes;
+
+	/* jit */
+	jitusage.created_functions = entry->counters.jitinfo.jit_functions;
+	memcpy(&jitusage.generation_counter, &entry->counters.jitinfo.instr_generation_counter, sizeof(instr_time));
+	memcpy(&jitusage.inlining_counter, &entry->counters.jitinfo.instr_inlining_counter, sizeof(instr_time));
+	memcpy(&jitusage.optimization_counter, &entry->counters.jitinfo.instr_optimization_counter, sizeof(instr_time));
+	memcpy(&jitusage.emission_counter, &entry->counters.jitinfo.instr_emission_counter, sizeof(instr_time));
+
+
+	pgsm_update_entry(shared_hash_entry,						/* entry */
+						query,									/* query */
+						&entry->counters.planinfo,				/* PlanInfo */
+						&entry->counters.sysinfo, 				/* SysInfo */
+						&entry->counters.error,					/* ErrorInfo */
+						entry->counters.plantime.total_time,	/* plan_total_time */
+						entry->counters.time.total_time,		/* exec_total_time */
+						entry->counters.calls.rows, 			/* rows */
+						&bufusage,  							/* bufusage */
+						&walusage, 				 				/* walusage */
+						&jitusage, 								/* jitusage */
+						reset,									/* reset */
 						PGSM_STORE);
 
 
@@ -1856,6 +1912,8 @@ pgsm_store(pgssEntry *entry)
 
 	// lentries = list_delete_last(lentries);
 	// lquery_text = list_delete_last(lquery_text);
+
+	memset(&entry->counters, 0, sizeof(entry->counters));
 
 	LWLockRelease(pgss->lock);
 }

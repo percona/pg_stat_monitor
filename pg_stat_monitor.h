@@ -307,6 +307,15 @@ typedef struct Blocks
 	double      temp_blk_read_time; /* time spent reading temp blocks, in msec */
 	double      temp_blk_write_time;    /* time spent writing temp blocks, in
                                           * msec */
+
+	/*
+	 * Variables for local entry. The values to be passed to pgsm_update_entry
+	 * from pgsm_store.
+	 */
+	instr_time      instr_blk_read_time;  		/* time spent reading blocks */
+	instr_time      instr_blk_write_time; 		/* time spent writing blocks */
+	instr_time      instr_temp_blk_read_time; 	/* time spent reading temp blocks */
+	instr_time      instr_temp_blk_write_time;	/* time spent writing temp blocks */
 }			Blocks;
 
 typedef struct JitInfo
@@ -322,6 +331,15 @@ typedef struct JitInfo
      int64       jit_emission_count; /* number of times emission time has been
                                       * > 0 */
      double      jit_emission_time;  /* total time to emit jit code */
+
+	/*
+	 * Variables for local entry. The values to be passed to pgsm_update_entry
+	 * from pgsm_store.
+	 */
+	instr_time      instr_generation_counter;  		/* generation counter */
+	instr_time      instr_inlining_counter;  		/* inlining counter */
+	instr_time      instr_optimization_counter; 	/* optimization counter */
+	instr_time      instr_emission_counter; 		/* emission counter */
 }			JitInfo;
 
 typedef struct SysInfo
