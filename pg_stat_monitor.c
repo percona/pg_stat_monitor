@@ -187,12 +187,12 @@ char	   *unpack_sql_state(int sql_state);
 									!IsA(n, DeallocateStmt))
 
 
-static pgssEntry *pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info);
+static pgssEntry *pgsm_create_hash_entry(MemoryContext context, uint64 bucket_id, uint64 queryid, PlanInfo *plan_info);
 static void pgsm_add_to_list(pgssEntry *entry, char *query_text, int query_len, bool should_dup);
 static pgssEntry* pgsm_get_entry_for_query(uint64 queryid, const char* query_text, int query_len, bool create);
 static void pgsm_print_entrys_list(void);
 static void pgsm_cleanup_callback(void *arg);
-static void pgsm_store_error(uint64 queryid, const char *query, ErrorData *edata);
+static void pgsm_store_error(const char *query, ErrorData *edata);
 
 static void pgsm_update_entry(pgssEntry *entry,
 					const char *query,
@@ -516,7 +516,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	 * The correct bucket value will be needed then to search the hash table, or create
 	 * the appropriate entry.
 	 */
-	entry = pgsm_create_hash_entry(0, query->queryId, NULL);
+	entry = pgsm_create_hash_entry(MessageContext, 0, query->queryId, NULL);
 
 	/* Update other member that are not counters, so that we don't have to worry about these. */
 	entry->pgsm_query_id = pgss_hash_string(norm_query ? norm_query : query_text, norm_query_len);
@@ -1144,7 +1144,7 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
 
 		/* Create an entry for this query */
-		entry = pgsm_create_hash_entry(0, queryId, NULL);
+		entry = pgsm_create_hash_entry(MessageContext, 0, queryId, NULL);
 
 		location = pstmt->stmt_location;
 		query_len = pstmt->stmt_len;
@@ -1559,44 +1559,27 @@ pgsm_update_entry(pgssEntry *entry,
 }
 
 static void
-pgsm_store_error(uint64 queryid,
-				 const char *query,
-				 ErrorData *edata)
+pgsm_store_error(const char *query, ErrorData *edata)
 {
 	pgssEntry *entry;
-	ErrorInfo  error_info;
+	uint64	   queryid = 0;
+	int len = strlen(query);
 
-	error_info.elevel = edata->elevel;
-	snprintf(error_info.message, ERROR_MESSAGE_LEN, "%s", edata->message);
-	snprintf(error_info.sqlcode, SQLCODE_LEN, "%s", unpack_sql_state(edata->sqlerrcode));
+	if (!query || len == 0)
+		return;
 
-	// entry = pgsm_create_hash_entry(0, queryid, NULL);
-	entry = pgsm_get_entry_for_query(queryid, query, strlen(query), false);
+	len = strlen(query);
 
-	// pgsm_add_to_list(entry, (char *)query, strlen(query), true);
-	if (entry)
-	{
-		pgsm_update_entry(entry,				/* entry */
-							query,				/* query */
-							NULL,				/* PlanInfo */
-							NULL, 				/* SysInfo */
-							&error_info,		/* ErrorInfo */
-							0,					/* total_time */
-							0, 					/* rows */
-							NULL, 				/* bufusage */
-							NULL, 				/* walusage */
-							NULL,				/* jitusage */
-							false,				/* reset */
-							PGSM_ERROR); 		/* kind */
+	queryid = pgss_hash_string(query, len);
 
-		pgsm_store(entry);
-	}
-	// if (exec_nested_level == 0)
-	// {
-	// 	// elog(NOTICE,"%s Deleting ALL [%d]",__FUNCTION__,list_length(lentries));
-	// 	list_free(lentries);
-	// 	lentries = NULL;
-	// }
+	entry = pgsm_create_hash_entry(ErrorContext, 0, queryid, NULL);
+	entry->query_text.query_pointer = pnstrdup(query, len);
+
+	entry->counters.error.elevel = edata->elevel;
+	snprintf(entry->counters.error.message, ERROR_MESSAGE_LEN, "%s", edata->message);
+	snprintf(entry->counters.error.sqlcode, SQLCODE_LEN, "%s", unpack_sql_state(edata->sqlerrcode));
+
+	pgsm_store(entry);
 }
 
 static void
@@ -1650,7 +1633,7 @@ pgsm_get_entry_for_query(uint64 queryid, const char* query_text, int query_len, 
 		* The correct bucket value will be needed then to search the hash table, or create
 		* the appropriate entry.
 		*/
-		entry = pgsm_create_hash_entry(0, queryid, NULL);
+		entry = pgsm_create_hash_entry(MessageContext, 0, queryid, NULL);
 
 		/* Update other member that are not counters, so that we don't have to worry about these. */
 		entry->pgsm_query_id = pgss_hash_string(query_text, query_len);
@@ -1698,7 +1681,7 @@ pgsm_cleanup_callback(void *arg)
  * The bucket_id may not be known at this stage. So pass any value that you may wish.
  */
 static pgssEntry *
-pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
+pgsm_create_hash_entry(MemoryContext context, uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
 {
 	pgssEntry *entry;
 	int sec_ctx;
@@ -1709,7 +1692,7 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
 	MemoryContext oldctx;
 
 	/* Create an entry in the TopMemoryContext */
-	oldctx = MemoryContextSwitchTo(MessageContext);
+	oldctx = MemoryContextSwitchTo(context);
 	entry = palloc0(sizeof(pgssEntry));
 	MemoryContextSwitchTo(oldctx);
 
@@ -3416,16 +3399,9 @@ pgsm_emit_log_hook(ErrorData *edata)
 	if (MyProc == NULL)
 		goto exit;
 
-	if (PGSM_ERROR_CAPTURE_ENABLED &&
-		(edata->elevel == ERROR || edata->elevel == WARNING || edata->elevel == INFO || edata->elevel == DEBUG1))
+	if (PGSM_ERROR_CAPTURE_ENABLED && edata->elevel >= WARNING)
 	{
-		uint64		queryid = 0;
-
-		if (debug_query_string)
-			queryid = pgss_hash_string(debug_query_string, strlen(debug_query_string));
-
-		pgsm_store_error(queryid,
-						 debug_query_string ? debug_query_string : "",
+		pgsm_store_error(debug_query_string ? debug_query_string : "",
 						 edata);
 	}
 exit:
