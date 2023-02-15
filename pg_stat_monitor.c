@@ -68,6 +68,8 @@ do                                                      \
 void		_PG_init(void);
 
 /*---- Local variables ----*/
+MemoryContextCallback callback;
+volatile bool callback_setup = false;
 
 /* Current nesting depth of ExecutorRun+ProcessUtility calls */
 static int	exec_nested_level = 0;
@@ -190,7 +192,6 @@ char	   *unpack_sql_state(int sql_state);
 static pgssEntry *pgsm_create_hash_entry(MemoryContext context, uint64 bucket_id, uint64 queryid, PlanInfo *plan_info);
 static void pgsm_add_to_list(pgssEntry *entry, char *query_text, int query_len, bool should_dup);
 static pgssEntry* pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char* query_text, int query_len, bool create);
-static void pgsm_print_entrys_list(void);
 static void pgsm_cleanup_callback(void *arg);
 static void pgsm_store_error(const char *query, ErrorData *edata);
 
@@ -415,9 +416,6 @@ pgss_shmem_request(void)
 }
 #endif
 
-MemoryContextCallback callback, callback2;
-volatile bool callback_setup = false;
-
 static void
 pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *jstate)
 {
@@ -432,13 +430,10 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	if (!IsSystemInitialized())
 		return;
 
-	// elog(NOTICE,"%s[%d-%d]:%s\n\t%s",__FUNCTION__,exec_nested_level,plan_nested_level, pstate->p_sourcetext, pstate->parentParseState? pstate->parentParseState->p_sourcetext:"PARENT IS NULL");
-
 	if (callback_setup == false)
 	{
 		if (MemoryContextIsValid(MessageContext))
 		{
-			// elog(NOTICE,"Setting Callback: %s[%d-%d]:%s\n\t%s",__FUNCTION__,exec_nested_level,plan_nested_level, pstate->p_sourcetext, pstate->parentParseState? pstate->parentParseState->p_sourcetext:"PARENT IS NULL");
 			callback.func = pgsm_cleanup_callback;
 			callback.arg = (void *) strdup("MessageContext");
 
@@ -468,7 +463,6 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 
 		return;
 	}
-	//elog(NOTICE,"2- %s:%s",__FUNCTION__,pstate->p_sourcetext);
 
 	/*
 	 * Let's calculate queryid for versions 13 and below. We don't have to check
@@ -494,8 +488,8 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	query_len = query->stmt_len;
 
 	/* We should always have a valid query. */
-	Assert(query_text);
 	query_text = CleanQuerytext(query_text, &location, &query_len);
+	Assert(query_text);
 
 	norm_query_len = query_len;
 
@@ -568,8 +562,6 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query)
 {
 	JumbleState jstate;
 
-	// elog(NOTICE,"%s:%s",__FUNCTION__,queryDesc->sourceText);
-
 	if (prev_post_parse_analyze_hook)
 		prev_post_parse_analyze_hook(pstate, query);
 
@@ -585,8 +577,6 @@ pgss_ExecutorStart(QueryDesc *queryDesc, int eflags)
 {
 	if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
 		elog(DEBUG1, "pgss_ExecutorStart: failed to execute getrusage");
-
-	// elog(NOTICE,"%s:%s",__FUNCTION__,queryDesc->sourceText);
 
 	if (prev_ExecutorStart)
 		prev_ExecutorStart(queryDesc, eflags);
@@ -629,8 +619,6 @@ static void
 pgss_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 				 bool execute_once)
 {
-	// elog(NOTICE,"%s:%s",__FUNCTION__,queryDesc->sourceText);
-
 	if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
 	{
 		nested_queryids[exec_nested_level] = queryDesc->plannedstmt->queryId;
@@ -675,7 +663,6 @@ static void
 pgss_ExecutorFinish(QueryDesc *queryDesc)
 {
 	exec_nested_level++;
-	// elog(NOTICE,"%s[%d]:%s",__FUNCTION__,exec_nested_level,queryDesc->sourceText);
 
 	PG_TRY();
 	{
@@ -729,24 +716,18 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && PGSM_QUERY_PLAN)
 	{
-		MemoryContext mct = MemoryContextSwitchTo(MessageContext);
-
 		plan_info.plan_len = snprintf(plan_info.plan_text, PLAN_TEXT_LEN, "%s", pgss_explain(queryDesc));
 		plan_info.planid = pgss_hash_string(plan_info.plan_text, plan_info.plan_len);
 		plan_ptr = &plan_info;
-
-		MemoryContextSwitchTo(mct);
 	}
-	// elog(NOTICE,"%s *[%d--%d]*:%s",__FUNCTION__,exec_nested_level,plan_nested_level,queryDesc->sourceText);
 
 	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(exec_nested_level))
 	{
-		// elog(NOTICE,"**Hoping for list entryof query: %s",queryDesc->sourceText);
-		entry = pgsm_get_entry_for_query(queryId, plan_ptr, queryDesc->sourceText, strlen(queryDesc->sourceText), true);
+		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *)queryDesc->sourceText, strlen(queryDesc->sourceText), true);
 		if(!entry)
 		{
 			elog(NOTICE,"Failed to find entry for [%lu] %s",queryId, queryDesc->sourceText);
-			pgsm_print_entrys_list();
+			return;
 		}
 
 		if (entry->key.planid == 0)
@@ -800,13 +781,6 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		standard_ExecutorEnd(queryDesc);
 
 	num_relations = 0;
-
-// 	if (exec_nested_level == 0)
-// 	{
-// 		// elog(NOTICE,"%s Deleting ALL [%d]",__FUNCTION__,list_length(lentries));
-// //		list_free_deep(lentries);
-// //		lentries = NIL;
-// 	}
 }
 
 static bool
@@ -879,7 +853,6 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	 * So testing the planner nesting level only is not enough to detect real
 	 * top level planner call.
 	 */
-	// elog(NOTICE,"%s:%s",__FUNCTION__,query_string);
 	if (MemoryContextIsValid(MessageContext))
 		entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true);
 
@@ -1005,6 +978,7 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 {
 	Node	   *parsetree = pstmt->utilityStmt;
 	uint64		queryId = 0;
+	int			len = strlen(queryString);
 
 #if PG_VERSION_NUM >= 140000
 	queryId = pstmt->queryId;
@@ -1020,6 +994,8 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 */
 	if (PGSM_TRACK_UTILITY && pgsm_enabled(exec_nested_level))
 		pstmt->queryId = UINT64CONST(0);
+#else
+	queryId = pgss_hash_string(queryString, len);
 #endif
 
 	/*
@@ -1053,7 +1029,6 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		WalUsage	walusage;
 		WalUsage	walusage_start = pgWalUsage;
 #endif
-		// elog(NOTICE,"%s: %s",__FUNCTION__,queryString);
 
 		if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
 			elog(DEBUG1, "pg_stat_monitor: failed to execute getrusage");
@@ -1184,11 +1159,6 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 						  PGSM_EXEC); 							/* kind */
 
 		pgsm_store(entry);
-		/*TODO USAMA*/		
-		// elog(NOTICE,"%s Deleting[%d]",__FUNCTION__,list_length(lentries));
-		// lentries = list_delete_last(lentries);
-
-
 	}
 	else
 	{
@@ -1621,7 +1591,6 @@ pgsm_add_to_list(pgssEntry *entry, char *query_text, int query_len, bool should_
 		entry->query_text.query_pointer = query_text;
 
 	lentries = lappend(lentries, entry);
-	// elog(NOTICE,"Adding *[%d]*-- [%d]--%s",exec_nested_level,list_length(lentries),query_text);
 
 	MemoryContextSwitchTo(oldctx);
 }
@@ -1631,9 +1600,8 @@ pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char* query_
 {
 	pgssEntry *entry = NULL;
 	ListCell   *lc = NULL;
-	/* First bet is on the last entry */
-	// elog(NOTICE,"*** Finding query-id:[%lu]-- [%s]--CREATE? %s ",queryid, query_text?query_text:"NULL",create?"TRUE":"FALSE");
 
+	/* First bet is on the last entry */
 	if (lentries == NIL && !create)
 		return NULL;
 
@@ -1662,42 +1630,15 @@ pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char* query_
 
 		/* Update other member that are not counters, so that we don't have to worry about these. */
 		entry->pgsm_query_id = pgss_hash_string(query_text, query_len);
-		// entry->counters.info.cmd_type = query->commandType;
-		pgsm_add_to_list(entry, query_text, query_len, true);
+		pgsm_add_to_list(entry, (char *)query_text, query_len, true);
 	}
 
 	return entry;
 }
 
 static void
-pgsm_print_entrys_list(void)
-{
-	pgssEntry *entry;
-	ListCell   *lc = NULL;
-	int i= 0;
-	/* First bet is on the last entry */
-	if (lentries == NIL)
-	{
-		// elog(NOTICE,"LIST iS EMPTY");
-		return;
-	}
-	foreach(lc, lentries)
-	{
-		entry = lfirst(lc);
-		// elog(NOTICE,"****%d [%lu] %s",i++,entry->key.queryid,entry->query_text.query_pointer);
-	}
-	return;
-}
-
-static void
 pgsm_cleanup_callback(void *arg)
 {
-	// if (strcmp(arg,"PortalContext") == 0)
-	// 	elog(NOTICE,"PortalContext");
-	// else
-	//elog(NOTICE,"MessageContext");
-	// elog(NOTICE,"Setting list to empty");
-	// pgsm_print_entrys_list();
 	lentries = NIL;
 	callback_setup = false;
 }
@@ -1914,14 +1855,7 @@ pgsm_store(pgssEntry *entry)
 						reset,									/* reset */
 						PGSM_STORE);
 
-
-	// elog(NOTICE,"Deleting[%d]",list_length(lentries));
-
-	// lentries = list_delete_last(lentries);
-	// lquery_text = list_delete_last(lquery_text);
-
 	memset(&entry->counters, 0, sizeof(entry->counters));
-
 	LWLockRelease(pgss->lock);
 }
 

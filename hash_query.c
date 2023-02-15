@@ -337,34 +337,6 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 	pgsm_hash_seq_term(&hstat);
 }
 
-/*
- * Release all entries.
- */
-void
-hash_entry_reset()
-{
-	pgssSharedState *pgss = pgsm_get_ss();
-	PGSM_HASH_SEQ_STATUS hstat;
-	pgssEntry  *entry;
-
-	LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
-
-	pgsm_hash_seq_init(&hstat, pgsmStateLocal.shared_hash, true);
-
-	while ((entry = pgsm_hash_seq_next(&hstat)) != NULL)
-	{
-		dsa_pointer pdsa = entry->query_text.query_pos;
-		pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
-		if (DsaPointerIsValid(pdsa))
-			dsa_free(pgsmStateLocal.dsa, pdsa);
-	}
-
-	pgsm_hash_seq_term(&hstat);
-
-	pg_atomic_write_u64(&pgss->current_wbucket, 0);
-	LWLockRelease(pgss->lock);
-}
-
 bool
 IsHashInitialize(void)
 {
