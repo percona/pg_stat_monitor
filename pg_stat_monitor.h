@@ -74,7 +74,6 @@
 
 #define MAX_RESPONSE_BUCKET 50
 #define INVALID_BUCKET_ID	-1
-#define MAX_REL_LEN			255
 #define MAX_BUCKETS			10
 #define TEXT_LEN			255
 #define ERROR_MESSAGE_LEN	100
@@ -83,8 +82,8 @@
 #define REL_LEN				132 /* REL_TYPENAME_LEN * 2 (relname + schema) + 1 (for view indication) + 1 and dot and string terminator */
 #define CMD_LST				10
 #define CMD_LEN				20
-#define APPLICATIONNAME_LEN	100
-#define COMMENTS_LEN        512
+#define APPLICATIONNAME_LEN	NAMEDATALEN
+#define COMMENTS_LEN        256
 #define PGSM_OVER_FLOW_MAX	10
 #define PLAN_TEXT_LEN		1024
 /* the assumption of query max nested level */
@@ -346,8 +345,8 @@ typedef struct JitInfo
 
 typedef struct SysInfo
 {
-	float		utime;			/* user cpu time */
-	float		stime;			/* system cpu time */
+	double		utime;			/* user cpu time */
+	double		stime;			/* system cpu time */
 }			SysInfo;
 
 typedef struct Wal_Usage
@@ -374,7 +373,6 @@ typedef struct Counters
 	Wal_Usage	walusage;
 	int			resp_calls[MAX_RESPONSE_BUCKET];	/* execution time's in
 													 * msec */
-	int64		state;			/* query state */
 } Counters;
 
 /* Some global structure to get the cpu usage, really don't like the idea of global variable */
@@ -404,14 +402,10 @@ typedef struct pgssSharedState
 	LWLock	   *lock;			/* protects hashtable search/modification */
 	double		cur_median_usage;	/* current median usage in hashtable */
 	slock_t		mutex;			/* protects following fields only: */
-	Size		extent;			/* current extent of query file */
-	int64		n_writers;		/* number of active writers to query file */
 	pg_atomic_uint64 current_wbucket;
 	pg_atomic_uint64 prev_bucket_sec;
 	uint64		bucket_entry[MAX_BUCKETS];
 	TimestampTz	bucket_start_time[MAX_BUCKETS]; /* start time of the bucket */
-	LWLock	   	*errors_lock;	/* protects errors hashtable
-								 * search/modification */
 	int         hash_tranche_id;
 	void        *raw_dsa_area;	/* DSA area pointer to store query texts.
 								 * dshash also lives in this memory when
@@ -436,7 +430,6 @@ typedef struct pgsmLocalState
 do { \
 		x->cur_median_usage = ASSUMED_MEDIAN_INIT; \
 		x->cur_median_usage = ASSUMED_MEDIAN_INIT; \
-		x->n_writers = 0; \
 		pg_atomic_init_u64(&x->current_wbucket, 0); \
 		pg_atomic_init_u64(&x->prev_bucket_sec, 0); \
 		memset(&x->bucket_entry, 0, MAX_BUCKETS * sizeof(uint64)); \
@@ -478,15 +471,6 @@ typedef struct JumbleState
 	int			highest_extern_param_id;
 } JumbleState;
 #endif
-
-/* Links to shared memory state */
-
-bool		SaveQueryText(uint64 bucketid,
-						  uint64 queryid,
-						  unsigned char *buf,
-						  const char *query,
-						  uint64 query_len,
-						  size_t *query_pos);
 
 /* guc.c */
 void		init_guc(void);

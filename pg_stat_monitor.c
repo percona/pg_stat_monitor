@@ -2115,10 +2115,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		values[i++] = UInt64GetDatum(pgsm_query_id);
 
-		/* state at column number 8 for V1.0 API*/
-		if (api_version <= PGSM_V1_0)
-			values[i++] = Int64GetDatumFast(tmp.state);
-
 		/* parentid at column number 9 */
 		if (tmp.info.parentid != UINT64CONST(0))
 		{
@@ -2264,12 +2260,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_written);
 		values[i++] = Float8GetDatumFast(tmp.blocks.blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.blk_write_time);
-
-		if (api_version >= PGSM_V2_0)
-		{
-			values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_read_time);
-			values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
-		}
+		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_read_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
 
 		/* resp_calls at column number 41 */
 		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, hist_bucket_count_total);
@@ -2305,17 +2297,14 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			else
 				nulls[i++] = true;
 
-			if (api_version >= PGSM_V2_0)
-			{
-				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
-				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_inlining_time);
-				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_optimization_count);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_optimization_time);
-				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
-			}
+			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
+			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
+			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
+			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_inlining_time);
+			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_optimization_count);
+			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_optimization_time);
+			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
+			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
 		}
 		values[i++] = BoolGetDatum(toplevel);
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgss->current_wbucket) != bucketid);
