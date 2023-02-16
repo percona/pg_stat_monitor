@@ -78,8 +78,9 @@
 #define MAX_BUCKETS			10
 #define TEXT_LEN			255
 #define ERROR_MESSAGE_LEN	100
+#define REL_TYPENAME_LEN	64
 #define REL_LST				10
-#define REL_LEN				1000
+#define REL_LEN				132 /* REL_TYPENAME_LEN * 2 (relname + schema) + 1 (for view indication) + 1 and dot and string terminator */
 #define CMD_LST				10
 #define CMD_LEN				20
 #define APPLICATIONNAME_LEN	100
@@ -97,6 +98,7 @@
 #define QUERY_MARGIN 						100
 #define MIN_QUERY_LEN						10
 #define SQLCODE_LEN                         20
+#define TOTAL_RELS_LENGTH					(REL_LST * REL_LEN)
 
 #if PG_VERSION_NUM >= 130000
 #define	MAX_SETTINGS                        15

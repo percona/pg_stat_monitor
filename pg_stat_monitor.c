@@ -978,9 +978,12 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 {
 	Node	   *parsetree = pstmt->utilityStmt;
 	uint64		queryId = 0;
+
+#if PG_VERSION_NUM < 140000
 	int			len = strlen(queryString);
 
-#if PG_VERSION_NUM >= 140000
+	queryId = pgss_hash_string(queryString, len);
+#else
 	queryId = pstmt->queryId;
 
 	/*
@@ -994,8 +997,6 @@ pgss_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 */
 	if (PGSM_TRACK_UTILITY && pgsm_enabled(exec_nested_level))
 		pstmt->queryId = UINT64CONST(0);
-#else
-	queryId = pgss_hash_string(queryString, len);
 #endif
 
 	/*
@@ -2140,8 +2141,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		if (tmp.info.num_relations > 0)
 		{
 			int			j;
-			char	   *text_str = palloc0(1024);
-			char	   *tmp_str = palloc0(1024);
+			char	   *text_str = palloc0(TOTAL_RELS_LENGTH);
+			char	   *tmp_str = palloc0(TOTAL_RELS_LENGTH);
 			bool		first = true;
 
 			/*
@@ -2315,7 +2316,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
 				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
 			}
-
 		}
 		values[i++] = BoolGetDatum(toplevel);
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgss->current_wbucket) != bucketid);
