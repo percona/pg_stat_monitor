@@ -91,8 +91,8 @@
 
 #define MAX_QUERY_BUF						(PGSM_QUERY_SHARED_BUFFER * 1024 * 1024)
 #define MAX_BUCKETS_MEM 					(PGSM_MAX * 1024 * 1024)
-#define BUCKETS_MEM_OVERFLOW() 				((hash_get_num_entries(pgss_hash) * sizeof(pgssEntry)) >= MAX_BUCKETS_MEM)
-#define MAX_BUCKET_ENTRIES 					(MAX_BUCKETS_MEM / sizeof(pgssEntry))
+#define BUCKETS_MEM_OVERFLOW() 				((hash_get_num_entries(pgsm_hash) * sizeof(pgsmEntry)) >= MAX_BUCKETS_MEM)
+#define MAX_BUCKET_ENTRIES 					(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
 #define QUERY_BUFFER_OVERFLOW(x,y)  		((x + y + sizeof(uint64) + sizeof(uint64)) > MAX_QUERY_BUF)
 #define QUERY_MARGIN 						100
 #define MIN_QUERY_LEN						10
@@ -212,7 +212,7 @@ typedef enum pgsmStoreKind
 	PGSM_STORE,
 	PGSM_ERROR,
 
-	PGSS_NUMKIND				/* Must be last value of this enum */
+	PGSM_NUMKIND				/* Must be last value of this enum */
 } pgsmStoreKind;
 
 /* the assumption of query max nested level */
@@ -248,7 +248,7 @@ typedef struct PlanInfo
 	size_t		plan_len;		/* strlen(plan_text) */
 }			PlanInfo;
 
-typedef struct pgssHashKey
+typedef struct pgsmHashKey
 {
 	uint64		bucket_id;		/* bucket number */
 	uint64		queryid;		/* query identifier */
@@ -258,7 +258,7 @@ typedef struct pgssHashKey
 	Oid			dbid;			/* database OID */
 	uint32		ip;				/* client ip address */
 	bool		toplevel;		/* query executed at top level */
-} pgssHashKey;
+} pgsmHashKey;
 
 typedef struct QueryInfo
 {
@@ -380,9 +380,9 @@ typedef struct Counters
 /*
  * Statistics per statement
  */
-typedef struct pgssEntry
+typedef struct pgsmEntry
 {
-	pgssHashKey key;			/* hash key of entry - MUST BE FIRST */
+	pgsmHashKey key;			/* hash key of entry - MUST BE FIRST */
 	uint64		pgsm_query_id;	/* pgsm generate normalized query hash */
 	Counters	counters;		/* the statistics for this query */
 	int			encoding;		/* query text encoding */
@@ -392,12 +392,12 @@ typedef struct pgssEntry
 		dsa_pointer	query_pos;		/* query location within query buffer */
 		char*	query_pointer;
 	}query_text;
-} pgssEntry;
+} pgsmEntry;
 
 /*
  * Global shared state
  */
-typedef struct pgssSharedState
+typedef struct pgsmSharedState
 {
 	LWLock	   *lock;			/* protects hashtable search/modification */
 	double		cur_median_usage;	/* current median usage in hashtable */
@@ -415,11 +415,11 @@ typedef struct pgssSharedState
 								  * classic shared memory hash or dshash
 								  * (if we are using USE_DYNAMIC_HASH)
 								  */
-} pgssSharedState;
+} pgsmSharedState;
 
 typedef struct pgsmLocalState
 {
-	pgssSharedState *shared_pgssState;
+	pgsmSharedState *shared_pgsmState;
 	dsa_area   		*dsa;	/* local dsa area for backend attached to the
 							 * dsa area created by postmaster at startup.
 							 */
@@ -478,23 +478,23 @@ GucVariable *get_conf(int i);
 
 /* hash_create.c */
 dsa_area   		*get_dsa_area_for_query_text(void);
-PGSM_HASH_TABLE	*get_pgssHash(void);
+PGSM_HASH_TABLE	*get_pgsmHash(void);
 
 void		pgsm_attach_shmem(void);
 bool		IsHashInitialize(void);
-void		pgss_shmem_startup(void);
-void		pgss_shmem_shutdown(int code, Datum arg);
+void		pgsm_shmem_startup(void);
+void		pgsm_shmem_shutdown(int code, Datum arg);
 int			pgsm_get_bucket_size(void);
-pgssSharedState *pgsm_get_ss(void);
+pgsmSharedState *pgsm_get_ss(void);
 void		hash_query_entries();
 void		hash_query_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer[]);
 void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
-pgssEntry  *hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding);
+pgsmEntry  *hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding);
 Size		pgsm_ShmemSize(void);
-void		pgss_startup(void);
+void		pgsm_startup(void);
 
 /* hash_query.c */
-void		pgss_startup(void);
+void		pgsm_startup(void);
 
 /*---- GUC variables ----*/
 typedef enum
@@ -533,8 +533,8 @@ static const struct config_enum_entry track_options[] =
 #define HOOK_STATS_SIZE 0
 #endif
 
-void *pgsm_hash_find_or_insert(PGSM_HASH_TABLE *shared_hash, pgssHashKey *key, bool* found);
-void *pgsm_hash_find(PGSM_HASH_TABLE *shared_hash, pgssHashKey *key, bool* found);
+void *pgsm_hash_find_or_insert(PGSM_HASH_TABLE *shared_hash, pgsmHashKey *key, bool* found);
+void *pgsm_hash_find(PGSM_HASH_TABLE *shared_hash, pgsmHashKey *key, bool* found);
 void pgsm_hash_seq_init(PGSM_HASH_SEQ_STATUS *hstat, PGSM_HASH_TABLE *shared_hash, bool lock);
 void *pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS *hstat);
 void pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS *hstat);
