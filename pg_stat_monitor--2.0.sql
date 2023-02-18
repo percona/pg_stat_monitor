@@ -84,7 +84,9 @@ CREATE FUNCTION pg_stat_monitor_internal(
     IN showtext             boolean,
     OUT bucket              int8,   -- 0
     OUT userid              oid,
+    OUT username                text,
     OUT dbid                oid,
+    OUT datname             text,
     OUT client_ip           int4,
 
     OUT queryid             int8,  -- 4
@@ -169,7 +171,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
 	bucket_start_time AS bucket_start_time,
     userid,
-    userid::regrole AS user,
+    username,
     dbid,
     datname,
 	'0.0.0.0'::inet + client_ip AS client_ip,
@@ -211,7 +213,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	cpu_user_time,
 	cpu_sys_time,
 	bucket_done
-FROM pg_stat_monitor_internal(TRUE) p, pg_database d  WHERE dbid = oid
+FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
@@ -225,7 +227,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
 	bucket_start_time AS bucket_start_time,
     userid,
-    userid::regrole AS user,
+    username,
     dbid,
     datname,
 	'0.0.0.0'::inet + client_ip AS client_ip,
@@ -278,7 +280,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	max_plan_time,
 	mean_plan_time,
     stddev_plan_time
-FROM pg_stat_monitor_internal(TRUE) p, pg_database d  WHERE dbid = oid
+FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
@@ -291,7 +293,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
 	bucket_start_time AS bucket_start_time,
     userid,
-    userid::regrole AS user,
+    username,
     dbid,
     datname,
 	'0.0.0.0'::inet + client_ip AS client_ip,
@@ -344,7 +346,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	max_plan_time,
 	mean_plan_time,
     stddev_plan_time
-FROM pg_stat_monitor_internal(TRUE) p, pg_database d  WHERE dbid = oid
+FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
@@ -357,7 +359,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
 	bucket_start_time AS bucket_start_time,
     userid,
-    userid::regrole AS user,
+    username,
     dbid,
     datname,
 	'0.0.0.0'::inet + client_ip AS client_ip,
@@ -423,7 +425,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     jit_emission_count,
     jit_emission_time
 
-FROM pg_stat_monitor_internal(TRUE) p, pg_database d  WHERE dbid = oid
+FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;

@@ -23,6 +23,7 @@
 #include "utils/palloc.h"
 #include <regex.h>
 #include "pgstat.h"
+#include "commands/dbcommands.h"
 #include "commands/explain.h"
 #include "pg_stat_monitor.h"
 
@@ -41,8 +42,8 @@ PG_MODULE_MAGIC;
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
-#define PG_STAT_MONITOR_COLS_V2_0    62
-#define PG_STAT_MONITOR_COLS         62	/* maximum of above */
+#define PG_STAT_MONITOR_COLS_V2_0    64
+#define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
 
@@ -446,10 +447,8 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 		}
 	}
 
-
 	if (!pgsm_enabled(exec_nested_level))
 		return;
-
 
 	/*
 	 * Clear queryId for prepared statements related utility, as those will
@@ -759,7 +758,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 						  queryDesc->totaltime->total * 1000.0,	/* exec_total_time */
 						  queryDesc->estate->es_processed, 		/* rows */
 						  &queryDesc->totaltime->bufusage,		/* bufusage */
-#if PG_VERSION_NUM >= 130000
+#if PG_VERSION_NU– >= 130000
 						  &queryDesc->totaltime->walusage, 		/* walusage */
 #else
 				   		  NULL,
@@ -1420,7 +1419,8 @@ pgsm_update_entry(pgsmEntry *entry,
 					e->counters.time.max_time = exec_total_time;
 			}
 
-			index = get_histogram_bucket(exec_total_time);
+			/* Get the histogram timing in microseconds */
+			index = get_histogram_bucket(exec_total_time * 1000);
 			e->counters.resp_calls[index]++;
 		}
 
@@ -1657,6 +1657,8 @@ pgsm_create_hash_entry(MemoryContext context, uint64 bucket_id, uint64 queryid, 
 	char *app_name_ptr = app_name;
 	int	app_name_len = 0;
 	MemoryContext oldctx;
+	char *datname = NULL;
+	char *username = NULL;
 
 	/* Create an entry in the TopMemoryContext */
 	oldctx = MemoryContextSwitchTo(context);
@@ -1689,6 +1691,20 @@ pgsm_create_hash_entry(MemoryContext context, uint64 bucket_id, uint64 queryid, 
 #else
 	entry->key.toplevel = ((exec_nested_level + plan_nested_level) == 0);
 #endif
+
+	datname = get_database_name(entry->key.dbid);
+	if (!datname)
+		datname = pnstrdup("<database name not available>", sizeof(entry->datname) - 1);
+
+	username = GetUserNameFromId(entry->key.userid, true);
+	if (!username)
+		username = pnstrdup("<user name not available>", sizeof(entry->username) - 1);
+
+	snprintf(entry->datname, sizeof(entry->datname), "%s", datname);
+	snprintf(entry->username, sizeof(entry->username), "%s", username);
+
+	pfree(datname);
+	pfree(username);
 
 	return entry;
 }
@@ -1806,8 +1822,10 @@ pgsm_store(pgsmEntry *entry)
 		shared_hash_entry->pgsm_query_id = entry->pgsm_query_id;
 		shared_hash_entry->encoding = entry->encoding;
 		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
-	}
 
+		snprintf(shared_hash_entry->datname, sizeof(shared_hash_entry->datname), "%s", entry->datname);
+		snprintf(shared_hash_entry->username, sizeof(shared_hash_entry->username), "%s", entry->username);
+	}
 
 	/* bufusage */
 	bufusage.shared_blks_hit = entry->counters.blocks.shared_blks_hit;
@@ -2057,8 +2075,14 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* userid at column number 1 */
 		values[i++] = ObjectIdGetDatum(userid);
 
+		/* userid at column number 1 */
+		values[i++] = CStringGetTextDatum(entry->username);
+
 		/* dbid at column number 2 */
 		values[i++] = ObjectIdGetDatum(dbid);
+
+		/* userid at column number 1 */
+		values[i++] = CStringGetTextDatum(entry->datname);
 
 		/*
 		 * ip address at column number 3, Superusers or members of
