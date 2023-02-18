@@ -758,7 +758,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 						  queryDesc->totaltime->total * 1000.0,	/* exec_total_time */
 						  queryDesc->estate->es_processed, 		/* rows */
 						  &queryDesc->totaltime->bufusage,		/* bufusage */
-#if PG_VERSION_NU– >= 130000
+#if PG_VERSION_NUM >= 130000
 						  &queryDesc->totaltime->walusage, 		/* walusage */
 #else
 				   		  NULL,
@@ -1419,8 +1419,7 @@ pgsm_update_entry(pgsmEntry *entry,
 					e->counters.time.max_time = exec_total_time;
 			}
 
-			/* Get the histogram timing in microseconds */
-			index = get_histogram_bucket(exec_total_time * 1000);
+			index = get_histogram_bucket(exec_total_time);
 			e->counters.resp_calls[index]++;
 		}
 
