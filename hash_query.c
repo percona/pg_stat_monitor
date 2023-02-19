@@ -105,6 +105,7 @@ pgsm_startup(void)
 		dsa_area   *dsa;
 		char	*p = (char *) pgsm;
 
+		pgsm->pgsm_oom = false;
 		pgsm->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
 		SpinLockInit(&pgsm->mutex);
 		ResetSharedState(pgsm);
@@ -332,7 +333,8 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_bu
 
 			if (DsaPointerIsValid(parent_qdsa))
 				dsa_free(pgsmStateLocal.dsa, parent_qdsa);
-			continue;
+
+			pgsmStateLocal.shared_pgsmState->pgsm_oom = false;
 		}
 	}
 	pgsm_hash_seq_term(&hstat);
@@ -342,6 +344,12 @@ bool
 IsHashInitialize(void)
 {
 	return (pgsmStateLocal.shared_pgsmState != NULL);
+}
+
+bool
+IsSystemOOM(void)
+{
+	return (IsHashInitialize() && pgsmStateLocal.shared_pgsmState->pgsm_oom);
 }
 
 /*

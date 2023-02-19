@@ -228,6 +228,7 @@ static void RecordConstLocation(JumbleState *jstate, int location);
  * relevant part of the string.
  */
 static const char *CleanQuerytext(const char *query, int *location, int *len);
+static uint64 get_query_id(JumbleState *jstate, Query *query);
 #endif
 
 static char *generate_normalized_query(JumbleState *jstate, const char *query,
@@ -236,10 +237,6 @@ static void fill_in_constant_lengths(JumbleState *jstate, const char *query, int
 static int	comp_location(const void *a, const void *b);
 
 static uint64 get_next_wbucket(pgsmSharedState *pgsm);
-
-#if PG_VERSION_NUM < 140000
-static uint64 get_query_id(JumbleState *jstate, Query *query);
-#endif
 
 /*
  * Module load callback
@@ -1691,11 +1688,15 @@ pgsm_create_hash_entry(MemoryContext context, uint64 bucket_id, uint64 queryid, 
 	entry->key.toplevel = ((exec_nested_level + plan_nested_level) == 0);
 #endif
 
-	datname = get_database_name(entry->key.dbid);
+	if (IsTransactionState())
+	{
+		datname = get_database_name(entry->key.dbid);
+		username = GetUserNameFromId(entry->key.userid, true);
+	}
+
 	if (!datname)
 		datname = pnstrdup("<database name not available>", sizeof(entry->datname) - 1);
 
-	username = GetUserNameFromId(entry->key.userid, true);
 	if (!username)
 		username = pnstrdup("<user name not available>", sizeof(entry->username) - 1);
 
@@ -1804,6 +1805,18 @@ pgsm_store(pgsmEntry *entry)
 
 		if (shared_hash_entry == NULL)
 		{
+			/* Out of memory; report only if the state has changed now. Otherwise we risk filling up the log file with these message. */
+			if (!IsSystemOOM())
+			{
+				pgsm->pgsm_oom = true;
+
+				ereport(WARNING,
+						(errcode(ERRCODE_OUT_OF_MEMORY),
+						errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
+						errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+								  "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+			}
+
 			LWLockRelease(pgsm->lock);
 
 			if (DsaPointerIsValid(dsa_query_pointer))
@@ -1968,6 +1981,14 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Must be loaded via shared_preload_libraries.")));
 
+	/* Out of memory? */
+	if (IsSystemOOM())
+		ereport(WARNING,
+				(errcode(ERRCODE_OUT_OF_MEMORY),
+				errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Hash table is out of memory and can no longer store queries!"),
+				errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+						  "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+
 	/* check to see if caller supports us returning a tuplestore */
 	if (rsinfo == NULL || !IsA(rsinfo, ReturnSetInfo))
 		ereport(ERROR,
@@ -1978,8 +1999,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Materialize mode required, but it is not " \
 						"allowed in this context.")));
-
-	pgsm = pgsm_get_ss();
 
 	/* Switch into long-lived context to construct returned data structures */
 	per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
@@ -1999,8 +2018,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 	MemoryContextSwitchTo(oldcontext);
 
+	pgsm = pgsm_get_ss();
 	LWLockAcquire(pgsm->lock, LW_SHARED);
-
 	pgsm_hash_seq_init(&hstat, get_pgsmHash(), false);
 
 	while ((entry = pgsm_hash_seq_next(&hstat)) != NULL)
@@ -3410,7 +3429,8 @@ pgsm_emit_log_hook(ErrorData *edata)
 	if (MyProc == NULL)
 		goto exit;
 
-	if (PGSM_ERROR_CAPTURE_ENABLED && edata->elevel >= WARNING)
+	/* Do not store */
+	if (PGSM_ERROR_CAPTURE_ENABLED && edata->elevel >= WARNING && IsSystemOOM() == false)
 	{
 		pgsm_store_error(debug_query_string ? debug_query_string : "",
 						 edata);
@@ -3425,7 +3445,6 @@ IsSystemInitialized(void)
 {
 	return (system_init && IsHashInitialize());
 }
-
 
 static double
 time_diff(struct timeval end, struct timeval start)

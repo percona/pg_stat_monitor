@@ -417,6 +417,7 @@ typedef struct pgsmSharedState
 								  * classic shared memory hash or dshash
 								  * (if we are using USE_DYNAMIC_HASH)
 								  */
+	bool pgsm_oom;
 } pgsmSharedState;
 
 typedef struct pgsmLocalState
@@ -484,6 +485,7 @@ PGSM_HASH_TABLE	*get_pgsmHash(void);
 
 void		pgsm_attach_shmem(void);
 bool		IsHashInitialize(void);
+bool		IsSystemOOM(void);
 void		pgsm_shmem_startup(void);
 void		pgsm_shmem_shutdown(int code, Datum arg);
 int			pgsm_get_bucket_size(void);
