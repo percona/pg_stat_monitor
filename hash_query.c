@@ -21,6 +21,7 @@
 static pgsmLocalState	pgsmStateLocal;
 static PGSM_HASH_TABLE_HANDLE pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa);
 static Size pgsm_get_shared_area_size(void);
+static void InitializeSharedState(pgsmSharedState *pgsm);
 
 #if USE_DYNAMIC_HASH
 /* parameter for the shared hash */
@@ -108,7 +109,7 @@ pgsm_startup(void)
 		pgsm->pgsm_oom = false;
 		pgsm->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
 		SpinLockInit(&pgsm->mutex);
-		ResetSharedState(pgsm);
+		InitializeSharedState(pgsm);
 		/* the allocation of pgsmSharedState itself */
 		p += MAXALIGN(sizeof(pgsmSharedState));
 		pgsm->raw_dsa_area = p;
@@ -146,6 +147,18 @@ pgsm_startup(void)
 	 */
 	on_shmem_exit(pgsm_shmem_shutdown, (Datum) 0);
 }
+
+static void
+InitializeSharedState(pgsmSharedState *pgsm)
+{
+	pg_atomic_init_u64(&pgsm->current_wbucket, 0);
+	pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
+	memset(&pgsm->bucket_entry, 0, MAX_BUCKETS * sizeof(uint64));
+	pgsm->pgsm_mem_cxt = AllocSetContextCreate(TopMemoryContext,
+                                         "pg_stat_monitor local store",
+                                         ALLOCSET_DEFAULT_SIZES);
+}
+
 
 /*
  * Create the classic or dshahs hash table for storing the query statistics.

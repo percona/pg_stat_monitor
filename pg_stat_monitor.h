@@ -57,6 +57,9 @@
 #include "utils/lsyscache.h"
 #include "utils/guc.h"
 #include "utils/guc_tables.h"
+#include "utils/memutils.h"
+#include "utils/palloc.h"
+
 
 #define MAX_BACKEND_PROCESES (MaxBackends + NUM_AUXILIARY_PROCS + max_prepared_xacts)
 #define  IntArrayGetTextDatum(x,y) intarray_get_datum(x,y)
@@ -64,7 +67,6 @@
 /* XXX: Should USAGE_EXEC reflect execution time and/or buffer usage? */
 #define USAGE_EXEC(duration)	(1.0)
 #define USAGE_INIT				(1.0)	/* including initial planning */
-#define ASSUMED_MEDIAN_INIT		(10.0)	/* initial assumed median usage */
 #define ASSUMED_LENGTH_INIT		1024	/* initial assumed mean query length */
 #define USAGE_DECREASE_FACTOR	(0.99)	/* decreased every entry_dealloc */
 #define STICKY_DECREASE_FACTOR	(0.50)	/* factor for sticky entries */
@@ -402,7 +404,6 @@ typedef struct pgsmEntry
 typedef struct pgsmSharedState
 {
 	LWLock	   *lock;			/* protects hashtable search/modification */
-	double		cur_median_usage;	/* current median usage in hashtable */
 	slock_t		mutex;			/* protects following fields only: */
 	pg_atomic_uint64 current_wbucket;
 	pg_atomic_uint64 prev_bucket_sec;
@@ -417,6 +418,10 @@ typedef struct pgsmSharedState
 								  * classic shared memory hash or dshash
 								  * (if we are using USE_DYNAMIC_HASH)
 								  */
+	MemoryContext	pgsm_mem_cxt;
+								/* context to store stats in local
+								 * memory until they are pushed to shared hash
+								 */
 	bool pgsm_oom;
 } pgsmSharedState;
 
@@ -428,16 +433,6 @@ typedef struct pgsmLocalState
 							 */
 	PGSM_HASH_TABLE *shared_hash;
 }pgsmLocalState;
-
-#define ResetSharedState(x) \
-do { \
-		x->cur_median_usage = ASSUMED_MEDIAN_INIT; \
-		x->cur_median_usage = ASSUMED_MEDIAN_INIT; \
-		pg_atomic_init_u64(&x->current_wbucket, 0); \
-		pg_atomic_init_u64(&x->prev_bucket_sec, 0); \
-		memset(&x->bucket_entry, 0, MAX_BUCKETS * sizeof(uint64)); \
-} while(0)
-
 
 #if PG_VERSION_NUM < 140000
 /*
