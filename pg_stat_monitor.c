@@ -1389,7 +1389,7 @@ pgsm_update_entry(pgsmEntry *entry,
 					e->counters.time.max_time = exec_total_time;
 			}
 
-			index = get_histogram_bucket(exec_total_time * 1000.0);
+			index = get_histogram_bucket(exec_total_time);
 			e->counters.resp_calls[index]++;
 		}
 

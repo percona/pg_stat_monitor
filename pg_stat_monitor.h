@@ -518,22 +518,6 @@ extern bool pgsm_track_utility;
 extern bool pgsm_enable_pgsm_query_id;
 extern int pgsm_track;
 
-//#define PGSM_MAX pgsm_max
-// #define PGSM_QUERY_MAX_LEN pgsm_query_max_len
-// #define PGSM_TRACK_UTILITY pgsm_track_utility
-// #define PGSM_NORMALIZED_QUERY pgsm_normalized_query
-// #define PGSM_MAX_BUCKETS pgsm_max_buckets
-// #define PGSM_BUCKET_TIME pgsm_bucket_time
-// #define PGSM_HISTOGRAM_MIN pgsm_histogram_min
-// #define PGSM_HISTOGRAM_MAX pgsm_histogram_max
-// #define PGSM_HISTOGRAM_BUCKETS_USER pgsm_histogram_buckets
-// #define PGSM_QUERY_SHARED_BUFFER pgsm_query_shared_buffer
-// #define PGSM_OVERFLOW_TARGET get_conf(10)->guc_variable
-// #define PGSM_QUERY_PLAN pgsm_enable_query_plan
-// #define PGSM_TRACK pgsm_track
-//#define PGSM_EXTRACT_COMMENTS pgsm_extract_comments
-//#define PGSM_TRACK_PLANNING pgsm_track_planning
-
 #define DECLARE_HOOK(hook, ...) \
         static hook(__VA_ARGS__);
 #define HOOK(name) name
