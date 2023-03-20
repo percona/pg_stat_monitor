@@ -26,7 +26,7 @@ jobs:
         run: echo "TARGET_BRANCH=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Run PMM & PGSM Setup, E2E Tests
-        run: bash -xe ./pmm_pgsm_setup/pmm_pgsm_setup.sh --pgsql-pgsm-container=pgsql_pgsm_12 --pgsql-version=12 --pgstat-monitor-branch=${{ env.TARGET_BRANCH }}
+        run: bash -xe ./pmm_pgsm_setup/pmm_pgsm_setup.sh --pgsql-version=12 --pgstat-monitor-branch=${{ env.TARGET_BRANCH }}
 
       - name: Get PMM-Agent Logs from the Container
         if: success() || failure()    # run this step even if previous step failed
