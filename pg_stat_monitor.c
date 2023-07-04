@@ -20,6 +20,7 @@
 #include "nodes/pg_list.h"
 #include "utils/guc.h"
 #include <regex.h>
+#include <assert.h>
 #include "pgstat.h"
 #include "commands/dbcommands.h"
 #include "commands/explain.h"
@@ -1438,9 +1439,9 @@ pgsm_update_entry(pgsmEntry * entry,
 			e->counters.info.num_relations = num_relations;
 			_snprintf2(e->counters.info.relations, relations, num_relations, REL_LEN);
 
-			if (exec_nested_level > 0 && e->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
+			if (exec_nested_level > 0 && exec_nested_level < max_stack_depth && e->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
 			{
-				if (e->counters.info.parent_query == InvalidDsaPointer && exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+				if (e->counters.info.parent_query == InvalidDsaPointer)
 				{
 					int			parent_query_len = nested_query_txts[exec_nested_level - 1] ?
 					strlen(nested_query_txts[exec_nested_level - 1]) : 0;
@@ -1472,11 +1473,7 @@ pgsm_update_entry(pgsmEntry * entry,
 			}
 			else
 			{
-				if(e->counters.info.parent_query != InvalidDsaPointer) {
-					dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
-					dsa_free(query_dsa_area, e->counters.info.parent_query);
-					e->counters.info.parent_query = InvalidDsaPointer;
-				}
+				assert(e->counters.info.parent_query == InvalidDsaPointer);
 			}
 		}
 
