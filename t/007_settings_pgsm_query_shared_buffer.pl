@@ -59,7 +59,7 @@ $out = system ("pgbench -c 10 -j 2 -t 1000 -p $port example");
 print " out: $out \n";
 ok($cmdret == 0, "Run pgbench");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, lower(query), calls DESC Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
 
@@ -82,7 +82,7 @@ $out = system ("pgbench -c 10 -j 2 -t 1000 -p $port example");
 print " out: $out \n";
 ok($cmdret == 0, "Run pgbench");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, lower(query), calls DESC Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
 
@@ -105,7 +105,7 @@ $out = system ("pgbench -c 10 -j 2 -t 1000 -p $port example");
 print " out: $out \n";
 ok($cmdret == 0, "Run pgbench");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, lower(query), calls DESC Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
 

@@ -2,6 +2,7 @@ package PGSM;
 
 use File::Basename;
 use File::Compare;
+use Text::Diff;
 use Test::More;
 
 our @ISA= qw( Exporter );
@@ -150,7 +151,13 @@ sub setup_files_dir
 sub compare_results
 {
     # Compare expected and results files and return the result
-    return compare($expected_filename_with_path, $out_filename_with_path);
+    $res = compare($expected_filename_with_path, $out_filename_with_path);
+    if( $res )
+    {
+        $diff = diff $expected_filename_with_path => $out_filename_with_path;
+        diag($diff);
+    }
+    return $res;
 }
 
 1;
