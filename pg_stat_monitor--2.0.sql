@@ -63,7 +63,7 @@ SELECT
 $$
 LANGUAGE SQL PARALLEL SAFE;
 
-CREATE FUNCTION histogram(_bucket int, _quryid text)
+CREATE FUNCTION histogram(_bucket int, _quryid int8)
 RETURNS SETOF RECORD AS $$
 DECLARE
  rec record;
@@ -84,15 +84,17 @@ CREATE FUNCTION pg_stat_monitor_internal(
     IN showtext             boolean,
     OUT bucket              int8,   -- 0
     OUT userid              oid,
+    OUT username            text,
     OUT dbid                oid,
+    OUT datname             text,
     OUT client_ip           int8,
 
-    OUT queryid             text,  -- 4
-    OUT planid              text,
+    OUT queryid             int8,  -- 4
+    OUT planid              int8,
     OUT query               text,
     OUT query_plan          text,
     OUT pgsm_query_id       int8,
-    OUT top_queryid         text,
+    OUT top_queryid         int8,
 	OUT top_query           text,
 	OUT application_name	text,
 	OUT bind_variables	text,
@@ -111,9 +113,9 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT mean_exec_time      float8,
     OUT stddev_exec_time    float8,
 
-    OUT rows_retrieved      int8,
+    OUT rows                int8,
 
-	OUT plans_calls    	 	int8,  -- 23
+	OUT plans          	 	int8,  -- 23
    
     OUT total_plan_time     float8,
     OUT min_plan_time       float8,
@@ -168,7 +170,9 @@ BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
 	bucket_start_time AS bucket_start_time,
-    userid::regrole,
+    userid,
+    username,
+    dbid,
     datname,
 	'0.0.0.0'::inet + client_ip AS client_ip,
 	pgsm_query_id,
@@ -193,7 +197,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	max_exec_time AS max_time,
 	mean_exec_time AS mean_time,
 	stddev_exec_time AS stddev_time,
-	rows_retrieved,
+	rows,
 	shared_blks_hit,
     shared_blks_read,
     shared_blks_dirtied,
@@ -210,7 +214,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	cpu_user_time,
 	cpu_sys_time,
 	bucket_done
-FROM pg_stat_monitor_internal(TRUE) p, pg_database d  WHERE dbid = oid
+FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
@@ -223,7 +227,9 @@ BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
 	bucket_start_time AS bucket_start_time,
-    userid::regrole,
+    userid,
+    username,
+    dbid,
     datname,
 	'0.0.0.0'::inet + client_ip AS client_ip,
 	pgsm_query_id,
@@ -249,7 +255,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	max_exec_time,
 	mean_exec_time,
 	stddev_exec_time,
-	rows_retrieved,
+	rows,
 	shared_blks_hit,
     shared_blks_read,
     shared_blks_dirtied,
@@ -270,13 +276,13 @@ CREATE VIEW pg_stat_monitor AS SELECT
     wal_bytes,
 	bucket_done,
     -- PostgreSQL-13 Specific Coulumns
-	plans_calls,
+	plans,
 	total_plan_time,
 	min_plan_time,
 	max_plan_time,
 	mean_plan_time,
     stddev_plan_time
-FROM pg_stat_monitor_internal(TRUE) p, pg_database d  WHERE dbid = oid
+FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
@@ -288,7 +294,9 @@ BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
 	bucket_start_time AS bucket_start_time,
-    userid::regrole,
+    userid,
+    username,
+    dbid,
     datname,
 	'0.0.0.0'::inet + client_ip AS client_ip,
 	pgsm_query_id,
@@ -314,7 +322,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	max_exec_time,
 	mean_exec_time,
 	stddev_exec_time,
-	rows_retrieved,
+	rows,
 	shared_blks_hit,
     shared_blks_read,
     shared_blks_dirtied,
@@ -335,13 +343,13 @@ CREATE VIEW pg_stat_monitor AS SELECT
     wal_bytes,
 	bucket_done,
 
-    plans_calls,
+    plans,
 	total_plan_time,
 	min_plan_time,
 	max_plan_time,
 	mean_plan_time,
     stddev_plan_time
-FROM pg_stat_monitor_internal(TRUE) p, pg_database d  WHERE dbid = oid
+FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
@@ -353,7 +361,9 @@ BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
 	bucket_start_time AS bucket_start_time,
-    userid::regrole,
+    userid,
+    username,
+    dbid,
     datname,
 	'0.0.0.0'::inet + client_ip AS client_ip,
 	pgsm_query_id,
@@ -379,7 +389,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
 	max_exec_time,
 	mean_exec_time,
 	stddev_exec_time,
-	rows_retrieved,
+	rows,
 	shared_blks_hit,
     shared_blks_read,
     shared_blks_dirtied,
@@ -403,7 +413,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     wal_bytes,
 	bucket_done,
 
-    plans_calls,
+    plans,
 	total_plan_time,
 	min_plan_time,
 	max_plan_time,
@@ -419,7 +429,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     jit_emission_count,
     jit_emission_time
 
-FROM pg_stat_monitor_internal(TRUE) p, pg_database d  WHERE dbid = oid
+FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
@@ -447,16 +457,19 @@ $$
 $$ LANGUAGE plpgsql;
 
 SELECT pgsm_create_view();
-REVOKE ALL ON FUNCTION range FROM PUBLIC;
-REVOKE ALL ON FUNCTION get_cmd_type FROM PUBLIC;
-REVOKE ALL ON FUNCTION decode_error_level FROM PUBLIC;
-REVOKE ALL ON FUNCTION pg_stat_monitor_internal FROM PUBLIC;
-REVOKE ALL ON FUNCTION get_histogram_timings FROM PUBLIC;
 REVOKE ALL ON FUNCTION pgsm_create_view FROM PUBLIC;
 REVOKE ALL ON FUNCTION pgsm_create_11_view FROM PUBLIC;
 REVOKE ALL ON FUNCTION pgsm_create_13_view FROM PUBLIC;
 REVOKE ALL ON FUNCTION pgsm_create_14_view FROM PUBLIC;
 REVOKE ALL ON FUNCTION pgsm_create_15_view FROM PUBLIC;
 
+GRANT EXECUTE ON FUNCTION range TO PUBLIC;
+GRANT EXECUTE ON FUNCTION decode_error_level TO PUBLIC;
+GRANT EXECUTE ON FUNCTION get_histogram_timings TO PUBLIC;
+GRANT EXECUTE ON FUNCTION get_cmd_type TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pg_stat_monitor_internal TO PUBLIC;
+
 GRANT SELECT ON pg_stat_monitor TO PUBLIC;
 
+-- Reset is only available to super user
+REVOKE ALL ON FUNCTION pg_stat_monitor_reset FROM PUBLIC;

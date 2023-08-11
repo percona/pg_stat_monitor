@@ -5,7 +5,6 @@ use warnings;
 use File::Basename;
 use File::Compare;
 use File::Copy;
-use String::Util qw(trim);
 use Test::More;
 use lib 't';
 use pgsm;
@@ -26,48 +25,48 @@ close $conf;
 my %pg_versions_pgsm_columns = ( 15 => "application_name,blk_read_time," .
     "blk_write_time,bucket,bucket_done,bucket_start_time,calls," .
     "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .
-    "datname,elevel,jit_emission_count,jit_emission_time,jit_functions," .
+    "datname,dbid,elevel,jit_emission_count,jit_emission_time,jit_functions," .
     "jit_generation_time,jit_inlining_count,jit_inlining_time," .
     "jit_optimization_count,jit_optimization_time," .
     "local_blks_dirtied,local_blks_hit,local_blks_read," .
     "local_blks_written,max_exec_time,max_plan_time,mean_exec_time," .
     "mean_plan_time,message,min_exec_time,min_plan_time,pgsm_query_id,planid," .
-    "plans_calls,query,query_plan,queryid,relations,resp_calls," .
-    "rows_retrieved,shared_blks_dirtied,shared_blks_hit,shared_blks_read," .
+    "plans,query,query_plan,queryid,relations,resp_calls," .
+    "rows,shared_blks_dirtied,shared_blks_hit,shared_blks_read," .
     "shared_blks_written,sqlcode,stddev_exec_time,stddev_plan_time," .
     "temp_blk_read_time,temp_blk_write_time,temp_blks_read,temp_blks_written," .
     "top_query,top_queryid,toplevel,total_exec_time,total_plan_time," .
-    "userid,wal_bytes,wal_fpi,wal_records",
+    "userid,username,wal_bytes,wal_fpi,wal_records",
  14 => "application_name,blk_read_time," .
     "blk_write_time,bucket,bucket_done,bucket_start_time,calls," .
     "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .
-    "datname,elevel,local_blks_dirtied,local_blks_hit,local_blks_read," .
+    "datname,dbid,elevel,local_blks_dirtied,local_blks_hit,local_blks_read," .
     "local_blks_written,max_exec_time,max_plan_time,mean_exec_time," .
     "mean_plan_time,message,min_exec_time,min_plan_time,pgsm_query_id,planid," .
-    "plans_calls,query,query_plan,queryid,relations,resp_calls," .
-    "rows_retrieved,shared_blks_dirtied,shared_blks_hit,shared_blks_read," .
+    "plans,query,query_plan,queryid,relations,resp_calls," .
+    "rows,shared_blks_dirtied,shared_blks_hit,shared_blks_read," .
     "shared_blks_written,sqlcode,stddev_exec_time,stddev_plan_time," .
     "temp_blks_read,temp_blks_written,top_query,top_queryid,toplevel," .
-    "total_exec_time,total_plan_time,userid,wal_bytes,wal_fpi,wal_records",
+    "total_exec_time,total_plan_time,userid,username,wal_bytes,wal_fpi,wal_records",
  13 => "application_name,blk_read_time," .
     "blk_write_time,bucket,bucket_done,bucket_start_time,calls," .
     "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .
-    "datname,elevel,local_blks_dirtied,local_blks_hit,local_blks_read," .
+    "datname,dbid,elevel,local_blks_dirtied,local_blks_hit,local_blks_read," .
     "local_blks_written,max_exec_time,max_plan_time,mean_exec_time," .
     "mean_plan_time,message,min_exec_time,min_plan_time,pgsm_query_id,planid," .
-    "plans_calls,query,query_plan,queryid,relations,resp_calls," .
-    "rows_retrieved,shared_blks_dirtied,shared_blks_hit,shared_blks_read," .
+    "plans,query,query_plan,queryid,relations,resp_calls," .
+    "rows,shared_blks_dirtied,shared_blks_hit,shared_blks_read," .
     "shared_blks_written,sqlcode,stddev_exec_time,stddev_plan_time," .
     "temp_blks_read,temp_blks_written,top_query,top_queryid,toplevel," .
-    "total_exec_time,total_plan_time,userid,wal_bytes,wal_fpi,wal_records",
+    "total_exec_time,total_plan_time,userid,username,wal_bytes,wal_fpi,wal_records",
  12 => "application_name,blk_read_time,blk_write_time,bucket,bucket_done," .
     "bucket_start_time,calls,client_ip,cmd_type,cmd_type_text,comments," .
-    "cpu_sys_time,cpu_user_time,datname,elevel,local_blks_dirtied," .
+    "cpu_sys_time,cpu_user_time,datname,dbid,elevel,local_blks_dirtied," .
     "local_blks_hit,local_blks_read,local_blks_written,max_time,mean_time," .
     "message,min_time,pgsm_query_id,planid,query,query_plan,queryid,relations,resp_calls," .
-    "rows_retrieved,shared_blks_dirtied,shared_blks_hit,shared_blks_read," .
+    "rows,shared_blks_dirtied,shared_blks_hit,shared_blks_read," .
     "shared_blks_written,sqlcode,stddev_time,temp_blks_read,temp_blks_written," .
-    "top_query,top_queryid,total_time,userid"
+    "top_query,top_queryid,total_time,userid,username"
  );
 
 # Start server

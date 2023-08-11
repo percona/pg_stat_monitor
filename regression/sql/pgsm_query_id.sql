@@ -29,14 +29,27 @@ SELECT pg_stat_monitor_reset();
 SELECT * FROM t1;
 SELECT *, ADD(1, 2) FROM t1;
 SELECT * FROM t2;
+-- Check that spaces and comments do not generate a different pgsm_query_id
+SELECT     *     FROM t2 --WHATEVER;
+;
+SELECT     *     FROM t2 /* ...
+...
+More comments to check for spaces.
+*/
+     ;
 
 \c db2
 SELECT * FROM t1;
 SELECT *, ADD(1, 2) FROM t1;
+
+set pg_stat_monitor.pgsm_enable_pgsm_query_id = off;
 SELECT * FROM t3;
+set pg_stat_monitor.pgsm_enable_pgsm_query_id = on;
+SELECT * FROM t3 where c = 20;
+
 
 \c contrib_regression
-SELECT datname, pgsm_query_id, query FROM pg_stat_monitor ORDER BY pgsm_query_id, query, datname;
+SELECT datname, pgsm_query_id, query, calls FROM pg_stat_monitor ORDER BY pgsm_query_id, query, datname;
 SELECT pg_stat_monitor_reset();
 
 \c db1

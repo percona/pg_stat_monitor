@@ -12,8 +12,9 @@ SELECT * FROM t2;
 SELECT * FROM t1 LIMIT 10;
 SELECt * FROM t2  WHERE b % 2 = 0;
 
-SELECT query, rows_retrieved FROM pg_stat_monitor ORDER BY query COLLATE "C";
+SELECT query, rows FROM pg_stat_monitor ORDER BY query COLLATE "C";
 SELECT pg_stat_monitor_reset();
 
 DROP TABLE t1;
+DROP TABLE t2;
 DROP EXTENSION pg_stat_monitor;

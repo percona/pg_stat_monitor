@@ -16,58 +16,140 @@
  */
 #include "postgres.h"
 #include "nodes/pg_list.h"
-
 #include "pg_stat_monitor.h"
 
+static pgsmLocalState pgsmStateLocal;
+static PGSM_HASH_TABLE_HANDLE pgsm_create_bucket_hash(pgsmSharedState * pgsm, dsa_area *dsa);
+static Size pgsm_get_shared_area_size(void);
+static void InitializeSharedState(pgsmSharedState * pgsm);
 
-static pgssSharedState *pgss;
-static HTAB *pgss_hash;
-static HTAB *pgss_query_hash;
+#define PGSM_BUCKET_INFO_SIZE	(sizeof(TimestampTz) * pgsm_max_buckets)
+#define PGSM_SHARED_STATE_SIZE	(sizeof(pgsmSharedState) + PGSM_BUCKET_INFO_SIZE)
 
+#if USE_DYNAMIC_HASH
+/* parameter for the shared hash */
+static dshash_parameters dsh_params = {
+	sizeof(pgsmHashKey),
+	sizeof(pgsmEntry),
+	dshash_memcmp,
+	dshash_memhash
+};
+#endif
 
-static HTAB *
-hash_init(const char *hash_name, int key_size, int entry_size, int hash_size)
+/*
+ * Returns the shared memory area size for storing the query texts.
+ * USE_DYNAMIC_HASH also creates the hash table in the same memory space,
+ * so add the required bucket memory size to the query text area size
+ */
+
+static Size
+pgsm_query_area_size(void)
 {
-	HASHCTL		info;
+	Size		sz = MAX_QUERY_BUF;
+#if USE_DYNAMIC_HASH
+	/* Dynamic hash also lives DSA area */
+	sz = add_size(sz, MAX_BUCKETS_MEM);
+#endif
+	return MAXALIGN(sz);
+}
 
-	memset(&info, 0, sizeof(info));
-	info.keysize = key_size;
-	info.entrysize = entry_size;
-	return ShmemInitHash(hash_name, hash_size, hash_size, &info, HASH_ELEM | HASH_BLOBS);
+/*
+ * Total shared memory area required by pgsm
+ */
+Size
+pgsm_ShmemSize(void)
+{
+	Size		sz = MAXALIGN(PGSM_SHARED_STATE_SIZE);
+
+	sz = add_size(sz, MAX_QUERY_BUF);
+#if USE_DYNAMIC_HASH
+	sz = add_size(sz, MAX_BUCKETS_MEM);
+#else
+	sz = add_size(sz, hash_estimate_size(MAX_BUCKET_ENTRIES, sizeof(pgsmEntry)));
+#endif
+	return MAXALIGN(sz);
+}
+
+/*
+ * Returns the shared memory area size for storing the query texts and pgsm
+ * shared state structure,
+ * Moreover, for USE_DYNAMIC_HASH, both the hash table and raw query text area
+ * get allocated as a single shared memory chunk.
+ */
+static Size
+pgsm_get_shared_area_size(void)
+{
+	Size		sz;
+#if USE_DYNAMIC_HASH
+	sz = pgsm_ShmemSize();
+#else
+	sz = MAXALIGN(sizeof(pgsmSharedState));
+	sz = add_size(sz, pgsm_query_area_size());
+#endif
+	return sz;
 }
 
 void
-pgss_startup(void)
+pgsm_startup(void)
 {
 	bool		found = false;
+	pgsmSharedState *pgsm;
 
 	/* reset in case this is a restart within the postmaster */
-
-	pgss = NULL;
-	pgss_hash = NULL;
+	pgsmStateLocal.dsa = NULL;
+	pgsmStateLocal.shared_hash = NULL;
+	pgsmStateLocal.shared_pgsmState = NULL;
 
 	/*
 	 * Create or attach to the shared memory state, including hash table
 	 */
 	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
 
-	pgss = ShmemInitStruct("pg_stat_monitor", sizeof(pgssSharedState), &found);
+	pgsm = ShmemInitStruct("pg_stat_monitor", pgsm_get_shared_area_size(), &found);
 	if (!found)
 	{
 		/* First time through ... */
-		pgss->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
-		SpinLockInit(&pgss->mutex);
-		ResetSharedState(pgss);
+		dsa_area   *dsa;
+		char	   *p = (char *) pgsm;
+
+		pgsm->pgsm_oom = false;
+		pgsm->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
+		SpinLockInit(&pgsm->mutex);
+		InitializeSharedState(pgsm);
+		/* the allocation of pgsmSharedState itself */
+		p += MAXALIGN(PGSM_SHARED_STATE_SIZE);
+		pgsm->raw_dsa_area = p;
+		dsa = dsa_create_in_place(pgsm->raw_dsa_area,
+								  pgsm_query_area_size(),
+								  LWLockNewTrancheId(), 0);
+		dsa_pin(dsa);
+		dsa_set_size_limit(dsa, pgsm_query_area_size());
+
+		pgsm->hash_handle = pgsm_create_bucket_hash(pgsm, dsa);
+
+		/*
+		 * If overflow is enabled, set the DSA size to unlimited, and allow
+		 * the DSA to grow beyond the shared memory space into the swap area
+		 */
+		if (pgsm_enable_overflow)
+			dsa_set_size_limit(dsa, -1);
+
+		pgsmStateLocal.shared_pgsmState = pgsm;
+
+		/*
+		 * Postmaster will never access the dsa again, thus free it's local
+		 * references.
+		 */
+		dsa_detach(dsa);
+
+	    pgsmStateLocal.pgsm_mem_cxt = AllocSetContextCreate(TopMemoryContext,
+                                                            "pg_stat_monitor local store",
+                                                            ALLOCSET_DEFAULT_SIZES);
 	}
 
 #ifdef BENCHMARK
 	init_hook_stats();
 #endif
-
-	set_qbuf((unsigned char *) ShmemAlloc(MAX_QUERY_BUF));
-
-	pgss_hash = hash_init("pg_stat_monitor: bucket hashtable", sizeof(pgssHashKey), sizeof(pgssEntry), MAX_BUCKET_ENTRIES);
-	pgss_query_hash = hash_init("pg_stat_monitor: queryID hashtable", sizeof(uint64), sizeof(pgssQueryEntry), MAX_BUCKET_ENTRIES);
 
 	LWLockRelease(AddinShmemInitLock);
 
@@ -75,26 +157,113 @@ pgss_startup(void)
 	 * If we're in the postmaster (or a standalone backend...), set up a shmem
 	 * exit hook to dump the statistics to disk.
 	 */
-	on_shmem_exit(pgss_shmem_shutdown, (Datum) 0);
+	on_shmem_exit(pgsm_shmem_shutdown, (Datum) 0);
 }
 
-pgssSharedState *
+static void
+InitializeSharedState(pgsmSharedState * pgsm)
+{
+	pg_atomic_init_u64(&pgsm->current_wbucket, 0);
+	pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
+}
+
+
+/*
+ * Create the classic or dshahs hash table for storing the query statistics.
+ */
+static PGSM_HASH_TABLE_HANDLE
+pgsm_create_bucket_hash(pgsmSharedState * pgsm, dsa_area *dsa)
+{
+	PGSM_HASH_TABLE_HANDLE bucket_hash;
+
+#if USE_DYNAMIC_HASH
+	dshash_table *dsh;
+
+	pgsm->hash_tranche_id = LWLockNewTrancheId();
+	dsh_params.tranche_id = pgsm->hash_tranche_id;
+	dsh = dshash_create(dsa, &dsh_params, 0);
+	bucket_hash = dshash_get_hash_table_handle(dsh);
+	dshash_detach(dsh);
+#else
+	HASHCTL		info;
+
+	memset(&info, 0, sizeof(info));
+	info.keysize = sizeof(pgsmHashKey);
+	info.entrysize = sizeof(pgsmEntry);
+	bucket_hash = ShmemInitHash("pg_stat_monitor: bucket hashtable", MAX_BUCKET_ENTRIES, MAX_BUCKET_ENTRIES, &info, HASH_ELEM | HASH_BLOBS);
+#endif
+	return bucket_hash;
+}
+
+/*
+ * Attach to a DSA area created by the postmaster, in the case of
+ * USE_DYNAMIC_HASH, also attach the local dshash handle to
+ * the dshash created by the postmaster.
+ *
+ * Note: The dsa area and dshash for the process may be mapped at a
+ * different virtual address in this process.
+ *
+ */
+void
+pgsm_attach_shmem(void)
+{
+	MemoryContext oldcontext;
+
+	if (pgsmStateLocal.dsa)
+		return;
+
+	/*
+	 * We want the dsa to remain valid throughout the lifecycle of this
+	 * process. so switch to TopMemoryContext before attaching
+	 */
+	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+
+	pgsmStateLocal.dsa = dsa_attach_in_place(pgsmStateLocal.shared_pgsmState->raw_dsa_area,
+											 NULL);
+
+	/*
+	 * pin the attached area to keep the area attached until end of session or
+	 * explicit detach.
+	 */
+	dsa_pin_mapping(pgsmStateLocal.dsa);
+
+#if USE_DYNAMIC_HASH
+	dsh_params.tranche_id = pgsmStateLocal.shared_pgsmState->hash_tranche_id;
+	pgsmStateLocal.shared_hash = dshash_attach(pgsmStateLocal.dsa, &dsh_params,
+											   pgsmStateLocal.shared_pgsmState->hash_handle, 0);
+#else
+	pgsmStateLocal.shared_hash = pgsmStateLocal.shared_pgsmState->hash_handle;
+#endif
+
+	MemoryContextSwitchTo(oldcontext);
+}
+
+MemoryContext GetPgsmMemoryContext(void)
+{
+	return pgsmStateLocal.pgsm_mem_cxt;
+}
+
+dsa_area *
+get_dsa_area_for_query_text(void)
+{
+	pgsm_attach_shmem();
+	return pgsmStateLocal.dsa;
+}
+
+PGSM_HASH_TABLE *
+get_pgsmHash(void)
+{
+	pgsm_attach_shmem();
+	return pgsmStateLocal.shared_hash;
+}
+
+pgsmSharedState *
 pgsm_get_ss(void)
 {
-	return pgss;
+	pgsm_attach_shmem();
+	return pgsmStateLocal.shared_pgsmState;
 }
 
-HTAB *
-pgsm_get_hash(void)
-{
-	return pgss_hash;
-}
-
-HTAB *
-pgsm_get_query_hash(void)
-{
-	return pgss_query_hash;
-}
 
 /*
  * shmem_shutdown hook: Dump statistics into file.
@@ -103,58 +272,48 @@ pgsm_get_query_hash(void)
  * other processes running when this is called.
  */
 void
-pgss_shmem_shutdown(int code, Datum arg)
+pgsm_shmem_shutdown(int code, Datum arg)
 {
 	/* Don't try to dump during a crash. */
+	elog(LOG, "[pg_stat_monitor] pgsm_shmem_shutdown: Shutdown initiated.");
+
 	if (code)
 		return;
 
-	pgss = NULL;
+	pgsmStateLocal.shared_pgsmState = NULL;
 	/* Safety check ... shouldn't get here unless shmem is set up. */
 	if (!IsHashInitialize())
 		return;
 }
 
-Size
-hash_memsize(void)
+pgsmEntry *
+hash_entry_alloc(pgsmSharedState * pgsm, pgsmHashKey * key, int encoding)
 {
-	Size		size;
-
-	size = MAXALIGN(sizeof(pgssSharedState));
-	size += MAXALIGN(MAX_QUERY_BUF);
-	size = add_size(size, hash_estimate_size(MAX_BUCKET_ENTRIES, sizeof(pgssEntry)));
-	size = add_size(size, hash_estimate_size(MAX_BUCKET_ENTRIES, sizeof(pgssQueryEntry)));
-
-	return size;
-}
-
-pgssEntry *
-hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
-{
-	pgssEntry  *entry = NULL;
+	pgsmEntry  *entry = NULL;
 	bool		found = false;
 
-	if (hash_get_num_entries(pgss_hash) >= MAX_BUCKET_ENTRIES)
-	{
-		elog(DEBUG1, "pg_stat_monitor: out of memory");
-		return NULL;
-	}
 	/* Find or create an entry with desired hash code */
-	entry = (pgssEntry *) hash_search(pgss_hash, key, HASH_ENTER_NULL, &found);
+	entry = (pgsmEntry *) pgsm_hash_find_or_insert(pgsmStateLocal.shared_hash, key, &found);
 	if (entry == NULL)
-		elog(DEBUG1, "hash_entry_alloc: OUT OF MEMORY");
+		elog(DEBUG1, "[pg_stat_monitor] hash_entry_alloc: OUT OF MEMORY.");
 	else if (!found)
 	{
-		pgss->bucket_entry[pg_atomic_read_u64(&pgss->current_wbucket)]++;
 		/* New entry, initialize it */
 		/* reset the statistics */
 		memset(&entry->counters, 0, sizeof(Counters));
+		entry->query_text.query_pos = InvalidDsaPointer;
+		entry->counters.info.parent_query = InvalidDsaPointer;
+
 		/* set the appropriate initial usage count */
 		/* re-initialize the mutex each time ... we assume no one using it */
 		SpinLockInit(&entry->mutex);
 		/* ... and don't forget the query text metadata */
 		entry->encoding = encoding;
 	}
+#if USE_DYNAMIC_HASH
+	if (entry)
+		dshash_release_lock(pgsmStateLocal.shared_hash, entry);
+#endif
 
 	return entry;
 }
@@ -162,167 +321,132 @@ hash_entry_alloc(pgssSharedState *pgss, pgssHashKey *key, int encoding)
 /*
  * Prepare resources for using the new bucket:
  *    - Deallocate finished hash table entries in new_bucket_id (entries whose
- *      state is PGSS_FINISHED or PGSS_FINISHED).
+ *      state is PGSM_EXEC or PGSM_ERROR).
  *    - Clear query buffer for new_bucket_id.
  *    - If old_bucket_id != -1, move all pending hash table entries in
  *      old_bucket_id to the new bucket id, also move pending queries from the
  *      previous query buffer (query_buffer[old_bucket_id]) to the new one
  *      (query_buffer[new_bucket_id]).
  *
- * Caller must hold an exclusive lock on pgss->lock.
+ * Caller must hold an exclusive lock on pgsm->lock.
  */
 void
 hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer)
 {
-	HASH_SEQ_STATUS hash_seq;
-	pgssEntry  *entry = NULL;
+	PGSM_HASH_SEQ_STATUS hstat;
+	pgsmEntry  *entry = NULL;
 
 	/* Store pending query ids from the previous bucket. */
-	List	   *pending_entries = NIL;
-	ListCell   *pending_entry;
+
+	if (!pgsmStateLocal.shared_hash)
+		return;
 
 	/* Iterate over the hash table. */
-	hash_seq_init(&hash_seq, pgss_hash);
-	while ((entry = hash_seq_search(&hash_seq)) != NULL)
+	pgsm_hash_seq_init(&hstat, pgsmStateLocal.shared_hash, true);
+
+	while ((entry = pgsm_hash_seq_next(&hstat)) != NULL)
 	{
+		dsa_pointer pdsa;
+
 		/*
 		 * Remove all entries if new_bucket_id == -1. Otherwise remove entry
 		 * in new_bucket_id if it has finished already.
 		 */
 		if (new_bucket_id < 0 ||
-			(entry->key.bucket_id == new_bucket_id &&
-			 (entry->counters.state == PGSS_FINISHED || entry->counters.state == PGSS_ERROR)))
+			(entry->key.bucket_id == new_bucket_id))
 		{
-			if (new_bucket_id == -1)
-			{
-				/*
-				 * pg_stat_monitor_reset(), remove entry from query hash table
-				 * too.
-				 */
-				hash_search(pgss_query_hash, &(entry->key.queryid), HASH_REMOVE, NULL);
-			}
+			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
 
-			entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
-		}
+			pdsa = entry->query_text.query_pos;
 
-		/*
-		 * If we detect a pending query residing in the previous bucket id, we
-		 * add it to a list of pending elements to be moved to the new bucket
-		 * id. Can't update the hash table while iterating it inside this
-		 * loop, as this may introduce all sort of problems.
-		 */
-		if (old_bucket_id != -1 && entry->key.bucket_id == old_bucket_id)
-		{
-			if (entry->counters.state == PGSS_PARSE ||
-				entry->counters.state == PGSS_PLAN ||
-				entry->counters.state == PGSS_EXEC)
-			{
-				pgssEntry  *bkp_entry = malloc(sizeof(pgssEntry));
+			pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
 
-				if (!bkp_entry)
-				{
-					elog(DEBUG1, "hash_entry_dealloc: out of memory");
+			if (DsaPointerIsValid(pdsa))
+				dsa_free(pgsmStateLocal.dsa, pdsa);
 
-					/*
-					 * No memory, If the entry has calls > 1 then we change
-					 * the state to finished, as the pending query will likely
-					 * finish execution during the new bucket time window. The
-					 * pending query will vanish in this case, can't list it
-					 * until it completes.
-					 *
-					 * If there is only one call to the query and it's
-					 * pending, remove the entry from the previous bucket and
-					 * allow it to finish in the new bucket, in order to avoid
-					 * the query living in the old bucket forever.
-					 */
-					if (entry->counters.calls.calls > 1)
-						entry->counters.state = PGSS_FINISHED;
-					else
-						entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
-					continue;
-				}
+			if (DsaPointerIsValid(parent_qdsa))
+				dsa_free(pgsmStateLocal.dsa, parent_qdsa);
 
-				/* Save key/data from the previous entry. */
-				memcpy(bkp_entry, entry, sizeof(pgssEntry));
-
-				/* Update key to use the new bucket id. */
-				bkp_entry->key.bucket_id = new_bucket_id;
-
-				/* Add the entry to a list of nodes to be processed later. */
-				pending_entries = lappend(pending_entries, bkp_entry);
-
-				/*
-				 * If the entry has calls > 1 then we change the state to
-				 * finished in the previous bucket, as the pending query will
-				 * likely finish execution during the new bucket time window.
-				 * Can't remove it from the previous bucket as it may have
-				 * many calls and we would lose the query statistics.
-				 *
-				 * If there is only one call to the query and it's pending,
-				 * remove the entry from the previous bucket and allow it to
-				 * finish in the new bucket, in order to avoid the query
-				 * living in the old bucket forever.
-				 */
-				if (entry->counters.calls.calls > 1)
-					entry->counters.state = PGSS_FINISHED;
-				else
-					entry = hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
-			}
+			pgsmStateLocal.shared_pgsmState->pgsm_oom = false;
 		}
 	}
-
-	/*
-	 * Iterate over the list of pending queries in order to add them back to
-	 * the hash table with the updated bucket id.
-	 */
-	foreach(pending_entry, pending_entries)
-	{
-		bool		found = false;
-		pgssEntry  *new_entry;
-		pgssEntry  *old_entry = (pgssEntry *) lfirst(pending_entry);
-
-		new_entry = (pgssEntry *) hash_search(pgss_hash, &old_entry->key, HASH_ENTER_NULL, &found);
-		if (new_entry == NULL)
-			elog(DEBUG1, "%s", "pg_stat_monitor: out of memory");
-		else if (!found)
-		{
-			/* Restore counters and other data. */
-			new_entry->counters = old_entry->counters;
-			SpinLockInit(&new_entry->mutex);
-			new_entry->encoding = old_entry->encoding;
-			new_entry->query_pos = old_entry->query_pos;
-		}
-
-		free(old_entry);
-	}
-
-	list_free(pending_entries);
-}
-
-/*
- * Release all entries.
- */
-void
-hash_entry_reset()
-{
-	pgssSharedState *pgss = pgsm_get_ss();
-	HASH_SEQ_STATUS hash_seq;
-	pgssEntry  *entry;
-
-	LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
-
-	hash_seq_init(&hash_seq, pgss_hash);
-	while ((entry = hash_seq_search(&hash_seq)) != NULL)
-	{
-		hash_search(pgss_hash, &entry->key, HASH_REMOVE, NULL);
-	}
-	pg_atomic_write_u64(&pgss->current_wbucket, 0);
-	LWLockRelease(pgss->lock);
+	pgsm_hash_seq_term(&hstat);
 }
 
 bool
 IsHashInitialize(void)
 {
-	return (pgss != NULL &&
-			pgss_hash != NULL);
+	return (pgsmStateLocal.shared_pgsmState != NULL);
+}
+
+bool
+IsSystemOOM(void)
+{
+	return (IsHashInitialize() && pgsmStateLocal.shared_pgsmState->pgsm_oom);
+}
+
+/*
+ * pgsm_* functions are just wrapper functions over the hash table standard
+ * API and call the appropriate hash table function based on USE_DYNAMIC_HASH
+ */
+
+void *
+pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey * key, bool *found)
+{
+#if USE_DYNAMIC_HASH
+	void	   *entry;
+
+	entry = dshash_find_or_insert(shared_hash, key, found);
+	return entry;
+#else
+	return hash_search(shared_hash, key, HASH_ENTER_NULL, found);
+#endif
+}
+
+void *
+pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey * key, bool *found)
+{
+#if USE_DYNAMIC_HASH
+	return dshash_find(shared_hash, key, false);
+#else
+	return hash_search(shared_hash, key, HASH_FIND, found);
+#endif
+}
+
+void
+pgsm_hash_seq_init(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, bool lock)
+{
+#if USE_DYNAMIC_HASH
+	dshash_seq_init(hstat, shared_hash, lock);
+#else
+	hash_seq_init(hstat, shared_hash);
+#endif
+}
+
+void *
+pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS * hstat)
+{
+#if USE_DYNAMIC_HASH
+	return dshash_seq_next(hstat);
+#else
+	return hash_seq_search(hstat);
+#endif
+}
+
+void
+pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat)
+{
+#if USE_DYNAMIC_HASH
+	dshash_seq_term(hstat);
+#endif
+}
+
+void
+pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key)
+{
+#if USE_DYNAMIC_HASH
+	dshash_delete_current(hstat);
+#else
+	hash_search(shared_hash, key, HASH_REMOVE, NULL);
+#endif
 }

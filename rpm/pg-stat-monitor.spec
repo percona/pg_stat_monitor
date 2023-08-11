@@ -12,7 +12,7 @@ Source0:        percona-pg-stat-monitor%{pgrel}-%{version}.tar.gz
 URL:            https://github.com/Percona-Lab/pg_stat_monitor
 BuildRequires:  percona-postgresql%{pgrel}-devel
 Requires:       postgresql-server
-Provides:	percona-pg-stat-monitor%{pgrel}
+Provides:       percona-pg-stat-monitor%{pgrel}
 Conflicts:      percona-pg-stat-monitor%{pgrel}
 Obsoletes:      percona-pg-stat-monitor%{pgrel}
 Epoch:          1
@@ -33,7 +33,7 @@ It provides all the features of pg_stat_statment plus its own feature set.
 
 
 %build
-sed -i 's:PG_CONFIG = pg_config:PG_CONFIG = /usr/pgsql-%{pgrel}/bin/pg_config:' Makefile
+sed -i 's:PG_CONFIG ?= pg_config:PG_CONFIG = /usr/pgsql-%{pgrel}/bin/pg_config:' Makefile
 %{__make} USE_PGXS=1 %{?_smp_mflags}
 
 
