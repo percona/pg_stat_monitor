@@ -26,7 +26,7 @@ jobs:
           sudo /usr/bin/perl -MCPAN -e 'install IPC::RUN'
           sudo /usr/bin/perl -MCPAN -e 'install Text::Trim'
 
-      - name: Install PG Distribution Postgresql 13
+      - name: Install PG Distribution Postgresql 13 & Extensions
         run: |
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt \
             $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
@@ -34,7 +34,11 @@ jobs:
             https://www.postgresql.org/media/keys/ACCC4CF8.asc |
             sudo apt-key add -
           sudo apt update
-          sudo apt -y install postgresql-13 postgresql-server-dev-13
+          sudo apt -y install postgresql-13 postgresql-server-dev-13 \
+            pgpool2 libpgpool2 postgresql-13-pgaudit postgresql-13-set-user \
+            postgresql-13-repack postgresql-13-postgis-3 \
+            postgresql-13-postgis-3-scripts postgresql-postgis-scripts \
+            postgresql-postgis postgis
 
       - name: Change src owner to postgres
         run: |

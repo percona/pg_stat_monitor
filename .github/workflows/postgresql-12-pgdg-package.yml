@@ -26,7 +26,7 @@ jobs:
           sudo /usr/bin/perl -MCPAN -e 'install IPC::RUN'
           sudo /usr/bin/perl -MCPAN -e 'install Text::Trim'
 
-      - name: Install PG Distribution Postgresql 12
+      - name: Install PG Distribution Postgresql 12 & Extensions
         run: |
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt \
             $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
@@ -34,7 +34,11 @@ jobs:
             https://www.postgresql.org/media/keys/ACCC4CF8.asc |
             sudo apt-key add -
           sudo apt-get -y update
-          sudo apt-get -y install postgresql-12 postgresql-server-dev-12
+          sudo apt -y install postgresql-12 postgresql-server-dev-12 \
+            pgpool2 libpgpool2 postgresql-12-pgaudit postgresql-12-set-user \
+            postgresql-12-repack postgresql-12-postgis-3 \
+            postgresql-12-postgis-3-scripts postgresql-postgis-scripts \
+            postgresql-postgis postgis
 
       - name: Change src owner to postgres
         run: |
