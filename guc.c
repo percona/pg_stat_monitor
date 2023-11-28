@@ -36,6 +36,8 @@ bool		pgsm_track_utility;
 bool		pgsm_enable_pgsm_query_id;
 int			pgsm_track;
 static int	pgsm_overflow_target;	/* Not used since 2.0 */
+/*custum */
+bool		pgsm_extract_bind_variables;
 
 /* Check hooks to ensure histogram_min < histogram_max */
 static bool check_histogram_min(double *newval, void **extra, GucSource source);
@@ -206,6 +208,19 @@ init_guc(void)
 							 "Selects whether save query in normalized format.",	/* short_desc */
 							 NULL,	/* long_desc */
 							 &pgsm_normalized_query,	/* value address */
+							 false, /* boot value */
+							 PGC_USERSET,	/* context */
+							 0, /* flags */
+							 NULL,	/* check_hook */
+							 NULL,	/* assign_hook */
+							 NULL	/* show_hook */
+		);
+	
+	/* custum */
+	DefineCustomBoolVariable("pg_stat_monitor.pgsm_extract_bind_variables", /* name */
+							 "Selects whether extracting bind variables from queries.",	/* short_desc */
+							 NULL,	/* long_desc */
+							 &pgsm_extract_bind_variables,	/* value address */
 							 false, /* boot value */
 							 PGC_USERSET,	/* context */
 							 0, /* flags */
