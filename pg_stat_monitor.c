@@ -36,7 +36,7 @@ typedef enum pgsmVersion
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION                   "2.0.1"
+#define BUILD_VERSION                   "2.0.4"
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
@@ -164,7 +164,11 @@ DECLARE_HOOK(void pgsm_ExecutorStart, QueryDesc *queryDesc, int eflags);
 DECLARE_HOOK(void pgsm_ExecutorRun, QueryDesc *queryDesc, ScanDirection direction, uint64 count, bool execute_once);
 DECLARE_HOOK(void pgsm_ExecutorFinish, QueryDesc *queryDesc);
 DECLARE_HOOK(void pgsm_ExecutorEnd, QueryDesc *queryDesc);
+#if PG_VERSION_NUM < 160000
 DECLARE_HOOK(bool pgsm_ExecutorCheckPerms, List *rt, bool abort);
+#else
+DECLARE_HOOK(bool pgsm_ExecutorCheckPerms, List *rt, List *rp, bool abort);
+#endif
 
 #if PG_VERSION_NUM >= 140000
 DECLARE_HOOK(PlannedStmt *pgsm_planner_hook, Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams);
@@ -784,7 +788,11 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 }
 
 static bool
+#if PG_VERSION_NUM < 160000
 pgsm_ExecutorCheckPerms(List *rt, bool abort)
+#else
+pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort)
+#endif
 {
 	ListCell   *lr = NULL;
 	int			i = 0;
@@ -797,7 +805,11 @@ pgsm_ExecutorCheckPerms(List *rt, bool abort)
 	{
 		RangeTblEntry *rte = lfirst(lr);
 
-		if (rte->rtekind != RTE_RELATION)
+		if (rte->rtekind != RTE_RELATION
+#if PG_VERSION_NUM >= 160000
+            && (rte->rtekind != RTE_SUBQUERY && rte->relkind != 'v')
+#endif
+           )
 			continue;
 
 		if (i < REL_LST)
@@ -828,7 +840,11 @@ pgsm_ExecutorCheckPerms(List *rt, bool abort)
 	num_relations = i;
 
 	if (prev_ExecutorCheckPerms_hook)
+#if PG_VERSION_NUM < 160000
 		return prev_ExecutorCheckPerms_hook(rt, abort);
+#else
+		return prev_ExecutorCheckPerms_hook(rt, rp, abort);
+#endif
 
 	return true;
 }
@@ -838,7 +854,6 @@ static PlannedStmt *
 pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams)
 {
 	PlannedStmt *result;
-	pgsmEntry  *entry = NULL;
 
 
 	/*
@@ -853,13 +868,11 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	 * So testing the planner nesting level only is not enough to detect real
 	 * top level planner call.
 	 */
-	if (MemoryContextIsValid(MessageContext))
-		entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true);
-
 
 	if (pgsm_enabled(plan_nested_level + exec_nested_level) &&
 		pgsm_track_planning && query_string && parse->queryId != UINT64CONST(0))
 	{
+		pgsmEntry  *entry = NULL;
 		instr_time	start;
 		instr_time	duration;
 		BufferUsage bufusage_start;
@@ -876,6 +889,9 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		 */
 		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
+
+		if (MemoryContextIsValid(MessageContext))
+			entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true);
 
 		plan_nested_level++;
 		PG_TRY();
@@ -1250,8 +1266,11 @@ pg_get_backend_status(void)
 	for (i = 1; i <= num_backends; i++)
 	{
 		PgBackendStatus *beentry;
-
+#if PG_VERSION_NUM < 160000
 		local_beentry = pgstat_fetch_stat_local_beentry(i);
+#else
+		local_beentry = pgstat_get_local_beentry_by_index(i);
+#endif
 		if (!local_beentry)
 			continue;
 
@@ -1758,10 +1777,6 @@ pgsm_store(pgsmEntry * entry)
 
 	pgsm = pgsm_get_ss();
 
-	/*
-	 * We should lock the hash table here what if the bucket is removed; e.g.
-	 * reset is called - HAMID
-	 */
 	prev_bucket_id = pg_atomic_read_u64(&pgsm->current_wbucket);
 	bucketid = get_next_wbucket(pgsm);
 
@@ -1865,6 +1880,11 @@ pgsm_store(pgsmEntry * entry)
 
 		if (shared_hash_entry == NULL)
 		{
+			LWLockRelease(pgsm->lock);
+
+			if (DsaPointerIsValid(dsa_query_pointer))
+				dsa_free(query_dsa_area, dsa_query_pointer);
+
 			/*
 			 * Out of memory; report only if the state has changed now.
 			 * Otherwise we risk filling up the log file with these message.
@@ -1873,17 +1893,15 @@ pgsm_store(pgsmEntry * entry)
 			{
 				pgsm->pgsm_oom = true;
 
-				ereport(WARNING,
-						(errcode(ERRCODE_OUT_OF_MEMORY),
-						 errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
-						 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
-								   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+				PGSM_DISABLE_ERROR_CAPUTRE();
+				{
+					ereport(WARNING,
+							(errcode(ERRCODE_OUT_OF_MEMORY),
+							errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
+							errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+									"queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+				} PGSM_END_DISABLE_ERROR_CAPTURE();
 			}
-
-			LWLockRelease(pgsm->lock);
-
-			if (DsaPointerIsValid(dsa_query_pointer))
-				dsa_free(query_dsa_area, dsa_query_pointer);
 
 			return;
 		}
