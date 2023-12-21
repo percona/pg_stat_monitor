@@ -16,7 +16,7 @@ WHERE   name     LIKE     'pg_stat_monitor.%'
 ORDER
 BY      name
 COLLATE "C";
-                   name                      | setting | unit |  context   | vartype | source  | min_val |  max_val   |    enumvals    | boot_val | reset_val | pending_restart 
+                    name                     | setting | unit |  context   | vartype | source  | min_val |  max_val   |    enumvals    | boot_val | reset_val | pending_restart 
 ---------------------------------------------+---------+------+------------+---------+---------+---------+------------+----------------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_bucket_time            | 60      | s    | postmaster | integer | default | 1       | 2147483647 |                | 60       | 60        | f
  pg_stat_monitor.pgsm_enable_overflow        | on      |      | postmaster | bool    | default |         |            |                | on       | on        | f
