@@ -10,7 +10,7 @@ SELECT  name
         , enumvals
         , boot_val
         , reset_val
-        , pending_restart
+        , pending_restart 
 FROM    pg_settings
 WHERE   name     LIKE     'pg_stat_monitor.%'
 ORDER
