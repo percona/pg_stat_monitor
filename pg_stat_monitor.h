@@ -88,6 +88,7 @@
 #define CMD_LEN				20
 #define APPLICATIONNAME_LEN	NAMEDATALEN
 #define COMMENTS_LEN        256
+#define VAR_LEN		512
 #define PGSM_OVER_FLOW_MAX	10
 #define PLAN_TEXT_LEN		1024
 #define VAR_LEN		COMMENTS_LEN
@@ -254,6 +255,7 @@ typedef struct QueryInfo
 	char		comments[COMMENTS_LEN];
 	char		relations[REL_LST][REL_LEN];	/* List of relation involved
 												 * in the query */
+	char 		bind_variables[VAR_LEN];											 
 	int			num_relations;	/* Number of relation in the query */
 	CmdType		cmd_type;		/* query command type
 								 * SELECT/UPDATE/DELETE/INSERT */
@@ -516,6 +518,7 @@ extern bool pgsm_enable_overflow;
 extern bool pgsm_normalized_query;
 extern bool pgsm_track_utility;
 extern bool pgsm_enable_pgsm_query_id;
+extern bool pgsm_extract_bind_variables;
 extern int	pgsm_track;
 
 #define DECLARE_HOOK(hook, ...) \

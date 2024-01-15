@@ -25,8 +25,8 @@ COLLATE "C";
  pg_stat_monitor.pgsm_extract_bind_variables | off     |      | user       | bool    | default |         |            |                | off      | off       | f
  pg_stat_monitor.pgsm_extract_comments       | off     |      | user       | bool    | default |         |            |                | off      | off       | f
  pg_stat_monitor.pgsm_histogram_buckets      | 20      |      | postmaster | integer | default | 2       | 50         |                | 20       | 20        | f
- pg_stat_monitor.pgsm_histogram_max          | 100000  |      | postmaster | real    | default | 10      | 5e+07      |                | 100000   | 100000    | f
- pg_stat_monitor.pgsm_histogram_min          | 1       |      | postmaster | real    | default | 0       | 5e+07      |                | 1        | 1         | f
+ pg_stat_monitor.pgsm_histogram_max          | 100000  | ms   | postmaster | real    | default | 10      | 5e+07      |                | 100000   | 100000    | f
+ pg_stat_monitor.pgsm_histogram_min          | 1       | ms   | postmaster | real    | default | 0       | 5e+07      |                | 1        | 1         | f
  pg_stat_monitor.pgsm_max                    | 256     | MB   | postmaster | integer | default | 10      | 10240      |                | 256      | 256       | f
  pg_stat_monitor.pgsm_max_buckets            | 10      |      | postmaster | integer | default | 1       | 20000      |                | 10       | 10        | f
  pg_stat_monitor.pgsm_normalized_query       | off     |      | user       | bool    | default |         |            |                | off      | off       | f

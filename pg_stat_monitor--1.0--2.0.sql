@@ -25,7 +25,8 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT top_queryid         int8,
 	OUT top_query           text,
 	OUT application_name	text,
-	OUT bind_variables	text,
+	OUT bind_variables		text,
+
 	OUT relations			text, -- 11
 	OUT cmd_type			int,
 	OUT elevel              int,
