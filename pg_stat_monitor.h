@@ -91,6 +91,7 @@
 #define VAR_LEN		512
 #define PGSM_OVER_FLOW_MAX	10
 #define PLAN_TEXT_LEN		1024
+#define VAR_LEN		COMMENTS_LEN
 /* the assumption of query max nested level */
 #define DEFAULT_MAX_NESTED_LEVEL	10
 
@@ -105,9 +106,9 @@
 #define TOTAL_RELS_LENGTH					(REL_LST * REL_LEN)
 
 #if PG_VERSION_NUM >= 130000
-#define	MAX_SETTINGS                        15
+#define	MAX_SETTINGS                        16
 #else
-#define MAX_SETTINGS                        14
+#define MAX_SETTINGS                        15
 #endif
 
 /* Update this if need a enum GUC with more options. */
@@ -250,6 +251,7 @@ typedef struct QueryInfo
 	int64		type;			/* type of query, options are query, info,
 								 * warning, error, fatal */
 	char		application_name[APPLICATIONNAME_LEN];
+	char		bind_variables[VAR_LEN];
 	char		comments[COMMENTS_LEN];
 	char		relations[REL_LST][REL_LEN];	/* List of relation involved
 												 * in the query */

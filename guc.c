@@ -241,6 +241,53 @@ init_guc(void)
 							 NULL	/* show_hook */
 		);
 
+<<<<<<< HEAD
+#if PG_VERSION_NUM >= 130000
+	conf[i] = (GucVariable)
+	{
+		.guc_name = "pg_stat_monitor.pgsm_track_planning",
+			.guc_desc = "Selects whether planning statistics are tracked.",
+			.guc_default = 0,
+			.guc_min = 0,
+			.guc_max = 0,
+			.guc_restart = false,
+			.guc_unit = 0,
+			.guc_value = &PGSM_TRACK_PLANNING
+	};
+	DefineBoolGUC(&conf[i++]);
+
+	conf[i] = (GucVariable)
+	{
+		.guc_name = "pg_stat_monitor.pgsm_extract_bind_variables",
+			.guc_desc = "Selects whether extracting bind variables from queries.",
+			.guc_default = 0,
+			.guc_min = 0,
+			.guc_max = 0,
+			.guc_restart = false,
+			.guc_unit = 0,
+			.guc_value = &PGSM_EXTRACT_VARIABLES
+	};
+	DefineBoolGUC(&conf[i++]);
+#endif
+}
+
+static void
+DefineIntGUCWithCheck(GucVariable * conf, GucIntCheckHook check)
+{
+	conf->type = PGC_INT;
+	DefineCustomIntVariable(conf->guc_name,
+							conf->guc_desc,
+							NULL,
+							conf->guc_value,
+							conf->guc_default,
+							conf->guc_min,
+							conf->guc_max,
+							conf->guc_restart ? PGC_POSTMASTER : PGC_USERSET,
+							conf->guc_unit,
+							check,
+							NULL,
+							NULL);
+}
 	DefineCustomBoolVariable("pg_stat_monitor.pgsm_enable_query_plan",	/* name */
 							 "Enable/Disable query plan monitoring.",	/* short_desc */
 							 NULL,	/* long_desc */

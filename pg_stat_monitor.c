@@ -1866,6 +1866,7 @@ pgsm_store(pgsmEntry * entry)
 		 * Get the memory address from DSA pointer and copy the query text in
 		 * local variable
 		 */
+
 		query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
 		memcpy(query_buff, query, query_len);
 
@@ -2252,6 +2253,12 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = CStringGetTextDatum(tmp.info.bind_variables);
 		else
 			nulls[i++] = true;		
+
+		/* bind_variables at column number 48 */
+		if (strlen(tmp.info.bind_variables) > 0)
+			values[i++] = CStringGetTextDatum(tmp.info.bind_variables);
+		else
+			nulls[i++] = true;
 
 		/* relations at column number 10 */
 		if (tmp.info.num_relations > 0)
@@ -3385,9 +3392,7 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 		quer_loc = off + tok_len;
 		last_off = off;
 		last_tok_len = tok_len;
-		
-		
-		if (pgsm_extract_bind_variables){
+    if (pgsm_extract_bind_variables){
 			if (n_var_loc+tok_len + 1 < VAR_LEN-1){
 				memcpy(bind_variables + n_var_loc, query + quer_loc - tok_len, tok_len);
 				n_var_loc += tok_len;
@@ -3411,13 +3416,11 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 	norm_query[n_quer_loc] = '\0';
 
 	*query_len_p = n_quer_loc;
-	
 	if (pgsm_extract_bind_variables){
 		bind_var_len = n_var_loc-1;
 		bind_variables[bind_var_len] = '\0';
 		*bind_var_len_p = bind_var_len;
 	}
-	
 	return norm_query;
 }
 
