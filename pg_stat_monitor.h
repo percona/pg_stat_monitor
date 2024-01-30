@@ -94,7 +94,7 @@
 #define DEFAULT_MAX_NESTED_LEVEL	10
 
 #define MAX_QUERY_BUF						(pgsm_query_shared_buffer * 1024 * 1024)
-#define MAX_BUCKETS_MEM 					(pgsm_max * 1024 * 1024)
+#define MAX_BUCKETS_MEM 					((long long)pgsm_max * 1024 * 1024)
 #define BUCKETS_MEM_OVERFLOW() 				((hash_get_num_entries(pgsm_hash) * sizeof(pgsmEntry)) >= MAX_BUCKETS_MEM)
 #define MAX_BUCKET_ENTRIES 					(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
 #define QUERY_BUFFER_OVERFLOW(x,y)  		((x + y + sizeof(uint64) + sizeof(uint64)) > MAX_QUERY_BUF)
