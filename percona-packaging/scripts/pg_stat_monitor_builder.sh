@@ -201,17 +201,15 @@ install_deps() {
     if [ "$OS" == "rpm" ]
     then
         yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-        if [[ ${PG_RELEASE} == "11" ]]; then
-            percona-release enable ppg-11 release
-        elif [[ $PG_RELEASE == "12" ]]; then
-            percona-release enable ppg-12 release
-        fi
+        percona-release enable ppg-${PG_RELEASE} release
+
         yum -y install git wget
         PKGLIST="percona-postgresql${PG_RELEASE}-devel"
         PKGLIST+=" clang-devel git clang llvm-devel rpmdevtools vim wget"
         PKGLIST+=" perl binutils gcc gcc-c++"
         PKGLIST+=" clang-devel llvm-devel git rpm-build rpmdevtools wget gcc make autoconf"
-        if [[ "${RHEL}" -ge 8 ]]; then 
+        if [[ "${RHEL}" -ge 8 ]]; then
+            dnf config-manager --set-enabled ol${RHEL}_codeready_builder
             dnf -y module disable postgresql || true
         elif [[ "${RHEL}" -eq 7 ]]; then
             PKGLIST+=" llvm-toolset-7-clang llvm-toolset-7-llvm-devel llvm5.0-devel"
@@ -232,14 +230,10 @@ install_deps() {
         done
     else
         apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg git wget
+        DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg git wget curl
 
         wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb && dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
-        if [[ "${PG_RELEASE}" == "11" ]]; then
-            percona-release enable ppg-11 release
-        elif [[ "${PG_RELEASE}" == "12" ]]; then
-            percona-release enable ppg-12 release
-        fi
+        percona-release enable ppg-${PG_RELEASE} release
 
 
         PKGLIST="percona-postgresql-${PG_RELEASE} percona-postgresql-common percona-postgresql-server-dev-all"
@@ -261,8 +255,8 @@ install_deps() {
             fi
         fi
 
-        PKGLIST+=" debconf debhelper clang-7 devscripts dh-exec dh-systemd git wget libkrb5-dev libssl-dev"
-        PKGLIST+=" build-essential debconf debhelper devscripts dh-exec dh-systemd git wget libxml-checker-perl"
+        PKGLIST+=" debconf debhelper clang devscripts dh-exec git wget libkrb5-dev libssl-dev"
+        PKGLIST+=" build-essential debconf debhelper devscripts dh-exec git wget libxml-checker-perl"
         PKGLIST+=" libxml-libxml-perl libio-socket-ssl-perl libperl-dev libssl-dev libxml2-dev txt2man zlib1g-dev libpq-dev"
 
         until DEBIAN_FRONTEND=noninteractive apt-get -y install ${PKGLIST}; do
