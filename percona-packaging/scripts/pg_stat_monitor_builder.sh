@@ -436,6 +436,19 @@ build_source_deb(){
     cp *.orig.tar.gz $CURDIR/source_deb
 }
 
+change_ddeb_package_to_deb(){
+
+   directory=$1
+
+   for file in "$directory"/*.ddeb; do
+    if [ -e "$file" ]; then
+        # Change extension to .deb
+        mv "$file" "${file%.ddeb}.deb"
+        echo "Changed extension of $file to ${file%.ddeb}.deb"
+    fi
+   done
+}
+
 build_deb(){
     if [ $DEB = 0 ]
     then
@@ -473,6 +486,7 @@ build_deb(){
     mkdir -p $WORKDIR/deb
     cp $WORKDIR/*.*deb $WORKDIR/deb
     cp $WORKDIR/*.*deb $CURDIR/deb
+    change_ddeb_package_to_deb "$CURDIR/deb"
 }
 
 CURDIR=$(pwd)
