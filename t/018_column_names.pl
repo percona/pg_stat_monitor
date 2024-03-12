@@ -22,7 +22,7 @@ print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
 close $conf;
 
 # Dictionary for expected PGSM columns names on different PG server versions
-my %pg_versions_pgsm_columns = ( 16 => "application_name,blk_read_time," .
+my %pg_versions_pgsm_columns = ( 16 => "application_name,bind_variables,blk_read_time," .
     "blk_write_time,bucket,bucket_done,bucket_start_time,calls," .
     "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .
     "datname,dbid,elevel,jit_emission_count,jit_emission_time,jit_functions," .
@@ -37,7 +37,7 @@ my %pg_versions_pgsm_columns = ( 16 => "application_name,blk_read_time," .
     "temp_blk_read_time,temp_blk_write_time,temp_blks_read,temp_blks_written," .
     "top_query,top_queryid,toplevel,total_exec_time,total_plan_time," .
     "userid,username,wal_bytes,wal_fpi,wal_records",
-15 => "application_name,blk_read_time," .
+15 => "application_name,bind_variables,blk_read_time," .
     "blk_write_time,bucket,bucket_done,bucket_start_time,calls," .
     "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .
     "datname,dbid,elevel,jit_emission_count,jit_emission_time,jit_functions," .
@@ -52,7 +52,7 @@ my %pg_versions_pgsm_columns = ( 16 => "application_name,blk_read_time," .
     "temp_blk_read_time,temp_blk_write_time,temp_blks_read,temp_blks_written," .
     "top_query,top_queryid,toplevel,total_exec_time,total_plan_time," .
     "userid,username,wal_bytes,wal_fpi,wal_records",
- 14 => "application_name,blk_read_time," .
+ 14 => "application_name,bind_variables,blk_read_time," .
     "blk_write_time,bucket,bucket_done,bucket_start_time,calls," .
     "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .
     "datname,dbid,elevel,local_blks_dirtied,local_blks_hit,local_blks_read," .
@@ -63,7 +63,7 @@ my %pg_versions_pgsm_columns = ( 16 => "application_name,blk_read_time," .
     "shared_blks_written,sqlcode,stddev_exec_time,stddev_plan_time," .
     "temp_blks_read,temp_blks_written,top_query,top_queryid,toplevel," .
     "total_exec_time,total_plan_time,userid,username,wal_bytes,wal_fpi,wal_records",
- 13 => "application_name,blk_read_time," .
+ 13 => "application_name,bind_variables,blk_read_time," .
     "blk_write_time,bucket,bucket_done,bucket_start_time,calls," .
     "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .
     "datname,dbid,elevel,local_blks_dirtied,local_blks_hit,local_blks_read," .
@@ -74,7 +74,7 @@ my %pg_versions_pgsm_columns = ( 16 => "application_name,blk_read_time," .
     "shared_blks_written,sqlcode,stddev_exec_time,stddev_plan_time," .
     "temp_blks_read,temp_blks_written,top_query,top_queryid,toplevel," .
     "total_exec_time,total_plan_time,userid,username,wal_bytes,wal_fpi,wal_records",
- 12 => "application_name,blk_read_time,blk_write_time,bucket,bucket_done," .
+ 12 => "application_name,bind_variables,blk_read_time,blk_write_time,bucket,bucket_done," .
     "bucket_start_time,calls,client_ip,cmd_type,cmd_type_text,comments," .
     "cpu_sys_time,cpu_user_time,datname,dbid,elevel,local_blks_dirtied," .
     "local_blks_hit,local_blks_read,local_blks_written,max_time,mean_time," .
