@@ -38,12 +38,19 @@ jobs:
             https://repo.percona.com/apt/percona-release_latest.generic_all.deb
           sudo dpkg -i percona-release_latest.generic_all.deb
 
-      - name: Install Percona Distribution Postgresql 12
+      - name: Install Percona Distribution Postgresql 12 & Extensions
         run: |
           sudo percona-release setup ppg-12
           sudo apt-get update -y
           sudo apt-get install -y percona-postgresql-12 \
-            percona-postgresql-contrib percona-postgresql-server-dev-all
+            percona-postgresql-contrib percona-postgresql-server-dev-all \
+            percona-pgpool2 libpgpool2 percona-postgresql-12-pgaudit \
+            percona-postgresql-12-pgaudit-dbgsym percona-postgresql-12-repack \
+            percona-postgresql-12-repack-dbgsym percona-pgaudit12-set-user \
+            percona-pgaudit12-set-user-dbgsym percona-postgresql-12-postgis-3 \
+            percona-postgresql-12-postgis-3-scripts \
+            percona-postgresql-postgis-scripts percona-postgresql-postgis \
+            percona-postgis
 
       - name: Change src owner to postgres
         run: |
