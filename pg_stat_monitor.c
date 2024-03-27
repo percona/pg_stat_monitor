@@ -1999,7 +1999,7 @@ IsBucketValid(uint64 bucketid)
 
 	TimestampDifference(pgsm->bucket_start_time[bucketid], current_tz, &secs, &microsecs);
 
-	if (secs > (pgsm_bucket_time * pgsm_max_buckets))
+	if (secs > ((long long)pgsm_bucket_time * pgsm_max_buckets))
 		return false;
 	return true;
 }
