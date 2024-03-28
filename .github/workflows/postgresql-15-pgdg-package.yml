@@ -22,7 +22,7 @@ jobs:
             /usr/lib/postgresql /usr/include/postgresql /usr/share/postgresql \
             /etc/postgresql
           sudo rm -f /usr/bin/pg_config
-          sudo /usr/bin/perl -MCPAN -e 'install IPC::RUN'
+          sudo /usr/bin/perl -MCPAN -e 'install IPC::Run'
           sudo /usr/bin/perl -MCPAN -e 'install Text::Trim'
 
       - name: Install PG Distribution Postgresql 15
