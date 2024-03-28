@@ -6,6 +6,11 @@ jobs:
     name: pg-16-build-test
     runs-on: ubuntu-22.04
     steps:
+
+
+      - name: DEBUG
+        run: locale
+
       - name: Clone postgres repository
         uses: actions/checkout@v2
         with:
