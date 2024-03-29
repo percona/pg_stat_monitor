@@ -8,18 +8,6 @@ SELECT pg_stat_monitor_reset();
 SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_max';
            name           | setting | unit |  context   | vartype |       source       | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
 --------------------------+---------+------+------------+---------+--------------------+---------+---------+----------+----------+-----------+-----------------
- pg_stat_monitor.pgsm_max | 10240   | MB   | postmaster | integer | configuration file | 10      | 10240   |          | 256      | 10240     | f
-(1 row)
-
-SELECT pg_stat_monitor_reset();
- pg_stat_monitor_reset 
------------------------
- 
-(1 row)
-
-SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_max';
-           name           | setting | unit |  context   | vartype |       source       | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
---------------------------+---------+------+------------+---------+--------------------+---------+---------+----------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_max | 2048    | MB   | postmaster | integer | configuration file | 10      | 10240   |          | 256      | 2048      | f
 (1 row)
 
