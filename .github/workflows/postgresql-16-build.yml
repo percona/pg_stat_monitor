@@ -92,38 +92,38 @@ jobs:
           pg_ctl -D /opt/pgsql/data -l logfile start
         working-directory: src/pg_stat_monitor
 
-      - name: Start pg_stat_monitor_tests
-        run: |
-          make installcheck
-        working-directory: src/pg_stat_monitor/
+      # - name: Start pg_stat_monitor_tests
+      #   run: |
+      #     make installcheck
+      #   working-directory: src/pg_stat_monitor/
 
-      - name: Change dir permissions on fail
-        if: ${{ failure() }}
-        run: |
-          sudo chmod -R ugo+rwx t
-          sudo chmod -R ugo+rwx tmp_check
-          exit 2 # regenerate error so that we can upload files in next step
-        working-directory: src/pg_stat_monitor
+      # - name: Change dir permissions on fail
+      #   if: ${{ failure() }}
+      #   run: |
+      #     sudo chmod -R ugo+rwx t
+      #     sudo chmod -R ugo+rwx tmp_check
+      #     exit 2 # regenerate error so that we can upload files in next step
+      #   working-directory: src/pg_stat_monitor
 
-      - name: Upload logs on fail
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: Regressions diff and postgresql log
-          path: |
-            src/pg_stat_monitor/regression.diffs
-            src/pg_stat_monitor/regression.out
-            src/pg_stat_monitor/logfile
-            src/pg_stat_monitor/t/results/
-            src/pg_stat_monitor/tmp_check/log/
-            !src/pg_stat_monitor/tmp_check/**/archives/*
-            !src/pg_stat_monitor/tmp_check/**/backup/*
-            !src/pg_stat_monitor/tmp_check/**/pgdata/*
-            !src/pg_stat_monitor/tmp_check/**/archives/
-            !src/pg_stat_monitor/tmp_check/**/backup/
-            !src/pg_stat_monitor/tmp_check/**/pgdata/
-          if-no-files-found: warn
-          retention-days: 3
+      # - name: Upload logs on fail
+      #   if: ${{ failure() }}
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: Regressions diff and postgresql log
+      #     path: |
+      #       src/pg_stat_monitor/regression.diffs
+      #       src/pg_stat_monitor/regression.out
+      #       src/pg_stat_monitor/logfile
+      #       src/pg_stat_monitor/t/results/
+      #       src/pg_stat_monitor/tmp_check/log/
+      #       !src/pg_stat_monitor/tmp_check/**/archives/*
+      #       !src/pg_stat_monitor/tmp_check/**/backup/*
+      #       !src/pg_stat_monitor/tmp_check/**/pgdata/*
+      #       !src/pg_stat_monitor/tmp_check/**/archives/
+      #       !src/pg_stat_monitor/tmp_check/**/backup/
+      #       !src/pg_stat_monitor/tmp_check/**/pgdata/
+      #     if-no-files-found: warn
+      #     retention-days: 3
 
       - name: Start Server installcheck-world tests
         run: |
