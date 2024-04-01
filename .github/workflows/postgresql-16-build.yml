@@ -69,7 +69,7 @@ jobs:
         run: |
           export PATH="/usr/lib/postgresql/16/bin:$PATH"
           sudo cp /usr/lib/postgresql/16/bin/pg_config /usr/bin
-          initdb -D /opt/pgsql/data
+          initdb -D /opt/pgsql/data --no-locale
           pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
