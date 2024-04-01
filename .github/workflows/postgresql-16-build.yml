@@ -129,7 +129,7 @@ jobs:
         run: |
           export PATH="/usr/lib/postgresql/16/bin:$PATH"
           pg_ctl -D /opt/pgsql/data -l logfile stop
-          echo "compute_query_id = off" >> /opt/pgsql/data/postgresql.conf
+      #    echo "compute_query_id = off" >> /opt/pgsql/data/postgresql.conf
           pg_ctl -D /opt/pgsql/data -l logfile start
           make installcheck-world
 
