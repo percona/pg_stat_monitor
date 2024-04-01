@@ -69,7 +69,7 @@ jobs:
         run: |
           export PATH="/usr/lib/postgresql/16/bin:$PATH"
           sudo cp /usr/lib/postgresql/16/bin/pg_config /usr/bin
-          initdb -D /opt/pgsql/data --no-locale
+          initdb -D /opt/pgsql/data
           pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
@@ -128,9 +128,6 @@ jobs:
       - name: Start Server installcheck-world tests
         run: |
           export PATH="/usr/lib/postgresql/16/bin:$PATH"
-          pg_ctl -D /opt/pgsql/data -l logfile stop
-      #    echo "compute_query_id = off" >> /opt/pgsql/data/postgresql.conf
-          pg_ctl -D /opt/pgsql/data -l logfile start
           make installcheck-world
 
       - name: Report on installcheck-world test suites fail
