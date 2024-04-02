@@ -89,7 +89,7 @@ jobs:
           pg_ctl -D /opt/pgsql/data -l logfile stop
           echo "shared_preload_libraries = 'pg_stat_monitor'" >> \
             /opt/pgsql/data/postgresql.conf
-          echo "compute_query_id = off" >> /opt/pgsql/data/postgresql.conf
+          echo "compute_query_id = regress" >> /opt/pgsql/data/postgresql.conf
           pg_ctl -D /opt/pgsql/data -l logfile start
         working-directory: src/pg_stat_monitor
 
