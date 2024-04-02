@@ -83,12 +83,13 @@ jobs:
           sudo make USE_PGXS=1 install
         working-directory: src/pg_stat_monitor
 
-      - name: Load pg_stat_monitor library and Restart Server
+      - name: Configure and Restart Server
         run: |
           export PATH="/usr/lib/postgresql/15/bin:$PATH"
           pg_ctl -D /opt/pgsql/data -l logfile stop
           echo "shared_preload_libraries = 'pg_stat_monitor'" >> \
             /opt/pgsql/data/postgresql.conf
+          echo "compute_query_id = off" >> /opt/pgsql/data/postgresql.conf
           pg_ctl -D /opt/pgsql/data -l logfile start
         working-directory: src/pg_stat_monitor
 
@@ -128,9 +129,6 @@ jobs:
       - name: Start Server installcheck-world tests
         run: |
           export PATH="/usr/lib/postgresql/15/bin:$PATH"
-          pg_ctl -D /opt/pgsql/data -l logfile stop
-          echo "compute_query_id = off" >> /opt/pgsql/data/postgresql.conf
-          pg_ctl -D /opt/pgsql/data -l logfile start
           make installcheck-world
 
       - name: Report on installcheck-world test suites fail
