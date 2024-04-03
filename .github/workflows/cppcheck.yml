@@ -8,10 +8,10 @@ jobs:
     steps:
 
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Checkout cppcheck sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: 'danmar/cppcheck'
           ref: '2.13.4'
