@@ -6,10 +6,25 @@ jobs:
     name: cppcheck-test
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
 
-      - name: install cppcheck
-        run: sudo apt-get install cppcheck
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Checkout cppcheck sources
+        uses: actions/checkout@v2
+        with:
+          repository: 'danmar/cppcheck'
+          ref: '2.13.4'
+          path: src/cppcheck
+
+      - name: Build and install cppcheck
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          cmake --build .
+          cmake --install .
+        working-directory: src/cppcheck
 
       - name: Execute linter check with cppcheck
         run: |
