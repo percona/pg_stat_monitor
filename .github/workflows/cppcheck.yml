@@ -23,7 +23,7 @@ jobs:
           cd build
           cmake ..
           cmake --build .
-          cmake --install .
+          sudo cmake --install .
         working-directory: src/cppcheck
 
       - name: Execute linter check with cppcheck
