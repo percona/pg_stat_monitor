@@ -127,9 +127,7 @@ jobs:
           retention-days: 3
 
       - name: Start Server installcheck-world tests
-        run: |
-          export PATH="/usr/lib/postgresql/14/bin:$PATH"
-          make installcheck-world
+        run: make installcheck-world
 
       - name: Report on installcheck-world test suites fail
         uses: actions/upload-artifact@v2
