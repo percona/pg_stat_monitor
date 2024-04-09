@@ -55,7 +55,7 @@ jobs:
             sudo tee -a /etc/postgresql/12/main/postgresql.conf
           sudo service postgresql start
           sudo psql -V
-          export PG_TEST_PORT_DIR=${GITHUB_WORKSPACE}/src/pg_stat_monitor
+          export PG_TEST_PORT_DIR=${GITHUB_WORKSPACE}
           echo $PG_TEST_PORT_DIR
           sudo -E -u postgres bash -c 'make installcheck USE_PGXS=1'
 
