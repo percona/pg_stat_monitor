@@ -43,6 +43,11 @@ jobs:
           sudo -u postgres bash -c 'make USE_PGXS=1'
           sudo make USE_PGXS=1 install
 
+      - name: Debug
+        run: |
+          pwd
+          ls -la
+
       - name: Start pg_stat_monitor_tests
         run: |
           sudo service postgresql stop
