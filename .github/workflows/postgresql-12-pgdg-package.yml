@@ -38,7 +38,7 @@ jobs:
 
       - name: Change src owner to postgres
         run: |
-          sudo chown -R postgres:postgres .
+          sudo chown -R postgres:postgres src
 
       - name: Build pg_stat_monitor
         run: |
