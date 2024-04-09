@@ -34,13 +34,13 @@ jobs:
           sudo apt-get -y update
           sudo apt-get -y install postgresql-12 postgresql-server-dev-12
 
-      # - name: Change src owner to postgres
-      #   run: |
-      #     sudo chown -R postgres:postgres .
+      - name: Change src owner to postgres
+        run: |
+          sudo chown -R postgres:postgres .
 
       - name: Build pg_stat_monitor
         run: |
-          make USE_PGXS=1
+          sudo -u postgres bash -c 'make USE_PGXS=1'
           sudo make USE_PGXS=1 install
 
       - name: Start pg_stat_monitor_tests
@@ -52,7 +52,7 @@ jobs:
           sudo psql -V
           export PG_TEST_PORT_DIR=${GITHUB_WORKSPACE}/src/pg_stat_monitor
           echo $PG_TEST_PORT_DIR
-          make installcheck USE_PGXS=1
+          sudo -E -u postgres bash -c 'make installcheck USE_PGXS=1'
 
       - name: Change dir permissions on fail
         if: ${{ failure() }}
