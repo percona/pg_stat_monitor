@@ -4,7 +4,7 @@ on: [pull_request]
 jobs:
   build:
     name: pg-12-pgdg-package-test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Clone pg_stat_monitor repository
         uses: actions/checkout@v2
