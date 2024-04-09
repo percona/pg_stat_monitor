@@ -47,6 +47,7 @@ jobs:
         run: |
           pwd
           ls -la
+          ls -la /usr/lib/postgresql/12/lib/pgxs/src/
 
       - name: Start pg_stat_monitor_tests
         run: |
