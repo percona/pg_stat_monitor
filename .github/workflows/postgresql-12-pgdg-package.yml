@@ -52,7 +52,7 @@ jobs:
           sudo psql -V
           export PG_TEST_PORT_DIR=${GITHUB_WORKSPACE}/src/pg_stat_monitor
           echo $PG_TEST_PORT_DIR
-          sudo make USE_PGXS=1 installcheck 
+          make installcheck USE_PGXS=1
 
       - name: Change dir permissions on fail
         if: ${{ failure() }}
