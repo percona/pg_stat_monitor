@@ -33,7 +33,7 @@ jobs:
         run: docker exec pgsql_pgsm_14 cat pmm-agent.log > ./pmm-ui-tests/tests/output/pmm-agent.log
 
       - name: Upload Tests Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: success() || failure()    # run this step even if previous step failed
         with:
           name: tests-artifact

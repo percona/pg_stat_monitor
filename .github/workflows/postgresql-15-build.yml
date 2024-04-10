@@ -108,7 +108,7 @@ jobs:
 
       - name: Upload logs on fail
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: Regressions diff and postgresql log
           path: |
@@ -130,7 +130,7 @@ jobs:
         run: make installcheck-world
 
       - name: Report on installcheck-world test suites fail
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
           name: Regressions output files of failed testsuite, and pg log
