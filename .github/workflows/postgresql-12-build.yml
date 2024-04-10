@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Clone postgres repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: 'postgres/postgres'
           ref: 'REL_12_STABLE'
@@ -73,7 +73,7 @@ jobs:
           pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           path: 'src/pg_stat_monitor'
 
