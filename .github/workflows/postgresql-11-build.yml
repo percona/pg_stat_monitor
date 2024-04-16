@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Clone postgres repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: 'postgres/postgres'
           ref: 'REL_11_STABLE'
@@ -72,7 +72,7 @@ jobs:
           pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           path: 'src/pg_stat_monitor'
 
@@ -97,7 +97,7 @@ jobs:
         working-directory: src/pg_stat_monitor
 
       - name: Report on pg_stat_monitor test fail
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
           name: Regressions diff and postgresql log
@@ -111,7 +111,7 @@ jobs:
           make installcheck-world
 
       - name: Report on installcheck-world test suites fail
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
           name: Regressions output files of failed testsuite, and pg log

@@ -4,10 +4,10 @@ on: [pull_request]
 jobs:
   build:
     name: pg-12-pgdg-package-test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           path: 'src/pg_stat_monitor'
 
@@ -23,7 +23,7 @@ jobs:
             /usr/lib/postgresql /usr/include/postgresql /usr/share/postgresql \
             /etc/postgresql
           sudo rm -f /usr/bin/pg_config
-          sudo /usr/bin/perl -MCPAN -e 'install IPC::RUN'
+          sudo /usr/bin/perl -MCPAN -e 'install IPC::Run'
           sudo /usr/bin/perl -MCPAN -e 'install Text::Trim'
 
       - name: Install PG Distribution Postgresql 12
@@ -38,6 +38,7 @@ jobs:
 
       - name: Change src owner to postgres
         run: |
+          sudo chmod o+rx ~
           sudo chown -R postgres:postgres src
 
       - name: Build pg_stat_monitor
@@ -68,7 +69,7 @@ jobs:
 
       - name: Upload logs on fail
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: Regressions diff and postgresql log
           path: |

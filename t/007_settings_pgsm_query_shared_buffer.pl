@@ -20,7 +20,7 @@ my $pgdata = $node->data_dir;
 open my $conf, '>>', "$pgdata/postgresql.conf";
 print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
 print $conf "pg_stat_monitor.pgsm_bucket_time = 360000\n";
-print $conf "pg_stat_monitor.pgsm_query_shared_buffer = 1\n";
+print $conf "pg_stat_monitor.pgsm_query_shared_buffer = 1\n"; # Min possible value
 print $conf "pg_stat_monitor.pgsm_normalized_query = 'yes'\n";
 close $conf;
 
@@ -106,6 +106,29 @@ print " out: $out \n";
 ok($cmdret == 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, lower(query), calls DESC Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+ok($cmdret == 0, "SELECT XXX FROM pg_stat_monitor");
+PGSM::append_to_file($stdout);
+
+$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_query_shared_buffer = 2048\n");
+$node->restart();
+
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT pg_stat_monitor_reset();', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+ok($cmdret == 0, "Reset PGSM EXTENSION");
+PGSM::append_to_file($stdout);
+
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_shared_buffer';", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+ok($cmdret == 0, "Print PGSM EXTENSION Settings");
+PGSM::append_to_file($stdout);
+
+$out = system ("pgbench -i -s 10 -p $port example");
+print " out: $out \n";
+ok($cmdret == 0, "Perform pgbench init");
+
+$out = system ("pgbench -c 10 -j 2 -t 1000 -p $port example");
+print " out: $out \n";
+ok($cmdret == 0, "Run pgbench");
+
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC Limit 20;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
 

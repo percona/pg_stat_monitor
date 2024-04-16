@@ -2,6 +2,26 @@
 
 Below is the complete list of release notes for every version of ``pg_stat_monitor``.
 
+## 2.0.4
+
+### Bug Fixes
+
+[GH-425](https://github.com/percona/pg_stat_monitor/pull/432) - Resolving a possible issue that could lead to pg_stat_monitor deadlocking in pgsm_store
+
+## 2.0.3
+
+### Bug Fixes
+
+[GH-425](https://jira.percona.com/browse/PG-645) - pg_stat_monitor crashes PostgreSQL if there is citus library loaded
+
+
+## 2.0.2
+
+### Bug Fixes
+
+[GH-418](https://github.com/percona/pg_stat_monitor/issues/418) - Fixed compilation issue with PG16 and added meson.build file.
+
+
 ## 2.0.1
 
 ### Bug Fixes

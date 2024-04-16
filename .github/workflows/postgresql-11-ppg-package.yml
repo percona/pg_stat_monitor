@@ -4,10 +4,10 @@ on: [push]
 jobs:
   build:
     name: pg-11-ppg-package-test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           path: 'src/pg_stat_monitor'
 
@@ -42,6 +42,7 @@ jobs:
 
       - name: Change src owner to postgres
         run: |
+          sudo chmod o+rx ~
           sudo chown -R postgres:postgres src
 
       - name: Build pg_stat_monitor
@@ -62,7 +63,7 @@ jobs:
         working-directory: src/pg_stat_monitor
 
       - name: Report on test fail
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
           name: Regressions diff and postgresql log
