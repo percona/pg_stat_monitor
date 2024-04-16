@@ -104,9 +104,10 @@ jobs:
         working-directory: src/pg_stat_monitor
 
       - name: Upload
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v4
         with:
           verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
           working-directory: ./src/pg_stat_monitor
           files: ./pg_stat_monitor.c.gcov,./hash_query.c.gcov,./guc.c.gcov
 
