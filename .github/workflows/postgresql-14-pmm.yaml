@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Clone QA Integration repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: 'Percona-Lab/qa-integration'
           ref: 'main'
@@ -39,7 +39,7 @@ jobs:
         run: docker exec pgsql_pgsm_14 cat pmm-agent.log > ./pmm-ui-tests/tests/output/pmm-agent.log
 
       - name: Upload Tests Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: success() || failure()    # run this step even if previous step failed
         with:
           name: tests-artifact
