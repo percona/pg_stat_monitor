@@ -1,12 +1,9 @@
 name: code-coverage-test
 on:
+  pull_request:
   push:
     branches:
       - main
-    tags:
-      - v[0-9]+.[0-9]+.[0-9]+*
-
-  pull_request:
 
 jobs:
   build:

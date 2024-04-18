@@ -1,12 +1,11 @@
 name: postgresql-14-pmm-integration
 on:
+  pull_request:
   push:
     branches:
       - main
     tags:
-      - v[0-9]+.[0-9]+.[0-9]+*
-
-  pull_request:
+      - [0-9]+.[0-9]+.[0-9]+*
 
 jobs:
   build:
