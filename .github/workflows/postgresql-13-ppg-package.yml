@@ -41,12 +41,19 @@ jobs:
             https://repo.percona.com/apt/percona-release_latest.generic_all.deb
           sudo dpkg -i percona-release_latest.generic_all.deb
 
-      - name: Install Percona Distribution Postgresql 13
+      - name: Install Percona Distribution Postgresql 13 & Extensions
         run: |
           sudo percona-release setup ppg-13
           sudo apt-get update -y
           sudo apt-get install -y percona-postgresql-13 \
-            percona-postgresql-contrib percona-postgresql-server-dev-all
+            percona-postgresql-contrib percona-postgresql-server-dev-all \
+            percona-pgpool2 libpgpool2 percona-postgresql-13-pgaudit \
+            percona-postgresql-13-pgaudit-dbgsym percona-postgresql-13-repack \
+            percona-postgresql-13-repack-dbgsym percona-pgaudit13-set-user \
+            percona-pgaudit13-set-user-dbgsym percona-postgresql-13-postgis-3 \
+            percona-postgresql-13-postgis-3-scripts \
+            percona-postgresql-postgis-scripts percona-postgresql-postgis \
+            percona-postgis
 
       - name: Change src owner to postgres
         run: |
