@@ -1,4 +1,4 @@
-[![postgresql-11-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-11-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-11-pgdg-package.yml)  [![postgresql-12-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-12-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-12-pgdg-package.yml)  [![postgresql-13-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-13-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-13-pgdg-package.yml)  [![postgresql-14-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml)  [![postgresql-15-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml)
+[![postgresql-12-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-12-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-12-pgdg-package.yml)  [![postgresql-13-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-13-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-13-pgdg-package.yml)  [![postgresql-14-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml)  [![postgresql-15-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml)  [![postgresql-16-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-16-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-16-pgdg-package.yml)
 
 [![Code coverage](https://codecov.io/gh/percona/pg_stat_monitor/branch/main/graph/badge.svg)](https://codecov.io/gh/percona/pg_stat_monitor)
 [![Forum](https://img.shields.io/badge/Forum-join-brightgreen)](https://forums.percona.com/)
@@ -44,7 +44,7 @@ To learn about other features, available in `pg_stat_monitor`, see the [Features
 
 `pg_stat_monitor` supports PostgreSQL versions 11 and above. It is compatible with both PostgreSQL provided by PostgreSQL Global Development Group (PGDG) and [Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution).
 
-The `RPM` (for RHEL and CentOS) and the `DEB` (for Debian and Ubuntu) packages are available from Percona repositories for PostgreSQL versions [11](https://www.percona.com/downloads/percona-postgresql-11/LATEST/), [12](https://www.percona.com/downloads/postgresql-distribution-12/LATEST/), [13](https://www.percona.com/downloads/postgresql-distribution-13/LATEST/), [14](https://www.percona.com/downloads/postgresql-distribution-14/LATEST/) and [15](https://www.percona.com/downloads/postgresql-distribution-15/LATEST/).
+The `RPM` (for RHEL and CentOS) and the `DEB` (for Debian and Ubuntu) packages are available from Percona repositories for PostgreSQL versions [12](https://www.percona.com/downloads/postgresql-distribution-12/LATEST/), [13](https://www.percona.com/downloads/postgresql-distribution-13/LATEST/), [14](https://www.percona.com/downloads/postgresql-distribution-14/LATEST/), [15](https://www.percona.com/downloads/postgresql-distribution-15/LATEST/) and [16](https://www.percona.com/downloads/postgresql-distribution-16/LATEST/).
 
 The RPM packages are also available in the official PostgreSQL (PGDG) yum repositories.
 
@@ -54,8 +54,8 @@ The `pg_stat_monitor` should work on the latest version of both [Percona Distrib
 
 | **Distribution** | **Version**     | **Provider** |
 | ---------------- | --------------- | ------------ |
-|[Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution)| [11](https://www.percona.com/downloads/percona-postgresql-11/LATEST/), [12](https://www.percona.com/downloads/postgresql-distribution-12/LATEST/), [13](https://www.percona.com/downloads/postgresql-distribution-13/LATEST/), [14](https://www.percona.com/downloads/postgresql-distribution-14/LATEST/) and [15](https://www.percona.com/downloads/postgresql-distribution-15/LATEST/)| Percona|
-| PostgreSQL       | 11, 12, 13, 14 and 15 | PostgreSQL Global Development Group (PGDG) |
+|[Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution)| [12](https://www.percona.com/downloads/postgresql-distribution-12/LATEST/), [13](https://www.percona.com/downloads/postgresql-distribution-13/LATEST/), [14](https://www.percona.com/downloads/postgresql-distribution-14/LATEST/),  [15](https://www.percona.com/downloads/postgresql-distribution-15/LATEST/) and [16](https://www.percona.com/downloads/postgresql-distribution-16/LATEST/)| Percona|
+| PostgreSQL       | 12, 13, 14, 15 and 16 | PostgreSQL Global Development Group (PGDG) |
 
 
 ### Features
@@ -86,7 +86,7 @@ The following are useful links in [`pg_stat_monitor` documentation](https://docs
 
 The PostgreSQL YUM repository supports `pg_stat_monitor` for all [supported versions](#supported-versions) for the following platforms:
 
-* Red Hat Enterprise/Rocky/CentOS/Oracle Linux 7 and 8
+* Red Hat Enterprise/Rocky/CentOS/Oracle Linux 7, 8 and 9
 * Fedora 33 and 34
 
 Find the list of supported platforms for `pg_stat_monitor` within [Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution) on the [Percona Release Lifecycle Overview](https://www.percona.com/services/policies/percona-software-support-lifecycle#pgsql) page.
@@ -110,19 +110,19 @@ To install `pg_stat_monitor` from Percona repositories, you need to use the `per
 2. Enable Percona repository:
 
 ``` sh
-percona-release setup ppgXX
+percona-release setup ppg-XX
 ```
 
-Replace XX with the desired PostgreSQL version. For example, to install `pg_stat_monitor ` for PostgreSQL 15, specify `ppg15`.
+Replace XX with the desired PostgreSQL version. For example, to install `pg_stat_monitor ` for PostgreSQL 16, specify `ppg-16`.
 
 3.  Install `pg_stat_monitor` package
     * For Debian and Ubuntu:
       ``` sh
-      apt-get install percona-pg-stat-monitor15
+      apt-get install percona-pg-stat-monitor16
       ```
     * For RHEL and CentOS:
       ``` sh
-      yum install percona-pg-stat-monitor15
+      yum install percona-pg-stat-monitor16
       ```
 
 #### Installing from PostgreSQL `yum` repositories
@@ -135,7 +135,7 @@ Install `pg_stat_monitor`:
 dnf install -y pg_stat_monitor_<VERSION>
 ```
 
-Replace the `VERSION` variable with the PostgreSQL version you are using (e.g. specify `pg_stat_monitor_15` for PostgreSQL 15)
+Replace the `VERSION` variable with the PostgreSQL version you are using (e.g. specify `pg_stat_monitor_16` for PostgreSQL 16)
 
 
 #### Installing from PGXN
@@ -150,7 +150,7 @@ pgxn install pg_stat_monitor
 
 ### Configuration
 
-You can find the configuration parameters of the `pg_stat_monitor` extension in the `pg_stat_monitor_settings` view. To change the default configuration, specify new values for the desired parameters using the GUC (Grant Unified Configuration) system. To learn more, refer to the [Configuration parameters](https://docs.percona.com/pg-stat-monitor/configuration.html) section of the documentation.
+You can find the configuration parameters of the `pg_stat_monitor` extension in the `pg_settings` view. To change the default configuration, specify new values for the desired parameters using the GUC (Grant Unified Configuration) system. To learn more, refer to the [Configuration parameters](https://docs.percona.com/pg-stat-monitor/configuration.html) section of the documentation.
 
 
 ### Setup
@@ -186,7 +186,7 @@ sudo systemctl restart postgresql.service
 
 
 ```sh
-sudo systemctl restart postgresql-15
+sudo systemctl restart postgresql-16
 ```
 
 Create the extension using the [CREATE EXTENSION](https://www.postgresql.org/docs/current/sql-createextension.html) command. Using this command requires the privileges of a superuser or a database owner. Connect to `psql` as a superuser for a database and run the following command:
@@ -268,7 +268,7 @@ To uninstall `pg_stat_monitor`, do the following:
 
     **Important**: If the `shared_preload_libraries` parameter includes other modules, specify them all for the `ALTER SYSTEM SET` command to keep using them.
 
-4. Restart the `postgresql` instance to apply the changes. The following command restarts PostgreSQL 15. Replace the version value with the one you are using. 
+4. Restart the `postgresql` instance to apply the changes. The following command restarts PostgreSQL 16. Replace the version value with the one you are using.
 
     * On Debian and Ubuntu:
 
@@ -280,7 +280,7 @@ To uninstall `pg_stat_monitor`, do the following:
 
 
     ```sh
-    sudo systemctl restart postgresql-15
+    sudo systemctl restart postgresql-16
     ```
 
 ### How we work
@@ -320,6 +320,6 @@ This project is licensed under the same open liberal terms and conditions as the
 
 ### Copyright notice
 
-* Portions Copyright © 2018-2023, Percona LLC and/or its affiliates
-* Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+* Portions Copyright © 2018-2024, Percona LLC and/or its affiliates
+* Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
 * Portions Copyright (c) 1994, The Regents of the University of California
