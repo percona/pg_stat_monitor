@@ -1,11 +1,16 @@
-name: check
+name: Check
 on:
   pull_request:
 
 jobs:
-  build:
-    name: Checks
+  check:
+    name: Run checks
     runs-on: ubuntu-22.04
+
+    defaults:
+      run:
+        working-directory: src/pg_stat_monitor
+
     steps:
 
       - name: Checkout sources
