@@ -1,10 +1,10 @@
-name: cppcheck-action-test
+name: check
 on:
   pull_request:
 
 jobs:
   build:
-    name: cppcheck-test
+    name: Checks
     runs-on: ubuntu-22.04
     steps:
 
@@ -32,3 +32,5 @@ jobs:
           set -x
           cppcheck --enable=all --inline-suppr --template='{file}:{line},{severity},{id},{message}' --error-exitcode=1 --suppress=missingIncludeSystem --suppress=missingInclude --suppress=unmatchedSuppression:pg_stat_monitor.c --check-config .
 
+      - name: Check license headers
+        uses: apache/skywalking-eyes/header@v0.6.0
