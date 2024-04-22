@@ -41,12 +41,19 @@ jobs:
             https://repo.percona.com/apt/percona-release_latest.generic_all.deb
           sudo dpkg -i percona-release_latest.generic_all.deb
 
-      - name: Install Percona Distribution Postgresql 14
+      - name: Install Percona Distribution Postgresql 14 & Extensions
         run: |
           sudo percona-release setup ppg-14
           sudo apt-get update -y
           sudo apt-get install -y percona-postgresql-14 \
-            percona-postgresql-contrib percona-postgresql-server-dev-all
+            percona-postgresql-contrib percona-postgresql-server-dev-all \
+            percona-pgpool2 libpgpool2 percona-postgresql-14-pgaudit \
+            percona-postgresql-14-pgaudit-dbgsym percona-postgresql-14-repack \
+            percona-postgresql-14-repack-dbgsym percona-pgaudit14-set-user \
+            percona-pgaudit14-set-user-dbgsym percona-postgresql-14-postgis-3 \
+            percona-postgresql-14-postgis-3-scripts \
+            percona-postgresql-postgis-scripts percona-postgresql-postgis \
+            percona-postgis
 
       - name: Change src owner to postgres
         run: |
