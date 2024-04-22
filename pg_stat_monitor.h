@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_stat_monitor.h
- *		Track statement execution times across a whole database cluster.
+ *	  Track statement execution times across a whole database cluster.
  *
  * Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
  *
