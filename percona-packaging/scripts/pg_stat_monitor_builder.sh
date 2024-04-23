@@ -201,7 +201,7 @@ install_deps() {
     if [ "$OS" == "rpm" ]
     then
         yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-        percona-release enable ppg-${PG_RELEASE} release
+        percona-release enable ppg-${PG_RELEASE} testing
 
         yum -y install git wget
         PKGLIST="percona-postgresql${PG_RELEASE}-devel"
@@ -232,8 +232,10 @@ install_deps() {
         apt-get update
         DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg git wget curl
 
-        wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb && dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
-        percona-release enable ppg-${PG_RELEASE} release
+        wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+        dpkg -i percona-release_latest.generic_all.deb
+        rm -f percona-release_latest.generic_all.deb
+        percona-release enable ppg-${PG_RELEASE} testing
 
 
         PKGLIST="percona-postgresql-${PG_RELEASE} percona-postgresql-common percona-postgresql-server-dev-all"
