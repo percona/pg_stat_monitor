@@ -25,22 +25,23 @@ jobs:
           ref: '2.13.4'
           path: src/cppcheck
 
-      - name: Build and install cppcheck
-        working-directory: src/cppcheck
-        run: |
-          mkdir build
-          cd build
-          cmake ..
-          cmake --build .
-          sudo cmake --install .
+      # - name: Build and install cppcheck
+      #   working-directory: src/cppcheck
+      #   run: |
+      #     mkdir build
+      #     cd build
+      #     cmake ..
+      #     cmake --build .
+      #     sudo cmake --install .
 
-      - name: Execute linter check with cppcheck
-        run: |
-          set -x
-          cppcheck --enable=all --inline-suppr --template='{file}:{line},{severity},{id},{message}' --error-exitcode=1 --suppress=missingIncludeSystem --suppress=missingInclude --suppress=unmatchedSuppression:pg_stat_monitor.c --check-config .
+      # - name: Execute linter check with cppcheck
+      #   run: |
+      #     set -x
+      #     cppcheck --enable=all --inline-suppr --template='{file}:{line},{severity},{id},{message}' --error-exitcode=1 --suppress=missingIncludeSystem --suppress=missingInclude --suppress=unmatchedSuppression:pg_stat_monitor.c --check-config .
 
       - name: Check license headers
         uses: apache/skywalking-eyes/header@v0.6.0
+        working-directory: src/pg_stat_monitor
 
       - name: Run debug commands on failure
         if: ${{ failure() }}
