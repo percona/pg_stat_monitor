@@ -26,13 +26,13 @@ jobs:
           path: src/cppcheck
 
       - name: Build and install cppcheck
+        working-directory: src/cppcheck
         run: |
           mkdir build
           cd build
           cmake ..
           cmake --build .
           sudo cmake --install .
-        working-directory: src/cppcheck
 
       - name: Execute linter check with cppcheck
         run: |
@@ -41,3 +41,10 @@ jobs:
 
       - name: Check license headers
         uses: apache/skywalking-eyes/header@v0.6.0
+
+      - name: Run debug commands on failure
+        if: ${{ failure() }}
+        run: |
+          env
+          pwd
+          git status
