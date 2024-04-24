@@ -21,6 +21,7 @@ Usage: $0 [OPTIONS]
         --rpm_release       RPM version( default = 1)
         --deb_release       DEB version( default = 1)
         --pg_release        PPG version build on( default = 11)
+        --ppg_repo_name     PPG repo name (default ppg-11.18)
         --version           product version
         --help) usage ;;
 Example $0 --builddir=/tmp/test --get_sources=1 --build_src_rpm=1 --build_rpm=1
@@ -57,6 +58,7 @@ append_arg_to_args () {
             --rpm_release=*) RPM_RELEASE="$val" ;;
             --deb_release=*) DEB_RELEASE="$val" ;;
             --pg_release=*) PG_RELEASE="$val" ;;
+            --ppg_repo_name=*) PPG_REPO_NAME="$val";;
             --version=*) VERSION="$val" ;;
             --help) usage ;;
             *)
@@ -201,7 +203,7 @@ install_deps() {
     if [ "$OS" == "rpm" ]
     then
         yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-        percona-release enable ppg-${PG_RELEASE} testing
+        percona-release enable ${PPG_REPO_NAME} testing
 
         yum -y install git wget
         PKGLIST="percona-postgresql${PG_RELEASE}-devel"
@@ -235,7 +237,7 @@ install_deps() {
         wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
         dpkg -i percona-release_latest.generic_all.deb
         rm -f percona-release_latest.generic_all.deb
-        percona-release enable ppg-${PG_RELEASE} testing
+        percona-release enable ${PPG_REPO_NAME} testing
 
 
         PKGLIST="percona-postgresql-${PG_RELEASE} percona-postgresql-common percona-postgresql-server-dev-all"
@@ -512,6 +514,7 @@ DEB_RELEASE=1
 REPO="https://github.com/Percona/pg_stat_monitor.git"
 VERSION="1.0.0"
 PG_RELEASE=11
+PPG_REPO_NAME=ppg-11.18
 parse_arguments PICK-ARGS-FROM-ARGV "$@"
 
 check_workdir
