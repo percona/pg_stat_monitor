@@ -1,19 +1,19 @@
 header:
-  - paths:
-      - "**/*.c"
-      - "**/*.h"
-    license:
-      pattern: |
-        .*\.(c|h)
-        .*
-       
-        Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
-       
-        Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
-       
-        Portions Copyright (c) 1994, The Regents of the University of California
-       
-        IDENTIFICATION
-           contrib/pg_stat_monitor/.*\.(c|h)
+  paths:
+    - "**/*.c"
+    - "**/*.h"
+  license:
+    pattern: |
+      .*\.(c|h)
+      .*
 
-comment: on-failure
+      Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
+
+      Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+
+      Portions Copyright (c) 1994, The Regents of the University of California
+
+      IDENTIFICATION
+         contrib/pg_stat_monitor/.*\.(c|h)
+
+  comment: on-failure
