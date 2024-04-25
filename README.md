@@ -248,19 +248,13 @@ make USE_PGXS=1 install
 
 To uninstall `pg_stat_monitor`, do the following:
 
-1. Disable statistics collection. From the `psql` terminal, run the following command:
-
-    ```sql
-    ALTER SYSTEM SET pg_stat_monitor.pgsm_enable = 0;
-    ```
-
-2. Drop `pg_stat_monitor` extension:
+1. Drop `pg_stat_monitor` extension:
 
     ```sql
     DROP EXTENSION pg_stat_monitor;
     ```
 
-3. Remove `pg_stat_monitor` from the `shared_preload_libraries` configuration parameter:
+2. Remove `pg_stat_monitor` from the `shared_preload_libraries` configuration parameter:
 
     ```sql 
     ALTER SYSTEM SET shared_preload_libraries = '';
@@ -268,7 +262,7 @@ To uninstall `pg_stat_monitor`, do the following:
 
     **Important**: If the `shared_preload_libraries` parameter includes other modules, specify them all for the `ALTER SYSTEM SET` command to keep using them.
 
-4. Restart the `postgresql` instance to apply the changes. The following command restarts PostgreSQL 16. Replace the version value with the one you are using.
+3. Restart the `postgresql` instance to apply the changes. The following command restarts PostgreSQL 16. Replace the version value with the one you are using.
 
     * On Debian and Ubuntu:
 
