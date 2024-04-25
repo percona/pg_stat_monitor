@@ -514,7 +514,7 @@ DEB_RELEASE=1
 REPO="https://github.com/Percona/pg_stat_monitor.git"
 VERSION="1.0.0"
 PG_RELEASE=11
-PPG_REPO_NAME=ppg-11.18
+PPG_REPO_NAME=ppg-11
 parse_arguments PICK-ARGS-FROM-ARGV "$@"
 
 check_workdir
