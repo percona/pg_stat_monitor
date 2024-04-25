@@ -5,7 +5,7 @@
  * pg_stat_monitor.c
  *		Track statement execution times across a whole database cluster.
  *
- * Portions Copyright © 2018-2020, Percona LLC and/or its 
+ * Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
  *
  * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
  *
