@@ -45,3 +45,5 @@ jobs:
 
       - name: Check license headers
         uses: apache/skywalking-eyes/header@v0.6.0
+        with:
+          log: debug
