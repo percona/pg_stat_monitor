@@ -16,4 +16,4 @@ header:
         IDENTIFICATION
            contrib/pg_stat_monitor/.*\.(c|h)
 
-
+comment: on-failure
