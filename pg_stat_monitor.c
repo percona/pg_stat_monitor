@@ -1518,15 +1518,28 @@ pgsm_update_entry(pgsmEntry * entry,
 			e->counters.blocks.local_blks_written += bufusage->local_blks_written;
 			e->counters.blocks.temp_blks_read += bufusage->temp_blks_read;
 			e->counters.blocks.temp_blks_written += bufusage->temp_blks_written;
+
+#if PG_VERSION_NUM < 170000
 			e->counters.blocks.blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
 			e->counters.blocks.blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
+#else
+			e->counters.blocks.blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_read_time);
+			e->counters.blocks.blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_write_time);
+#endif
+
 #if PG_VERSION_NUM >= 150000
 			e->counters.blocks.temp_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
 			e->counters.blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
 #endif
 
+#if PG_VERSION_NUM < 170000
 			memcpy((void *) &e->counters.blocks.instr_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
 			memcpy((void *) &e->counters.blocks.instr_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
+#else
+			memcpy((void *) &e->counters.blocks.instr_blk_read_time, &bufusage->shared_blk_read_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_blk_write_time, &bufusage->shared_blk_write_time, sizeof(instr_time));
+#endif
+
 
 #if PG_VERSION_NUM >= 150000
 			memcpy((void *) &e->counters.blocks.instr_temp_blk_read_time, &bufusage->temp_blk_read_time, sizeof(bufusage->temp_blk_read_time));
@@ -1802,8 +1815,13 @@ pgsm_store(pgsmEntry * entry)
 	bufusage.temp_blks_read = entry->counters.blocks.temp_blks_read;
 	bufusage.temp_blks_written = entry->counters.blocks.temp_blks_written;
 
+#if PG_VERSION_NUM < 170000
 	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
 	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
+#else
+	memcpy(&bufusage.shared_blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.shared_blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
+#endif
 
 #if PG_VERSION_NUM >= 150000
 	memcpy(&bufusage.temp_blk_read_time, &entry->counters.blocks.instr_temp_blk_read_time, sizeof(instr_time));
@@ -2421,8 +2439,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	pgsm_hash_seq_term(&hstat);
 	LWLockRelease(pgsm->lock);
 
-
+#if PG_VERSION_NUM < 170000
 	tuplestore_donestoring(tupstore);
+#endif
 }
 
 static uint64
