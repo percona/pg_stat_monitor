@@ -2438,10 +2438,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	/* clean up and return the tuplestore */
 	pgsm_hash_seq_term(&hstat);
 	LWLockRelease(pgsm->lock);
-
-#if PG_VERSION_NUM < 170000
-	tuplestore_donestoring(tupstore);
-#endif
 }
 
 static uint64
