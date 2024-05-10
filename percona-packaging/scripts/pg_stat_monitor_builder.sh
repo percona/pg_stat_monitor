@@ -203,7 +203,7 @@ install_deps() {
     if [ "$OS" == "rpm" ]
     then
         yum -y install git wget
-        #yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+        yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
         wget https://raw.githubusercontent.com/percona/percona-repositories/release-1.0-28/scripts/percona-release.sh
         mv percona-release.sh /usr/bin/percona-release
         chmod 777 /usr/bin/percona-release
