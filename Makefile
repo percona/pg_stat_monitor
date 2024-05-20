@@ -10,6 +10,8 @@ PGFILEDESC = "pg_stat_monitor - execution statistics of SQL statements"
 
 LDFLAGS_SL += $(filter -lm, $(LIBS)) 
 
+PG_CPPFLAGS += -std=c99 -g -ggdb
+
 TAP_TESTS = 1
 REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/pg_stat_monitor/pg_stat_monitor.conf --inputdir=regression
 REGRESS = basic version guc pgsm_query_id functions counters relations database error_insert application_name application_name_unique top_query cmd_type error rows tags user
