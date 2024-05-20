@@ -28,7 +28,8 @@ jobs:
             libipc-run-perl -y docbook-xsl docbook-xsl libxml2 libxml2-utils \
             libxml2-dev libxslt-dev xsltproc libkrb5-dev libldap2-dev \
             libsystemd-dev gettext tcl-dev libperl-dev pkg-config clang-11 \
-            llvm-11 llvm-11-dev libselinux1-dev python3-dev uuid-dev liblz4-dev
+            llvm-11 llvm-11-dev libselinux1-dev python3-dev uuid-dev liblz4-dev \
+            libtext-diff-perl
           sudo rm -rf /var/lib/postgresql /var/log/postgresql /etc/postgresql \
            /usr/lib/postgresql /usr/include/postgresql /usr/share/postgresql \
            /etc/postgresql
