@@ -240,11 +240,11 @@ typedef struct pgsmHashKey
 	Oid			dbid;			/* database OID */
 	uint32		ip;				/* client ip address */
 	bool		toplevel;		/* query executed at top level */
+	uint64		parentid;		/* parent queryid of current query */
 }			pgsmHashKey;
 
 typedef struct QueryInfo
 {
-	uint64		parentid;		/* parent queryid of current query */
 	dsa_pointer parent_query;
 	int64		type;			/* type of query, options are query, info,
 								 * warning, error, fatal */
