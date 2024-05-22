@@ -22,7 +22,7 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT pgsm_query_id       int8,
     OUT top_queryid         int8,
     OUT top_query           text,
-    OUT application_name	text,
+    OUT application_name    text,
 
     OUT relations           text, -- 14
     OUT cmd_type            int,
@@ -94,7 +94,7 @@ $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
-    bucket_start_time AS bucket_start_time,
+    bucket_start_time,
     userid,
     username,
     dbid,
@@ -144,7 +144,7 @@ CREATE VIEW pg_stat_monitor AS SELECT
     wal_records,
     wal_fpi,
     wal_bytes,
-	bucket_done,
+    bucket_done,
 
     plans,
     total_plan_time,
