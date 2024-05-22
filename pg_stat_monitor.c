@@ -31,16 +31,18 @@
 typedef enum pgsmVersion
 {
 	PGSM_V1_0 = 0,
-	PGSM_V2_0
+	PGSM_V2_0,
+	PGSM_V2_1
 }			pgsmVersion;
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION                   "2.0.4"
+#define BUILD_VERSION                   "2.1.0"
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
+#define PG_STAT_MONITOR_COLS_V2_1    64 //TODO !!!!!!!
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
@@ -145,6 +147,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_version);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_reset);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_1_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_0);
+PG_FUNCTION_INFO_V1(pg_stat_monitor_2_1);
 PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(get_histogram_timings);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
@@ -1236,10 +1239,10 @@ BufferUsageAccumDiff(BufferUsage *bufusage, BufferUsage *pgBufferUsage, BufferUs
 	bufusage->local_blks_written = pgBufferUsage->local_blks_written - bufusage_start->local_blks_written;
 	bufusage->temp_blks_read = pgBufferUsage->temp_blks_read - bufusage_start->temp_blks_read;
 	bufusage->temp_blks_written = pgBufferUsage->temp_blks_written - bufusage_start->temp_blks_written;
-	bufusage->blk_read_time = pgBufferUsage->blk_read_time;
-	INSTR_TIME_SUBTRACT(bufusage->blk_read_time, bufusage_start->blk_read_time);
-	bufusage->blk_write_time = pgBufferUsage->blk_write_time;
-	INSTR_TIME_SUBTRACT(bufusage->blk_write_time, bufusage_start->blk_write_time);
+	bufusage->shared_blk_read_time = pgBufferUsage->shared_blk_read_time;
+	INSTR_TIME_SUBTRACT(bufusage->shared_blk_read_time, bufusage_start->shared_blk_read_time);
+	bufusage->shared_blk_write_time = pgBufferUsage->shared_blk_write_time;
+	INSTR_TIME_SUBTRACT(bufusage->shared_blk_write_time, bufusage_start->shared_blk_write_time);
 }
 #endif
 
@@ -1520,11 +1523,11 @@ pgsm_update_entry(pgsmEntry * entry,
 			e->counters.blocks.temp_blks_written += bufusage->temp_blks_written;
 
 #if PG_VERSION_NUM < 170000
-			e->counters.blocks.blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
-			e->counters.blocks.blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
+			e->counters.blocks.shared_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_read_time);
+			e->counters.blocks.shared_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_write_time);
 #else
-			e->counters.blocks.blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_read_time);
-			e->counters.blocks.blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_write_time);
+			e->counters.blocks.shared_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_read_time);
+			e->counters.blocks.shared_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_write_time);
 #endif
 
 #if PG_VERSION_NUM >= 150000
@@ -1533,8 +1536,8 @@ pgsm_update_entry(pgsmEntry * entry,
 #endif
 
 #if PG_VERSION_NUM < 170000
-			memcpy((void *) &e->counters.blocks.instr_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
-			memcpy((void *) &e->counters.blocks.instr_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_blk_read_time, &bufusage->shared_blk_read_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_blk_write_time, &bufusage->shared_blk_write_time, sizeof(instr_time));
 #else
 			memcpy((void *) &e->counters.blocks.instr_blk_read_time, &bufusage->shared_blk_read_time, sizeof(instr_time));
 			memcpy((void *) &e->counters.blocks.instr_blk_write_time, &bufusage->shared_blk_write_time, sizeof(instr_time));
@@ -1816,8 +1819,8 @@ pgsm_store(pgsmEntry * entry)
 	bufusage.temp_blks_written = entry->counters.blocks.temp_blks_written;
 
 #if PG_VERSION_NUM < 170000
-	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
+	memcpy(&bufusage.shared_blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.shared_blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
 #else
 	memcpy(&bufusage.shared_blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
 	memcpy(&bufusage.shared_blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
@@ -1997,6 +2000,13 @@ pg_stat_monitor_2_0(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
+Datum
+pg_stat_monitor_2_1(PG_FUNCTION_ARGS)
+{
+	pg_stat_monitor_internal(fcinfo, PGSM_V2_1, true);
+	return (Datum) 0;
+}
+
 /*
   * Legacy entry point for pg_stat_monitor() API versions 1.0
   */
@@ -2036,7 +2046,22 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	PGSM_HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
-	int			expected_columns = (api_version >= PGSM_V2_0) ? PG_STAT_MONITOR_COLS_V2_0 : PG_STAT_MONITOR_COLS_V1_0;
+	
+	int	expected_columns;
+	switch (api_version) {
+		case PGSM_V1_0:
+			expected_columns = PG_STAT_MONITOR_COLS_V1_0;
+			break;
+		case PGSM_V2_0:
+			expected_columns = PG_STAT_MONITOR_COLS_V2_0;
+			break;
+		case PGSM_V2_1:
+			expected_columns = PG_STAT_MONITOR_COLS_V2_1;
+			break;
+		default:
+			// TODO error?
+			break;
+	}
 
 	/* Disallow old api usage */
 	if (api_version < PGSM_V2_0)
@@ -2376,8 +2401,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Int64GetDatumFast(tmp.blocks.local_blks_written);
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_read);
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_written);
-		values[i++] = Float8GetDatumFast(tmp.blocks.blk_read_time);
-		values[i++] = Float8GetDatumFast(tmp.blocks.blk_write_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.shared_blk_read_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.shared_blk_write_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
 
