@@ -2191,17 +2191,17 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* userid at column number 1 */
 		values[i++] = ObjectIdGetDatum(userid);
 
-		/* userid at column number 1 */
+		/* username at column number 2 */
 		values[i++] = CStringGetTextDatum(entry->username);
 
-		/* dbid at column number 2 */
+		/* dbid at column number 3 */
 		values[i++] = ObjectIdGetDatum(dbid);
 
-		/* userid at column number 1 */
+		/* datname at column number 4 */
 		values[i++] = CStringGetTextDatum(entry->datname);
 
 		/*
-		 * ip address at column number 3, Superusers or members of
+		 * ip address at column number 5, Superusers or members of
 		 * pg_read_all_stats members are allowed
 		 */
 		if (is_allowed_role || userid == GetUserId())
@@ -2209,10 +2209,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		else
 			nulls[i++] = true;
 
-		/* queryid at column number 4 */
+		/* queryid at column number 6 */
 		values[i++] = UInt64GetDatum(queryid);
 
-		/* planid at column number 5 */
+		/* planid at column number 7 */
 		if (planid)
 		{
 			values[i++] = UInt64GetDatum(planid);
@@ -2227,12 +2227,12 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			{
 				char	   *enc;
 
-				/* query at column number 6 */
+				/* query at column number 8 */
 				enc = pg_any_to_server(query_txt, strlen(query_txt), GetDatabaseEncoding());
 				values[i++] = CStringGetTextDatum(enc);
 				if (enc != query_txt)
 					pfree(enc);
-				/* plan at column number 7 */
+				/* plan at column number 9 */
 				if (planid && tmp.planinfo.plan_text[0])
 					values[i++] = CStringGetTextDatum(tmp.planinfo.plan_text);
 				else
@@ -2240,25 +2240,26 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			}
 			else
 			{
-				/* query at column number 6 */
+				/* query at column number 8 */
 				nulls[i++] = true;
-				/* plan at column number 7 */
+				/* plan at column number 9 */
 				nulls[i++] = true;
 			}
 		}
 		else
 		{
-			/* query text at column number 6 */
+			/* query text and plan at column number 8 and 9 */
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 		}
 
+		/* pgsm_query_id at column number 10 */
 		if (pgsm_query_id)
 			values[i++] = UInt64GetDatum(pgsm_query_id);
 		else
 			nulls[i++] = true;
 
-		/* parentid at column number 9 */
+		/* parentid at column number 11 */
 		if (tmp.info.parentid != UINT64CONST(0))
 		{
 			values[i++] = UInt64GetDatum(tmp.info.parentid);
@@ -2270,13 +2271,13 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			nulls[i++] = true;
 		}
 
-		/* application_name at column number 10 */
+		/* application_name at column number 15 */
 		if (strlen(tmp.info.application_name) > 0)
 			values[i++] = CStringGetTextDatum(tmp.info.application_name);
 		else
 			nulls[i++] = true;
 
-		/* relations at column number 10 */
+		/* relations at column number 14 */
 		if (tmp.info.num_relations > 0)
 		{
 			int			j;
@@ -2305,28 +2306,28 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		else
 			nulls[i++] = true;
 
-		/* cmd_type at column number 11 */
+		/* cmd_type at column number 15 */
 		if (tmp.info.cmd_type == CMD_NOTHING)
 			nulls[i++] = true;
 		else
 			values[i++] = Int64GetDatumFast((int64) tmp.info.cmd_type);
 
-		/* elevel at column number 12 */
+		/* elevel at column number 16 */
 		values[i++] = Int64GetDatumFast(tmp.error.elevel);
 
-		/* sqlcode at column number 13 */
+		/* sqlcode at column number 17 */
 		if (strlen(tmp.error.sqlcode) == 0)
 			nulls[i++] = true;
 		else
 			values[i++] = CStringGetTextDatum(tmp.error.sqlcode);
 
-		/* message at column number 14 */
+		/* message at column number 18 */
 		if (strlen(tmp.error.message) == 0)
 			nulls[i++] = true;
 		else
 			values[i++] = CStringGetTextDatum(tmp.error.message);
 
-		/* bucket_start_time at column number 15 */
+		/* bucket_start_time at column number 19 */
 		values[i++] = TimestampTzGetDatum(pgsm->bucket_start_time[entry->key.bucket_id]);
 
 		if (tmp.calls.calls == 0)
@@ -2336,29 +2337,29 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			tmp.resp_calls[0]++;
 		}
 
-		/* calls at column number 16 */
+		/* calls at column number 20 */
 		values[i++] = Int64GetDatumFast(tmp.calls.calls);
 
-		/* total_time at column number 17 */
+		/* total_time at column number 21 */
 		values[i++] = Float8GetDatumFast(tmp.time.total_time);
 
-		/* min_time at column number 18 */
+		/* min_time at column number 22 */
 		values[i++] = Float8GetDatumFast(tmp.time.min_time);
 
-		/* max_time at column number 19 */
+		/* max_time at column number 23 */
 		values[i++] = Float8GetDatumFast(tmp.time.max_time);
 
-		/* mean_time at column number 20 */
+		/* mean_time at column number 24 */
 		values[i++] = Float8GetDatumFast(tmp.time.mean_time);
 		if (tmp.calls.calls > 1)
 			stddev = sqrt(tmp.time.sum_var_time / tmp.calls.calls);
 		else
 			stddev = 0.0;
 
-		/* calls at column number 21 */
+		/* stddev_exec_time at column number 25 */
 		values[i++] = Float8GetDatumFast(stddev);
 
-		/* calls at column number 22 */
+		/* rows at column number 26 */
 		values[i++] = Int64GetDatumFast(tmp.calls.rows);
 
 		if (tmp.calls.calls == 0)
@@ -2368,29 +2369,29 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			tmp.resp_calls[0]++;
 		}
 
-		/* calls at column number 23 */
+		/* plans at column number 27 */
 		values[i++] = Int64GetDatumFast(tmp.plancalls.calls);
 
-		/* total_time at column number 24 */
+		/* total_plan_time at column number 28 */
 		values[i++] = Float8GetDatumFast(tmp.plantime.total_time);
 
-		/* min_time at column number 25 */
+		/* min_plan_time at column number 29 */
 		values[i++] = Float8GetDatumFast(tmp.plantime.min_time);
 
-		/* max_time at column number 26 */
+		/* max_plan_time at column number 30 */
 		values[i++] = Float8GetDatumFast(tmp.plantime.max_time);
 
-		/* mean_time at column number 27 */
+		/* mean_plan_time at column number 31 */
 		values[i++] = Float8GetDatumFast(tmp.plantime.mean_time);
 		if (tmp.plancalls.calls > 1)
 			stddev = sqrt(tmp.plantime.sum_var_time / tmp.plancalls.calls);
 		else
 			stddev = 0.0;
 
-		/* calls at column number 28 */
+		/* stddev_plan_time at column number 32 */
 		values[i++] = Float8GetDatumFast(stddev);
 
-		/* blocks are from column number 29 - 40 */
+		/* blocks are from column number 33 - 46 */
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_hit);
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_read);
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_dirtied);
@@ -2406,22 +2407,22 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
 
-		/* resp_calls at column number 41 */
+		/* resp_calls at column number 47 */
 		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, hist_bucket_count_total);
 
-		/* utime at column number 42 */
+		/* cpu_user_time at column number 48 */
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.utime);
 
-		/* stime at column number 43 */
+		/* cpu_sys_time at column number 49 */
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.stime);
 		{
 			char		buf[256];
 			Datum		wal_bytes;
 
-			/* wal_records at column number 44 */
+			/* wal_records at column number 50 */
 			values[i++] = Int64GetDatumFast(tmp.walusage.wal_records);
 
-			/* wal_fpi at column number 45 */
+			/* wal_fpi at column number 51 */
 			values[i++] = Int64GetDatumFast(tmp.walusage.wal_fpi);
 
 			snprintf(buf, sizeof buf, UINT64_FORMAT, tmp.walusage.wal_bytes);
@@ -2431,15 +2432,16 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 											CStringGetDatum(buf),
 											ObjectIdGetDatum(0),
 											Int32GetDatum(-1));
-			/* wal_bytes at column number 46 */
+			/* wal_bytes at column number 52 */
 			values[i++] = wal_bytes;
 
-			/* application_name at column number 47 */
+			/* application_name at column number 53 */
 			if (strlen(tmp.info.comments) > 0)
 				values[i++] = CStringGetTextDatum(tmp.info.comments);
 			else
 				nulls[i++] = true;
 
+			/* blocks are from column number 54 - 61 */
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
@@ -2449,7 +2451,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
 		}
+		/* toplevel at column number 62 */
 		values[i++] = BoolGetDatum(toplevel);
+
+		/* bucket_done at column number 63 */
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgsm->current_wbucket) != bucketid);
 
 		/* clean up and return the tuplestore */

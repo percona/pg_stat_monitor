@@ -15,7 +15,7 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT datname             text,
     OUT client_ip           int8,
 
-    OUT queryid             int8,  -- 4
+    OUT queryid             int8,  -- 6
     OUT planid              int8,
     OUT query               text,
     OUT query_plan          text,
@@ -24,32 +24,32 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT top_query           text,
     OUT application_name	text,
 
-    OUT relations           text, -- 11
+    OUT relations           text, -- 14
     OUT cmd_type            int,
     OUT elevel              int,
     OUT sqlcode             TEXT,
     OUT message             text,
     OUT bucket_start_time   timestamptz,
 
-    OUT calls               int8,  -- 16
+    OUT calls               int8,  -- 20
 
-    OUT total_exec_time     float8,
+    OUT total_exec_time     float8, -- 21
     OUT min_exec_time       float8,
     OUT max_exec_time       float8,
     OUT mean_exec_time      float8,
     OUT stddev_exec_time    float8,
 
-    OUT rows                int8,
+    OUT rows                int8, -- 26
 
-    OUT plans               int8,  -- 23
+    OUT plans               int8,  -- 27
 
-    OUT total_plan_time     float8,
+    OUT total_plan_time     float8, -- 28
     OUT min_plan_time       float8,
     OUT max_plan_time       float8,
     OUT mean_plan_time      float8,
     OUT stddev_plan_time    float8,
 
-    OUT shared_blks_hit            int8, -- 29
+    OUT shared_blks_hit            int8, -- 33
     OUT shared_blks_read           int8,
     OUT shared_blks_dirtied        int8,
     OUT shared_blks_written        int8,
@@ -62,10 +62,10 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT shared_blk_read_time       float8,
     OUT shared_blk_write_time      float8,
 
-    OUT temp_blk_read_time  float8,
+    OUT temp_blk_read_time  float8, -- 45
     OUT temp_blk_write_time float8,
 
-    OUT resp_calls          text, -- 41
+    OUT resp_calls          text, -- 47
     OUT cpu_user_time       float8,
     OUT cpu_sys_time        float8,
     OUT wal_records         int8,
@@ -73,7 +73,7 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT wal_bytes           numeric,
     OUT comments            TEXT,
 
-    OUT jit_functions           int8,
+    OUT jit_functions           int8, -- 54
     OUT jit_generation_time     float8,
     OUT jit_inlining_count      int8,
     OUT jit_inlining_time       float8,
@@ -82,7 +82,7 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT jit_emission_count      int8,
     OUT jit_emission_time       float8,
 
-    OUT toplevel            BOOLEAN,
+    OUT toplevel            BOOLEAN, --62
     OUT bucket_done         BOOLEAN
 )
 RETURNS SETOF record
