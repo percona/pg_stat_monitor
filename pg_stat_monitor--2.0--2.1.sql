@@ -5,6 +5,10 @@
 
 DROP FUNCTION pg_stat_monitor_internal CASCADE;
 DROP FUNCTION pgsm_create_view CASCADE;
+DROP FUNCTION pgsm_create_11_view();
+DROP FUNCTION pgsm_create_13_view();
+DROP FUNCTION pgsm_create_14_view();
+DROP FUNCTION pgsm_create_15_view();
 
 CREATE FUNCTION pg_stat_monitor_internal(
     IN showtext             boolean,
@@ -88,6 +92,274 @@ CREATE FUNCTION pg_stat_monitor_internal(
 RETURNS SETOF record
 AS 'MODULE_PATHNAME', 'pg_stat_monitor_2_1'
 LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
+
+-- Register a view on the function for ease of use.
+CREATE FUNCTION pgsm_create_11_view() RETURNS INT AS
+$$
+BEGIN
+CREATE VIEW pg_stat_monitor AS SELECT
+    bucket,
+	bucket_start_time AS bucket_start_time,
+    userid,
+    username,
+    dbid,
+    datname,
+	'0.0.0.0'::inet + client_ip AS client_ip,
+	pgsm_query_id,
+    queryid,
+    top_queryid,
+    query,
+	comments,
+	planid,
+	query_plan,
+    top_query,
+	application_name,
+	string_to_array(relations, ',') AS relations,
+	cmd_type,
+	get_cmd_type(cmd_type) AS cmd_type_text,
+	elevel,
+	sqlcode,
+	message,
+    calls,
+	total_exec_time AS total_time,
+	min_exec_time AS min_time,
+	max_exec_time AS max_time,
+	mean_exec_time AS mean_time,
+	stddev_exec_time AS stddev_time,
+	rows,
+	shared_blks_hit,
+    shared_blks_read,
+    shared_blks_dirtied,
+    shared_blks_written,
+    local_blks_hit,
+    local_blks_read,
+    local_blks_dirtied,
+    local_blks_written,
+    temp_blks_read,
+    temp_blks_written,
+    shared_blk_read_time AS blk_read_time,
+    shared_blk_write_time AS blk_write_time,
+	(string_to_array(resp_calls, ',')) resp_calls,
+	cpu_user_time,
+	cpu_sys_time,
+	bucket_done
+FROM pg_stat_monitor_internal(TRUE)
+ORDER BY bucket_start_time;
+RETURN 0;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE FUNCTION pgsm_create_13_view() RETURNS INT AS
+$$
+BEGIN
+CREATE VIEW pg_stat_monitor AS SELECT
+    bucket,
+	bucket_start_time AS bucket_start_time,
+    userid,
+    username,
+    dbid,
+    datname,
+	'0.0.0.0'::inet + client_ip AS client_ip,
+	pgsm_query_id,
+    queryid,
+    toplevel,
+    top_queryid,
+    query,
+	comments,
+	planid,
+	query_plan,
+    top_query,
+	application_name,
+	string_to_array(relations, ',') AS relations,
+	cmd_type,
+	get_cmd_type(cmd_type) AS cmd_type_text,
+	elevel,
+	sqlcode,
+	message,
+    calls,
+	total_exec_time,
+	min_exec_time,
+	max_exec_time,
+	mean_exec_time,
+	stddev_exec_time,
+	rows,
+	shared_blks_hit,
+    shared_blks_read,
+    shared_blks_dirtied,
+    shared_blks_written,
+    local_blks_hit,
+    local_blks_read,
+    local_blks_dirtied,
+    local_blks_written,
+    temp_blks_read,
+    temp_blks_written,
+    shared_blk_read_time AS blk_read_time,
+    shared_blk_write_time AS blk_write_time,
+	(string_to_array(resp_calls, ',')) resp_calls,
+	cpu_user_time,
+	cpu_sys_time,
+    wal_records,
+    wal_fpi,
+    wal_bytes,
+	bucket_done,
+    -- PostgreSQL-13 Specific Coulumns
+	plans,
+	total_plan_time,
+	min_plan_time,
+	max_plan_time,
+	mean_plan_time,
+    stddev_plan_time
+FROM pg_stat_monitor_internal(TRUE)
+ORDER BY bucket_start_time;
+RETURN 0;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION pgsm_create_14_view() RETURNS INT AS
+$$
+BEGIN
+CREATE VIEW pg_stat_monitor AS SELECT
+    bucket,
+	bucket_start_time AS bucket_start_time,
+    userid,
+    username,
+    dbid,
+    datname,
+	'0.0.0.0'::inet + client_ip AS client_ip,
+	pgsm_query_id,
+    queryid,
+    toplevel,
+    top_queryid,
+    query,
+	comments,
+	planid,
+	query_plan,
+    top_query,
+	application_name,
+	string_to_array(relations, ',') AS relations,
+	cmd_type,
+	get_cmd_type(cmd_type) AS cmd_type_text,
+	elevel,
+	sqlcode,
+	message,
+    calls,
+	total_exec_time,
+	min_exec_time,
+	max_exec_time,
+	mean_exec_time,
+	stddev_exec_time,
+	rows,
+	shared_blks_hit,
+    shared_blks_read,
+    shared_blks_dirtied,
+    shared_blks_written,
+    local_blks_hit,
+    local_blks_read,
+    local_blks_dirtied,
+    local_blks_written,
+    temp_blks_read,
+    temp_blks_written,
+    shared_blk_read_time AS blk_read_time,
+    shared_blk_write_time AS blk_write_time,
+	(string_to_array(resp_calls, ',')) resp_calls,
+	cpu_user_time,
+	cpu_sys_time,
+    wal_records,
+    wal_fpi,
+    wal_bytes,
+	bucket_done,
+
+    plans,
+	total_plan_time,
+	min_plan_time,
+	max_plan_time,
+	mean_plan_time,
+    stddev_plan_time
+FROM pg_stat_monitor_internal(TRUE)
+ORDER BY bucket_start_time;
+RETURN 0;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION pgsm_create_15_view() RETURNS INT AS
+$$
+BEGIN
+CREATE VIEW pg_stat_monitor AS SELECT
+    bucket,
+	bucket_start_time AS bucket_start_time,
+    userid,
+    username,
+    dbid,
+    datname,
+	'0.0.0.0'::inet + client_ip AS client_ip,
+	pgsm_query_id,
+    queryid,
+    toplevel,
+    top_queryid,
+    query,
+	comments,
+	planid,
+	query_plan,
+    top_query,
+	application_name,
+	string_to_array(relations, ',') AS relations,
+	cmd_type,
+	get_cmd_type(cmd_type) AS cmd_type_text,
+	elevel,
+	sqlcode,
+	message,
+    calls,
+	total_exec_time,
+	min_exec_time,
+	max_exec_time,
+	mean_exec_time,
+	stddev_exec_time,
+	rows,
+	shared_blks_hit,
+    shared_blks_read,
+    shared_blks_dirtied,
+    shared_blks_written,
+    local_blks_hit,
+    local_blks_read,
+    local_blks_dirtied,
+    local_blks_written,
+    temp_blks_read,
+    temp_blks_written,
+    shared_blk_read_time AS blk_read_time,
+    shared_blk_write_time AS blk_write_time,
+    temp_blk_read_time,
+    temp_blk_write_time,
+
+	(string_to_array(resp_calls, ',')) resp_calls,
+	cpu_user_time,
+	cpu_sys_time,
+    wal_records,
+    wal_fpi,
+    wal_bytes,
+	bucket_done,
+
+    plans,
+	total_plan_time,
+	min_plan_time,
+	max_plan_time,
+	mean_plan_time,
+    stddev_plan_time,
+
+    jit_functions,
+    jit_generation_time,
+    jit_inlining_count,
+    jit_inlining_time,
+    jit_optimization_count,
+    jit_optimization_time,
+    jit_emission_count,
+    jit_emission_time
+
+FROM pg_stat_monitor_internal(TRUE)
+ORDER BY bucket_start_time;
+RETURN 0;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE FUNCTION pgsm_create_17_view() RETURNS INT AS
 $$
