@@ -65,11 +65,12 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT temp_blks_written          int8,
     OUT shared_blk_read_time       float8,
     OUT shared_blk_write_time      float8,
+    OUT local_blk_read_time        float8,
+    OUT local_blk_write_time       float8,
+    OUT temp_blk_read_time         float8,
+    OUT temp_blk_write_time        float8,
 
-    OUT temp_blk_read_time  float8, -- 45
-    OUT temp_blk_write_time float8,
-
-    OUT resp_calls          text, -- 47
+    OUT resp_calls          text, -- 49
     OUT cpu_user_time       float8,
     OUT cpu_sys_time        float8,
     OUT wal_records         int8,
@@ -77,7 +78,7 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT wal_bytes           numeric,
     OUT comments            TEXT,
 
-    OUT jit_functions           int8, -- 54
+    OUT jit_functions           int8, -- 56
     OUT jit_generation_time     float8,
     OUT jit_inlining_count      int8,
     OUT jit_inlining_time       float8,
@@ -86,7 +87,7 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT jit_emission_count      int8,
     OUT jit_emission_time       float8,
 
-    OUT toplevel            BOOLEAN, --62
+    OUT toplevel            BOOLEAN, --64
     OUT bucket_done         BOOLEAN
 )
 RETURNS SETOF record
@@ -407,6 +408,8 @@ CREATE VIEW pg_stat_monitor AS SELECT
     temp_blks_written,
     shared_blk_read_time,
     shared_blk_write_time,
+    local_blk_read_time,
+    local_blk_write_time,
     temp_blk_read_time,
     temp_blk_write_time,
 

@@ -28,8 +28,8 @@ my %pg_versions_pgsm_columns = ( 17 => "application_name,".
    "datname,dbid,elevel,jit_emission_count,jit_emission_time,jit_functions," .
    "jit_generation_time,jit_inlining_count,jit_inlining_time," .
    "jit_optimization_count,jit_optimization_time," .
-   "local_blks_dirtied,local_blks_hit,local_blks_read," .
-   "local_blks_written,max_exec_time,max_plan_time,mean_exec_time," .
+   "local_blk_read_time,local_blk_write_time,local_blks_dirtied,local_blks_hit,".
+   "local_blks_read,local_blks_written,max_exec_time,max_plan_time,mean_exec_time," .
    "mean_plan_time,message,min_exec_time,min_plan_time,pgsm_query_id,planid," .
    "plans,query,query_plan,queryid,relations,resp_calls,rows," .
    "shared_blk_read_time,shared_blk_write_time,shared_blks_dirtied," .

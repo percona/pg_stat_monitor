@@ -42,7 +42,7 @@ PG_MODULE_MAGIC;
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
-#define PG_STAT_MONITOR_COLS_V2_1    64 //TODO !!!!!!!
+#define PG_STAT_MONITOR_COLS_V2_1    66 //TODO !!!!!!!
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
@@ -1528,6 +1528,8 @@ pgsm_update_entry(pgsmEntry * entry,
 #else
 			e->counters.blocks.shared_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_read_time);
 			e->counters.blocks.shared_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_write_time);
+			e->counters.blocks.local_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->local_blk_read_time);
+			e->counters.blocks.local_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->local_blk_write_time);
 #endif
 
 #if PG_VERSION_NUM >= 150000
@@ -1536,11 +1538,13 @@ pgsm_update_entry(pgsmEntry * entry,
 #endif
 
 #if PG_VERSION_NUM < 170000
-			memcpy((void *) &e->counters.blocks.instr_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
-			memcpy((void *) &e->counters.blocks.instr_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_shared_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_shared_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
 #else
-			memcpy((void *) &e->counters.blocks.instr_blk_read_time, &bufusage->shared_blk_read_time, sizeof(instr_time));
-			memcpy((void *) &e->counters.blocks.instr_blk_write_time, &bufusage->shared_blk_write_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_shared_blk_read_time, &bufusage->shared_blk_read_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_shared_blk_write_time, &bufusage->shared_blk_write_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_local_blk_write_time, &bufusage->local_blk_write_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_local_blk_write_time, &bufusage->local_blk_write_time, sizeof(instr_time));
 #endif
 
 
@@ -1819,11 +1823,13 @@ pgsm_store(pgsmEntry * entry)
 	bufusage.temp_blks_written = entry->counters.blocks.temp_blks_written;
 
 #if PG_VERSION_NUM < 170000
-	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
+	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
 #else
-	memcpy(&bufusage.shared_blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.shared_blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
+	memcpy(&bufusage.shared_blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.shared_blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
+	memcpy(&bufusage.local_blk_read_time, &entry->counters.blocks.instr_local_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.local_blk_write_time, &entry->counters.blocks.instr_local_blk_write_time, sizeof(instr_time));
 #endif
 
 #if PG_VERSION_NUM >= 150000
@@ -2391,7 +2397,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* stddev_plan_time at column number 32 */
 		values[i++] = Float8GetDatumFast(stddev);
 
-		/* blocks are from column number 33 - 46 */
+		/* blocks are from column number 33 - 48 */
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_hit);
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_read);
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_dirtied);
@@ -2404,25 +2410,27 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_written);
 		values[i++] = Float8GetDatumFast(tmp.blocks.shared_blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.shared_blk_write_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.local_blk_read_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.local_blk_write_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
 
-		/* resp_calls at column number 47 */
+		/* resp_calls at column number 49 */
 		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, hist_bucket_count_total);
 
-		/* cpu_user_time at column number 48 */
+		/* cpu_user_time at column number 50 */
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.utime);
 
-		/* cpu_sys_time at column number 49 */
+		/* cpu_sys_time at column number 51 */
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.stime);
 		{
 			char		buf[256];
 			Datum		wal_bytes;
 
-			/* wal_records at column number 50 */
+			/* wal_records at column number 52 */
 			values[i++] = Int64GetDatumFast(tmp.walusage.wal_records);
 
-			/* wal_fpi at column number 51 */
+			/* wal_fpi at column number 53 */
 			values[i++] = Int64GetDatumFast(tmp.walusage.wal_fpi);
 
 			snprintf(buf, sizeof buf, UINT64_FORMAT, tmp.walusage.wal_bytes);
@@ -2432,16 +2440,16 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 											CStringGetDatum(buf),
 											ObjectIdGetDatum(0),
 											Int32GetDatum(-1));
-			/* wal_bytes at column number 52 */
+			/* wal_bytes at column number 54 */
 			values[i++] = wal_bytes;
 
-			/* application_name at column number 53 */
+			/* application_name at column number 55 */
 			if (strlen(tmp.info.comments) > 0)
 				values[i++] = CStringGetTextDatum(tmp.info.comments);
 			else
 				nulls[i++] = true;
 
-			/* blocks are from column number 54 - 61 */
+			/* blocks are from column number 56 - 63 */
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
@@ -2451,10 +2459,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
 		}
-		/* toplevel at column number 62 */
+		/* toplevel at column number 64 */
 		values[i++] = BoolGetDatum(toplevel);
 
-		/* bucket_done at column number 63 */
+		/* bucket_done at column number 65 */
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgsm->current_wbucket) != bucketid);
 
 		/* clean up and return the tuplestore */

@@ -274,31 +274,33 @@ typedef struct Calls
 
 typedef struct Blocks
 {
-	int64		shared_blks_hit;	/* # of shared buffer hits */
-	int64		shared_blks_read;	/* # of shared disk blocks read */
+	int64		shared_blks_hit;		/* # of shared buffer hits */
+	int64		shared_blks_read;		/* # of shared disk blocks read */
 	int64		shared_blks_dirtied;	/* # of shared disk blocks dirtied */
 	int64		shared_blks_written;	/* # of shared disk blocks written */
-	int64		local_blks_hit; /* # of local buffer hits */
-	int64		local_blks_read;	/* # of local disk blocks read */
-	int64		local_blks_dirtied; /* # of local disk blocks dirtied */
-	int64		local_blks_written; /* # of local disk blocks written */
-	int64		temp_blks_read; /* # of temp blocks read */
-	int64		temp_blks_written;	/* # of temp blocks written */
-	double		shared_blk_read_time;	/* time spent reading shared blocks, in msec */
-	double		shared_blk_write_time;  /* time spent writing shared blocks, in msec */
-
-	double		temp_blk_read_time; /* time spent reading temp blocks, in msec */
-	double		temp_blk_write_time;	/* time spent writing temp blocks, in
-										 * msec */
+	int64		local_blks_hit;			/* # of local buffer hits */
+	int64		local_blks_read;		/* # of local disk blocks read */
+	int64		local_blks_dirtied;		/* # of local disk blocks dirtied */
+	int64		local_blks_written;		/* # of local disk blocks written */
+	int64		temp_blks_read;			/* # of temp blocks read */
+	int64		temp_blks_written;		/* # of temp blocks written */
+	double 		shared_blk_read_time;	/* time spent reading shared blocks, in msec */
+	double 		shared_blk_write_time;	/* time spent writing shared blocks, in msec */
+	double 		local_blk_read_time;	/* time spent reading local blocks, in msec */
+	double 		local_blk_write_time;	/* time spent writing local blocks, in msec */
+	double 		temp_blk_read_time;		/* time spent reading temp blocks, in msec */
+	double 		temp_blk_write_time;	/* time spent writing temp blocks, in msec */
 
 	/*
 	 * Variables for local entry. The values to be passed to pgsm_update_entry
 	 * from pgsm_store.
 	 */
-	instr_time	instr_blk_read_time;	/* time spent reading blocks */
-	instr_time	instr_blk_write_time;	/* time spent writing blocks */
-	instr_time	instr_temp_blk_read_time;	/* time spent reading temp blocks */
-	instr_time	instr_temp_blk_write_time;	/* time spent writing temp blocks */
+	instr_time      instr_shared_blk_read_time;	 /* time spent reading shared blocks */
+	instr_time      instr_shared_blk_write_time; /* time spent writing shared blocks */
+	instr_time      instr_local_blk_read_time;	 /* time spent reading local blocks */
+	instr_time      instr_local_blk_write_time;  /* time spent writing local blocks */
+	instr_time      instr_temp_blk_read_time;	 /* time spent reading temp blocks */
+	instr_time      instr_temp_blk_write_time;	 /* time spent writing temp blocks */
 }			Blocks;
 
 typedef struct JitInfo
