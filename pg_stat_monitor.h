@@ -309,6 +309,9 @@ typedef struct JitInfo
 	double		jit_generation_time;	/* total time to generate jit code */
 	int64		jit_inlining_count; /* number of times inlining time has been
 									 * > 0 */
+	double		jit_deform_time;	/* total time to deform tuples in jit code */
+	int64		jit_deform_count;	/* number of times deform time has been >
+									 * 0 */
 	double		jit_inlining_time;	/* total time to inline jit code */
 	int64		jit_optimization_count; /* number of times optimization time
 										 * has been > 0 */
@@ -323,6 +326,7 @@ typedef struct JitInfo
 	 */
 	instr_time	instr_generation_counter;	/* generation counter */
 	instr_time	instr_inlining_counter; /* inlining counter */
+	instr_time	instr_deform_counter; /* deform counter */
 	instr_time	instr_optimization_counter; /* optimization counter */
 	instr_time	instr_emission_counter; /* emission counter */
 }			JitInfo;

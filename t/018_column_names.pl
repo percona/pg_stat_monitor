@@ -25,9 +25,9 @@ close $conf;
 my %pg_versions_pgsm_columns = ( 17 => "application_name,".
    "bucket,bucket_done,bucket_start_time,calls," .
    "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .
-   "datname,dbid,elevel,jit_emission_count,jit_emission_time,jit_functions," .
-   "jit_generation_time,jit_inlining_count,jit_inlining_time," .
-   "jit_optimization_count,jit_optimization_time," .
+   "datname,dbid,elevel,jit_deform_count,jit_deform_time," .
+   "jit_emission_count,jit_emission_time,jit_functions,jit_generation_time," .
+   "jit_inlining_count,jit_inlining_time,jit_optimization_count,jit_optimization_time," .
    "local_blk_read_time,local_blk_write_time,local_blks_dirtied,local_blks_hit,".
    "local_blks_read,local_blks_written,max_exec_time,max_plan_time,mean_exec_time," .
    "mean_plan_time,message,min_exec_time,min_plan_time,pgsm_query_id,planid," .

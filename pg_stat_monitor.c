@@ -42,7 +42,7 @@ PG_MODULE_MAGIC;
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
-#define PG_STAT_MONITOR_COLS_V2_1    66 //TODO !!!!!!!
+#define PG_STAT_MONITOR_COLS_V2_1    68 //TODO !!!!!!!
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
@@ -1584,6 +1584,10 @@ pgsm_update_entry(pgsmEntry * entry,
 				e->counters.jitinfo.jit_emission_count++;
 			e->counters.jitinfo.jit_emission_time += INSTR_TIME_GET_MILLISEC(jitusage->emission_counter);
 
+			if (INSTR_TIME_GET_MILLISEC(jitusage->deform_counter))
+				e->counters.jitinfo.jit_deform_count++;
+			e->counters.jitinfo.jit_deform_time += INSTR_TIME_GET_MILLISEC(jitusage->deform_counter);
+
 			/* Only do this for local storage scenarios */
 			if (kind != PGSM_STORE)
 			{
@@ -1591,6 +1595,7 @@ pgsm_update_entry(pgsmEntry * entry,
 				memcpy((void *) &e->counters.jitinfo.instr_inlining_counter, &jitusage->inlining_counter, sizeof(instr_time));
 				memcpy((void *) &e->counters.jitinfo.instr_optimization_counter, &jitusage->optimization_counter, sizeof(instr_time));
 				memcpy((void *) &e->counters.jitinfo.instr_emission_counter, &jitusage->emission_counter, sizeof(instr_time));
+				memcpy((void *) &e->counters.jitinfo.instr_deform_counter, &jitusage->deform_counter, sizeof(instr_time));
 			}
 		}
 
@@ -1848,6 +1853,7 @@ pgsm_store(pgsmEntry * entry)
 	memcpy(&jitusage.inlining_counter, &entry->counters.jitinfo.instr_inlining_counter, sizeof(instr_time));
 	memcpy(&jitusage.optimization_counter, &entry->counters.jitinfo.instr_optimization_counter, sizeof(instr_time));
 	memcpy(&jitusage.emission_counter, &entry->counters.jitinfo.instr_emission_counter, sizeof(instr_time));
+	memcpy(&jitusage.deform_counter, &entry->counters.jitinfo.instr_deform_counter, sizeof(instr_time));
 
 	/*
 	 * Acquire a share lock to start with. We'd have to acquire exclusive if
@@ -2458,6 +2464,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_optimization_time);
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
+			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_deform_count);
+			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_deform_time);
 		}
 		/* toplevel at column number 64 */
 		values[i++] = BoolGetDatum(toplevel);

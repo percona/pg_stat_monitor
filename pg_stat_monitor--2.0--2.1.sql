@@ -86,8 +86,10 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT jit_optimization_time   float8,
     OUT jit_emission_count      int8,
     OUT jit_emission_time       float8,
+    OUT jit_deform_count        int8,
+    OUT jit_deform_time         float8,
 
-    OUT toplevel            BOOLEAN, --64
+    OUT toplevel            BOOLEAN, --66
     OUT bucket_done         BOOLEAN
 )
 RETURNS SETOF record
@@ -435,7 +437,9 @@ CREATE VIEW pg_stat_monitor AS SELECT
     jit_optimization_count,
     jit_optimization_time,
     jit_emission_count,
-    jit_emission_time
+    jit_emission_time,
+    jit_deform_count,
+    jit_deform_time
 
 FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
