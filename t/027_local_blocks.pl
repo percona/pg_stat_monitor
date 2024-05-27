@@ -70,7 +70,7 @@ is($stdout,'t',"Check: local_blks_hit should not be 0.");
 trim($stdout);
 is($stdout,'t',"Check: local_blks_dirtied should not be 0.");
 
-if ($PGSM::PG_MAJOR_VERSION => 17)
+if ($PGSM::PG_MAJOR_VERSION >= 17)
 {
     ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.local_blk_write_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%INSERT INTO t1%\'', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
     trim($stdout);
@@ -84,7 +84,7 @@ trim($stdout);
 is($stdout,'t',"Check: local_blks_hit should not be 0.");
 
 # TODO: Find a way how to bypass cache and ger real block reads
-# if ($PGSM::PG_MAJOR_VERSION => 17)
+# if ($PGSM::PG_MAJOR_VERSION >= 17)
 # {
 #     ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.local_blk_read_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%FROM t1%\';', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 #     trim($stdout);
