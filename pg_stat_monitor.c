@@ -1584,9 +1584,11 @@ pgsm_update_entry(pgsmEntry * entry,
 				e->counters.jitinfo.jit_emission_count++;
 			e->counters.jitinfo.jit_emission_time += INSTR_TIME_GET_MILLISEC(jitusage->emission_counter);
 
+#if PG_VERSION_NUM >= 170000
 			if (INSTR_TIME_GET_MILLISEC(jitusage->deform_counter))
 				e->counters.jitinfo.jit_deform_count++;
 			e->counters.jitinfo.jit_deform_time += INSTR_TIME_GET_MILLISEC(jitusage->deform_counter);
+#endif
 
 			/* Only do this for local storage scenarios */
 			if (kind != PGSM_STORE)
@@ -1595,7 +1597,10 @@ pgsm_update_entry(pgsmEntry * entry,
 				memcpy((void *) &e->counters.jitinfo.instr_inlining_counter, &jitusage->inlining_counter, sizeof(instr_time));
 				memcpy((void *) &e->counters.jitinfo.instr_optimization_counter, &jitusage->optimization_counter, sizeof(instr_time));
 				memcpy((void *) &e->counters.jitinfo.instr_emission_counter, &jitusage->emission_counter, sizeof(instr_time));
+
+#if PG_VERSION_NUM >= 170000
 				memcpy((void *) &e->counters.jitinfo.instr_deform_counter, &jitusage->deform_counter, sizeof(instr_time));
+#endif
 			}
 		}
 
@@ -1853,7 +1858,10 @@ pgsm_store(pgsmEntry * entry)
 	memcpy(&jitusage.inlining_counter, &entry->counters.jitinfo.instr_inlining_counter, sizeof(instr_time));
 	memcpy(&jitusage.optimization_counter, &entry->counters.jitinfo.instr_optimization_counter, sizeof(instr_time));
 	memcpy(&jitusage.emission_counter, &entry->counters.jitinfo.instr_emission_counter, sizeof(instr_time));
+
+#if PG_VERSION_NUM >= 170000
 	memcpy(&jitusage.deform_counter, &entry->counters.jitinfo.instr_deform_counter, sizeof(instr_time));
+#endif
 
 	/*
 	 * Acquire a share lock to start with. We'd have to acquire exclusive if
