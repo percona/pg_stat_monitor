@@ -303,6 +303,8 @@ hash_entry_alloc(pgsmSharedState * pgsm, pgsmHashKey * key, int encoding)
 		memset(&entry->counters, 0, sizeof(Counters));
 		entry->query_text.query_pos = InvalidDsaPointer;
 		entry->counters.info.parent_query = InvalidDsaPointer;
+		entry->stats_since =  GetCurrentTimestamp();
+		entry->minmax_stats_since = entry->stats_since;
 
 		/* set the appropriate initial usage count */
 		/* re-initialize the mutex each time ... we assume no one using it */

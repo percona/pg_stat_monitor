@@ -370,13 +370,15 @@ typedef struct Counters
  */
 typedef struct pgsmEntry
 {
-	pgsmHashKey key;			/* hash key of entry - MUST BE FIRST */
-	uint64		pgsm_query_id;	/* pgsm generate normalized query hash */
+	pgsmHashKey key;					/* hash key of entry - MUST BE FIRST */
+	uint64		pgsm_query_id;			/* pgsm generate normalized query hash */
 	char		datname[NAMEDATALEN];	/* database name */
 	char		username[NAMEDATALEN];	/* user name */
-	Counters	counters;		/* the statistics for this query */
-	int			encoding;		/* query text encoding */
-	slock_t		mutex;			/* protects the counters only */
+	Counters	counters;				/* the statistics for this query */
+	int			encoding;				/* query text encoding */
+	TimestampTz stats_since;			/* timestamp of entry allocation */
+	TimestampTz minmax_stats_since; 	/* timestamp of last min/max values reset */
+	slock_t		mutex;					/* protects the counters only */
 	union
 	{
 		dsa_pointer query_pos;	/* query location within query buffer */

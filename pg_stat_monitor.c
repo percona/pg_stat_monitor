@@ -42,7 +42,7 @@ PG_MODULE_MAGIC;
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
-#define PG_STAT_MONITOR_COLS_V2_1    68 //TODO !!!!!!!
+#define PG_STAT_MONITOR_COLS_V2_1    70
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
@@ -1361,9 +1361,12 @@ pgsm_update_entry(pgsmEntry * entry,
 	int			sqlcode_len = error_info ? strlen(error_info->sqlcode) : 0;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
-	/* Start collecting data for next bucket and reset all counters */
-	if (reset)
+	/* Start collecting data for next bucket and reset all counters and timestamps */
+	if (reset) {
 		memset(&entry->counters, 0, sizeof(Counters));
+		entry->stats_since =  GetCurrentTimestamp();
+		entry->minmax_stats_since = entry->stats_since;
+	}
 
 	/* volatile block */
 	{
@@ -2475,10 +2478,15 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_deform_count);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_deform_time);
 		}
-		/* toplevel at column number 64 */
+
+		/* at column number 64 */
+		values[i++] = TimestampTzGetDatum(entry->stats_since);
+		values[i++] = TimestampTzGetDatum(entry->minmax_stats_since);
+
+		/* toplevel at column number 66 */
 		values[i++] = BoolGetDatum(toplevel);
 
-		/* bucket_done at column number 65 */
+		/* bucket_done at column number 67 */
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgsm->current_wbucket) != bucketid);
 
 		/* clean up and return the tuplestore */
