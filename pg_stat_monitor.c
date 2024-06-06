@@ -1239,10 +1239,10 @@ BufferUsageAccumDiff(BufferUsage *bufusage, BufferUsage *pgBufferUsage, BufferUs
 	bufusage->local_blks_written = pgBufferUsage->local_blks_written - bufusage_start->local_blks_written;
 	bufusage->temp_blks_read = pgBufferUsage->temp_blks_read - bufusage_start->temp_blks_read;
 	bufusage->temp_blks_written = pgBufferUsage->temp_blks_written - bufusage_start->temp_blks_written;
-	bufusage->shared_blk_read_time = pgBufferUsage->blk_read_time;
-	INSTR_TIME_SUBTRACT(bufusage->shared_blk_read_time, bufusage_start->blk_read_time);
-	bufusage->shared_blk_write_time = pgBufferUsage->blk_write_time;
-	INSTR_TIME_SUBTRACT(bufusage->shared_blk_write_time, bufusage_start->blk_write_time);
+	bufusage->blk_read_time = pgBufferUsage->blk_read_time;
+	INSTR_TIME_SUBTRACT(bufusage->blk_read_time, bufusage_start->blk_read_time);
+	bufusage->blk_write_time = pgBufferUsage->blk_write_time;
+	INSTR_TIME_SUBTRACT(bufusage->blk_write_time, bufusage_start->blk_write_time);
 }
 #endif
 
