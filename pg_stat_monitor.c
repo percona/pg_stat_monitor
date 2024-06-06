@@ -2082,8 +2082,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			expected_columns = PG_STAT_MONITOR_COLS_V2_1;
 			break;
 		default:
-			// TODO error?
-			break;
+			ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Unknown API version")));
 	}
 
 	/* Disallow old api usage */
