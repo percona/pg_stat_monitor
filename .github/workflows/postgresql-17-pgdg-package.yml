@@ -34,7 +34,7 @@ jobs:
       - name: Install PG Distribution Postgresql 17
         run: |
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt \
-            $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+            $(lsb_release -cs)-pgdg main 17" > /etc/apt/sources.list.d/pgdg.list'
           sudo wget --quiet -O - \
             https://www.postgresql.org/media/keys/ACCC4CF8.asc |
             sudo apt-key add -
