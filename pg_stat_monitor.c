@@ -1362,9 +1362,10 @@ pgsm_update_entry(pgsmEntry * entry,
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
 	/* Start collecting data for next bucket and reset all counters and timestamps */
-	if (reset) {
+	if (reset)
+	{
 		memset(&entry->counters, 0, sizeof(Counters));
-		entry->stats_since =  GetCurrentTimestamp();
+		entry->stats_since = GetCurrentTimestamp();
 		entry->minmax_stats_since = entry->stats_since;
 	}
 
@@ -2050,7 +2051,7 @@ IsBucketValid(uint64 bucketid)
 
 	TimestampDifference(pgsm->bucket_start_time[bucketid], current_tz, &secs, &microsecs);
 
-	if (secs > ((int64)pgsm_bucket_time * pgsm_max_buckets))
+	if (secs > ((int64) pgsm_bucket_time * pgsm_max_buckets))
 		return false;
 	return true;
 }
@@ -2069,9 +2070,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	PGSM_HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
-	
-	int	expected_columns;
-	switch (api_version) {
+
+	int expected_columns;
+	switch (api_version)
+	{
 		case PGSM_V1_0:
 			expected_columns = PG_STAT_MONITOR_COLS_V1_0;
 			break;
@@ -2083,8 +2085,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			break;
 		default:
 			ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Unknown API version")));
+					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+					 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Unknown API version")));
 	}
 
 	/* Disallow old api usage */
