@@ -868,7 +868,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	 * top level planner call.
 	 */
 
-	bool enabled;
+	bool		enabled;
 #if PG_VERSION_NUM >= 170000
 	enabled = pgsm_enabled(nesting_level);
 #else
@@ -920,9 +920,9 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		PG_FINALLY();
 		{
 #if PG_VERSION_NUM >= 170000
-		nesting_level--;
+			nesting_level--;
 #else
-		plan_nested_level--;
+			plan_nested_level--;
 #endif
 		}
 		PG_END_TRY();
@@ -962,7 +962,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		 * Even though we're not tracking plan time for this statement, we
 		 * must still increment the nesting level, to ensure that functions
 		 * evaluated during planning are not seen as top-level calls.
-		 * 
+		 *
 		 * If there is a previous installed hook, then assume it's going to
 		 * call standard_planner() function, otherwise we call the function
 		 * here. This is to avoid calling standard_planner() function twice,
@@ -985,9 +985,9 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		PG_FINALLY();
 		{
 #if PG_VERSION_NUM >= 170000
-		nesting_level--;
+			nesting_level--;
 #else
-		plan_nested_level--;
+			plan_nested_level--;
 #endif
 		}
 		PG_END_TRY();
@@ -1028,7 +1028,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 {
 	Node	   *parsetree = pstmt->utilityStmt;
 	uint64		queryId = 0;
-	bool enabled = pgsm_track_utility && pgsm_enabled(nesting_level);
+	bool		enabled = pgsm_track_utility && pgsm_enabled(nesting_level);
 
 #if PG_VERSION_NUM < 140000
 	int			len = strlen(queryString);
@@ -1066,8 +1066,8 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * Likewise, we don't track execution of DEALLOCATE.
 	 */
 	if (enabled &&
-		!IsA(parsetree, ExecuteStmt) && 
- 		!IsA(parsetree, PrepareStmt) && 
+		!IsA(parsetree, ExecuteStmt) &&
+		!IsA(parsetree, PrepareStmt) &&
 		!IsA(parsetree, DeallocateStmt))
 	{
 		pgsmEntry  *entry;
@@ -1227,16 +1227,16 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		 * pgss_ExecutorStart, we will treat the costs as top-level if
 		 * appropriate.  Likewise, don't bump for PREPARE, so that parse
 		 * analysis will treat the statement as top-level if appropriate.
-		 * 
+		 *
 		 * Likewise, we don't track execution of DEALLOCATE.
 		 *
 		 * To be absolutely certain we don't mess up the nesting level,
 		 * evaluate the bump_level condition just once.
 		 */
-		bool	bump_level =
-				!IsA(parsetree, ExecuteStmt) &&
-				!IsA(parsetree, PrepareStmt) &&
-				!IsA(parsetree, DeallocateStmt);
+		bool		bump_level =
+			!IsA(parsetree, ExecuteStmt) &&
+			!IsA(parsetree, PrepareStmt) &&
+			!IsA(parsetree, DeallocateStmt);
 
 		if (bump_level)
 			nesting_level++;
@@ -1244,48 +1244,48 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		PG_TRY();
 		{
 #if PG_VERSION_NUM >= 140000
-		if (prev_ProcessUtility)
-			prev_ProcessUtility(pstmt, queryString,
-								readOnlyTree,
-								context, params, queryEnv,
-								dest,
-								qc);
-		else
-			standard_ProcessUtility(pstmt, queryString,
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString,
 									readOnlyTree,
 									context, params, queryEnv,
 									dest,
 									qc);
+			else
+				standard_ProcessUtility(pstmt, queryString,
+										readOnlyTree,
+										context, params, queryEnv,
+										dest,
+										qc);
 #elif PG_VERSION_NUM >= 130000
-		if (prev_ProcessUtility)
-			prev_ProcessUtility(pstmt, queryString,
-								context, params, queryEnv,
-								dest,
-								qc);
-		else
-			standard_ProcessUtility(pstmt, queryString,
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString,
 									context, params, queryEnv,
 									dest,
 									qc);
+			else
+				standard_ProcessUtility(pstmt, queryString,
+										context, params, queryEnv,
+										dest,
+										qc);
 #else
-		if (prev_ProcessUtility)
-			prev_ProcessUtility(pstmt, queryString,
-								context, params, queryEnv,
-								dest,
-								completionTag);
-		else
-			standard_ProcessUtility(pstmt, queryString,
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString,
 									context, params, queryEnv,
 									dest,
 									completionTag);
+			else
+				standard_ProcessUtility(pstmt, queryString,
+										context, params, queryEnv,
+										dest,
+										completionTag);
 #endif
-	}
-	PG_FINALLY();
-	{
-		if (bump_level)
-			nesting_level--;	
-	}
-	PG_END_TRY();
+		}
+		PG_FINALLY();
+		{
+			if (bump_level)
+				nesting_level--;
+		}
+		PG_END_TRY();
 	}
 }
 
@@ -1534,7 +1534,7 @@ pgsm_update_entry(pgsmEntry * entry,
 				if (nesting_level >= 0 && nesting_level < max_stack_depth)
 				{
 					int			parent_query_len = nested_query_txts[nesting_level - 1] ?
-					strlen(nested_query_txts[nesting_level - 1]) : 0;
+						strlen(nested_query_txts[nesting_level - 1]) : 0;
 
 					e->counters.info.parentid = nested_queryids[nesting_level - 1];
 					e->counters.info.parent_query = InvalidDsaPointer;
@@ -2136,7 +2136,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
 
-	int expected_columns;
+	int			expected_columns;
+
 	switch (api_version)
 	{
 		case PGSM_V1_0:
