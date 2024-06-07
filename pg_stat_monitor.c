@@ -73,11 +73,12 @@ do                                                      \
 /*---- Initicalization Function Declarations ----*/
 void		_PG_init(void);
 
-/* Current nesting depth of ExecutorRun+ProcessUtility calls */
-static int	exec_nested_level = 0;
+/* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
+static int	nesting_level = 0;
 volatile bool __pgsm_do_not_capture_error = false;
 
-#if PG_VERSION_NUM >= 130000
+#if PG_VERSION_NUM >= 130000 && PG_VERSION_NUM < 170000
+/* Before planner nesting level was conunted separately */
 static int	plan_nested_level = 0;
 #endif
 
@@ -199,11 +200,6 @@ DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 #endif
 static uint64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
-
-#define PGSM_HANDLED_UTILITY(n)  (!IsA(n, ExecuteStmt) && \
-									!IsA(n, PrepareStmt) && \
-									!IsA(n, DeallocateStmt))
-
 
 static pgsmEntry * pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info);
 static void pgsm_add_to_list(pgsmEntry * entry, char *query_text, int query_len);
@@ -428,17 +424,18 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 		}
 	}
 
-	if (!pgsm_enabled(exec_nested_level))
+	if (!pgsm_enabled(nesting_level))
 		return;
 
 	/*
-	 * Clear queryId for prepared statements related utility, as those will
-	 * inherit from the underlying statement's one (except DEALLOCATE which is
-	 * entirely untracked).
+	 * If it's EXECUTE, clear the queryId so that stats will accumulate for
+	 * the underlying PREPARE.  But don't do this if we're not tracking
+	 * utility statements, to avoid messing up another extension that might be
+	 * tracking them.
 	 */
 	if (query->utilityStmt)
 	{
-		if (pgsm_track_utility && !PGSM_HANDLED_UTILITY(query->utilityStmt))
+		if (pgsm_track_utility && IsA(query->utilityStmt, ExecuteStmt))
 			query->queryId = UINT64CONST(0);
 
 		return;
@@ -571,7 +568,7 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 * counting of optimizable statements that are directly contained in
 	 * utility statements.
 	 */
-	if (pgsm_enabled(exec_nested_level) &&
+	if (pgsm_enabled(nesting_level) &&
 		queryDesc->plannedstmt->queryId != UINT64CONST(0))
 	{
 		/*
@@ -602,37 +599,37 @@ static void
 pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 				 bool execute_once)
 {
-	if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+	if (nesting_level >= 0 && nesting_level < max_stack_depth)
 	{
-		nested_queryids[exec_nested_level] = queryDesc->plannedstmt->queryId;
-		nested_query_txts[exec_nested_level] = strdup(queryDesc->sourceText);
+		nested_queryids[nesting_level] = queryDesc->plannedstmt->queryId;
+		nested_query_txts[nesting_level] = strdup(queryDesc->sourceText);
 	}
 
-	exec_nested_level++;
+	nesting_level++;
 	PG_TRY();
 	{
 		if (prev_ExecutorRun)
 			prev_ExecutorRun(queryDesc, direction, count, execute_once);
 		else
 			standard_ExecutorRun(queryDesc, direction, count, execute_once);
-		exec_nested_level--;
-		if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+		nesting_level--;
+		if (nesting_level >= 0 && nesting_level < max_stack_depth)
 		{
-			nested_queryids[exec_nested_level] = UINT64CONST(0);
-			if (nested_query_txts[exec_nested_level])
-				free(nested_query_txts[exec_nested_level]);
-			nested_query_txts[exec_nested_level] = NULL;
+			nested_queryids[nesting_level] = UINT64CONST(0);
+			if (nested_query_txts[nesting_level])
+				free(nested_query_txts[nesting_level]);
+			nested_query_txts[nesting_level] = NULL;
 		}
 	}
 	PG_CATCH();
 	{
-		exec_nested_level--;
-		if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+		nesting_level--;
+		if (nesting_level >= 0 && nesting_level < max_stack_depth)
 		{
-			nested_queryids[exec_nested_level] = UINT64CONST(0);
-			if (nested_query_txts[exec_nested_level])
-				free(nested_query_txts[exec_nested_level]);
-			nested_query_txts[exec_nested_level] = NULL;
+			nested_queryids[nesting_level] = UINT64CONST(0);
+			if (nested_query_txts[nesting_level])
+				free(nested_query_txts[nesting_level]);
+			nested_query_txts[nesting_level] = NULL;
 		}
 		PG_RE_THROW();
 	}
@@ -645,7 +642,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 static void
 pgsm_ExecutorFinish(QueryDesc *queryDesc)
 {
-	exec_nested_level++;
+	nesting_level++;
 
 	PG_TRY();
 	{
@@ -653,11 +650,11 @@ pgsm_ExecutorFinish(QueryDesc *queryDesc)
 			prev_ExecutorFinish(queryDesc);
 		else
 			standard_ExecutorFinish(queryDesc);
-		exec_nested_level--;
+		nesting_level--;
 	}
 	PG_CATCH();
 	{
-		exec_nested_level--;
+		nesting_level--;
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
@@ -725,7 +722,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		MemoryContextSwitchTo(oldctx);
 	}
 
-	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(exec_nested_level))
+	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
 	{
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true);
 		if (!entry)
@@ -871,8 +868,14 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	 * top level planner call.
 	 */
 
-	if (pgsm_enabled(plan_nested_level + exec_nested_level) &&
-		pgsm_track_planning && query_string && parse->queryId != UINT64CONST(0))
+	bool enabled;
+#if PG_VERSION_NUM >= 170000
+	enabled = pgsm_enabled(nesting_level);
+#else
+	enabled = pgsm_enabled(plan_nested_level + nesting_level);
+#endif
+
+	if (enabled && pgsm_track_planning && query_string && parse->queryId != UINT64CONST(0))
 	{
 		pgsmEntry  *entry = NULL;
 		instr_time	start;
@@ -895,7 +898,11 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		if (MemoryContextIsValid(MessageContext))
 			entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true);
 
+#if PG_VERSION_NUM >= 170000
+		nesting_level++;
+#else
 		plan_nested_level++;
+#endif
 		PG_TRY();
 		{
 			/*
@@ -912,7 +919,11 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		}
 		PG_FINALLY();
 		{
-			plan_nested_level--;
+#if PG_VERSION_NUM >= 170000
+		nesting_level--;
+#else
+		plan_nested_level--;
+#endif
 		}
 		PG_END_TRY();
 
@@ -948,19 +959,38 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	else
 	{
 		/*
+		 * Even though we're not tracking plan time for this statement, we
+		 * must still increment the nesting level, to ensure that functions
+		 * evaluated during planning are not seen as top-level calls.
+		 * 
 		 * If there is a previous installed hook, then assume it's going to
 		 * call standard_planner() function, otherwise we call the function
 		 * here. This is to avoid calling standard_planner() function twice,
 		 * since it modifies the first argument (Query *), the second call
 		 * would trigger an assertion failure.
 		 */
-		plan_nested_level++;
 
-		if (planner_hook_next)
-			result = planner_hook_next(parse, query_string, cursorOptions, boundParams);
-		else
-			result = standard_planner(parse, query_string, cursorOptions, boundParams);
+#if PG_VERSION_NUM >= 170000
+		nesting_level++;
+#else
+		plan_nested_level++;
+#endif
+		PG_TRY();
+		{
+			if (planner_hook_next)
+				result = planner_hook_next(parse, query_string, cursorOptions, boundParams);
+			else
+				result = standard_planner(parse, query_string, cursorOptions, boundParams);
+		}
+		PG_FINALLY();
+		{
+#if PG_VERSION_NUM >= 170000
+		nesting_level--;
+#else
 		plan_nested_level--;
+#endif
+		}
+		PG_END_TRY();
 
 	}
 	return result;
@@ -998,6 +1028,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 {
 	Node	   *parsetree = pstmt->utilityStmt;
 	uint64		queryId = 0;
+	bool enabled = pgsm_track_utility && pgsm_enabled(nesting_level);
 
 #if PG_VERSION_NUM < 140000
 	int			len = strlen(queryString);
@@ -1015,7 +1046,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * since we are already measuring the statement's costs at the utility
 	 * level.
 	 */
-	if (pgsm_track_utility && pgsm_enabled(exec_nested_level))
+	if (enabled)
 		pstmt->queryId = UINT64CONST(0);
 #endif
 
@@ -1028,13 +1059,16 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * hash table entry for the PREPARE (with hash calculated from the query
 	 * string), and then a different one with the same query string (but hash
 	 * calculated from the query tree) would be used to accumulate costs of
-	 * ensuing EXECUTEs.  This would be confusing, and inconsistent with other
-	 * cases where planning time is not included at all.
+	 * ensuing EXECUTEs.  This would be confusing.  Since PREPARE doesn't
+	 * actually run the planner (only parse+rewrite), its costs are generally
+	 * pretty negligible and it seems okay to just ignore it.
 	 *
 	 * Likewise, we don't track execution of DEALLOCATE.
 	 */
-	if (pgsm_track_utility && pgsm_enabled(exec_nested_level) &&
-		PGSM_HANDLED_UTILITY(parsetree))
+	if (enabled &&
+		!IsA(parsetree, ExecuteStmt) && 
+ 		!IsA(parsetree, PrepareStmt) && 
+		!IsA(parsetree, DeallocateStmt))
 	{
 		pgsmEntry  *entry;
 		char	   *query_text;
@@ -1055,7 +1089,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
 
 		INSTR_TIME_SET_CURRENT(start);
-		exec_nested_level++;
+		nesting_level++;
 
 		PG_TRY();
 		{
@@ -1095,11 +1129,11 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										dest,
 										completionTag);
 #endif
-			exec_nested_level--;
+			nesting_level--;
 		}
 		PG_CATCH();
 		{
-			exec_nested_level--;
+			nesting_level--;
 			PG_RE_THROW();
 		}
 
@@ -1185,6 +1219,30 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	}
 	else
 	{
+		/*
+		 * Even though we're not tracking execution time for this statement,
+		 * we must still increment the nesting level, to ensure that functions
+		 * evaluated within it are not seen as top-level calls.  But don't do
+		 * so for EXECUTE; that way, when control reaches pgss_planner or
+		 * pgss_ExecutorStart, we will treat the costs as top-level if
+		 * appropriate.  Likewise, don't bump for PREPARE, so that parse
+		 * analysis will treat the statement as top-level if appropriate.
+		 * 
+		 * Likewise, we don't track execution of DEALLOCATE.
+		 *
+		 * To be absolutely certain we don't mess up the nesting level,
+		 * evaluate the bump_level condition just once.
+		 */
+		bool	bump_level =
+				!IsA(parsetree, ExecuteStmt) &&
+				!IsA(parsetree, PrepareStmt) &&
+				!IsA(parsetree, DeallocateStmt);
+
+		if (bump_level)
+			nesting_level++;
+
+		PG_TRY();
+		{
 #if PG_VERSION_NUM >= 140000
 		if (prev_ProcessUtility)
 			prev_ProcessUtility(pstmt, queryString,
@@ -1221,6 +1279,13 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 									dest,
 									completionTag);
 #endif
+	}
+	PG_FINALLY();
+	{
+		if (bump_level)
+			nesting_level--;	
+	}
+	PG_END_TRY();
 	}
 }
 
@@ -1464,14 +1529,14 @@ pgsm_update_entry(pgsmEntry * entry,
 			e->counters.info.num_relations = num_relations;
 			_snprintf2(e->counters.info.relations, relations, num_relations, REL_LEN);
 
-			if (exec_nested_level > 0 && e->counters.info.parentid == 0 && pgsm_track == PGSM_TRACK_ALL)
+			if (nesting_level > 0 && e->counters.info.parentid == 0 && pgsm_track == PGSM_TRACK_ALL)
 			{
-				if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+				if (nesting_level >= 0 && nesting_level < max_stack_depth)
 				{
-					int			parent_query_len = nested_query_txts[exec_nested_level - 1] ?
-					strlen(nested_query_txts[exec_nested_level - 1]) : 0;
+					int			parent_query_len = nested_query_txts[nesting_level - 1] ?
+					strlen(nested_query_txts[nesting_level - 1]) : 0;
 
-					e->counters.info.parentid = nested_queryids[exec_nested_level - 1];
+					e->counters.info.parentid = nested_queryids[nesting_level - 1];
 					e->counters.info.parent_query = InvalidDsaPointer;
 					/* If we have a parent query, store it in the raw dsa area */
 					if (parent_query_len > 0)
@@ -1489,7 +1554,7 @@ pgsm_update_entry(pgsmEntry * entry,
 						if (DsaPointerIsValid(qry))
 						{
 							qry_buff = dsa_get_address(query_dsa_area, qry);
-							memcpy(qry_buff, nested_query_txts[exec_nested_level - 1], parent_query_len);
+							memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
 							qry_buff[parent_query_len] = 0;
 							/* store the dsa pointer for parent query text */
 							e->counters.info.parent_query = qry;
@@ -1750,7 +1815,7 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 #if PG_VERSION_NUM < 140000
 	entry->key.toplevel = 1;
 #else
-	entry->key.toplevel = ((exec_nested_level + plan_nested_level) == 0);
+	entry->key.toplevel = ((nesting_level) == 0);
 #endif
 
 	if (IsTransactionState())
