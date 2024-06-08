@@ -1279,11 +1279,14 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										dest,
 										completionTag);
 #endif
+			if (bump_level)
+				nesting_level--;
 		}
-		PG_FINALLY();
+		PG_CATCH();
 		{
 			if (bump_level)
 				nesting_level--;
+			PG_RE_THROW();
 		}
 		PG_END_TRY();
 	}
