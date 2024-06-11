@@ -1818,7 +1818,11 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 #if PG_VERSION_NUM < 140000
 	entry->key.toplevel = 1;
 #else
+#if PG_VERSION_NUM >= 170000
 	entry->key.toplevel = ((nesting_level) == 0);
+#else
+	entry->key.toplevel = ((nesting_level + plan_nested_level) == 0);
+#endif
 #endif
 
 	if (IsTransactionState())
