@@ -1233,6 +1233,8 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		 * To be absolutely certain we don't mess up the nesting level,
 		 * evaluate the bump_level condition just once.
 		 */
+
+#if PG_VERSION_NUM >= 170000
 		bool		bump_level =
 			!IsA(parsetree, ExecuteStmt) &&
 			!IsA(parsetree, PrepareStmt) &&
@@ -1243,6 +1245,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		PG_TRY();
 		{
+#endif
 #if PG_VERSION_NUM >= 140000
 			if (prev_ProcessUtility)
 				prev_ProcessUtility(pstmt, queryString,
@@ -1279,6 +1282,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										dest,
 										completionTag);
 #endif
+#if PG_VERSION_NUM >= 170000
 			if (bump_level)
 				nesting_level--;
 		}
@@ -1289,6 +1293,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 			PG_RE_THROW();
 		}
 		PG_END_TRY();
+#endif
 	}
 }
 

@@ -96,9 +96,10 @@ SELECT toplevel, calls, query FROM pg_stat_monitor
   ORDER BY query COLLATE "C", toplevel;
  toplevel | calls |             query              
 ----------+-------+--------------------------------
- t        |     1 | DELETE FROM stats_track_tab
+ t        |     2 | DELETE FROM stats_track_tab
+ t        |     1 | SELECT $1::TEXT
  t        |     1 | SELECT pg_stat_monitor_reset()
-(2 rows)
+(3 rows)
 
 -- DO block - all-level tracking without utility.
 SET pg_stat_monitor.pgsm_track = 'all';
@@ -122,11 +123,10 @@ SELECT toplevel, calls, query FROM pg_stat_monitor
   ORDER BY query COLLATE "C", toplevel;
  toplevel | calls |             query              
 ----------+-------+--------------------------------
- f        |     1 | DELETE FROM stats_track_tab
- t        |     1 | DELETE FROM stats_track_tab
- f        |     1 | SELECT $1::TEXT
+ t        |     2 | DELETE FROM stats_track_tab
+ t        |     1 | SELECT $1::TEXT
  t        |     1 | SELECT pg_stat_monitor_reset()
-(4 rows)
+(3 rows)
 
 -- PL/pgSQL function - top-level tracking.
 SET pg_stat_monitor.pgsm_track = 'top';
