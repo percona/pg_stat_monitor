@@ -35,6 +35,15 @@ $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_normalized_query = y
 my $rt_value = $node->start;
 ok($rt_value == 1, "Start Server");
 
+my $col_shared_blk_read_time = "shared_blk_read_time";
+my $col_shared_blk_write_time = "shared_blk_write_time";
+
+if ($PGSM::PG_MAJOR_VERSION <= 16)
+{
+    $col_shared_blk_read_time = "blk_read_time";
+    $col_shared_blk_write_time = "blk_write_time";
+}
+
 # CREATE EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'CREATE EXTENSION pg_stat_statements;', extra_params => ['-a']);
 ok($cmdret == 0, "CREATE PGSS EXTENSION");
@@ -86,7 +95,7 @@ PGSM::append_to_debug_file($stdout);
 PGSM::append_to_debug_file($stdout);
 PGSM::append_to_debug_file("--------");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT substr(query,0,130) AS query, calls, rows, shared_blks_hit, shared_blks_read, shared_blks_dirtied, shared_blks_written, blk_read_time, blk_write_time FROM pg_stat_monitor WHERE query LIKE \'%bench%\' ORDER BY query,calls DESC;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT substr(query,0,130) AS query, calls, rows, shared_blks_hit, shared_blks_read, shared_blks_dirtied, shared_blks_written, ${col_shared_blk_read_time}, ${col_shared_blk_write_time} FROM pg_stat_monitor WHERE query LIKE '%bench%' ORDER BY query,calls DESC;", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_debug_file($stdout);
 
 # Compare values for query 'DELETE FROM pgbench_accounts WHERE $1 = $2'
@@ -106,13 +115,13 @@ is($stdout,'t',"Check: shared_blks_dirtied should not be 0.");
 trim($stdout);
 is($stdout,'t',"Check: shared_blks_written should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres','SELECT SUM(PGSM.blk_read_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',"SELECT SUM(PGSM.${col_shared_blk_read_time}) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE '%DELETE FROM pgbench_accounts%' GROUP BY PGSM.query;", extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
-is($stdout,'t',"Check: blk_read_time should not be 0.");
+is($stdout,'t',"Check: ${col_shared_blk_read_time} should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres','SELECT SUM(PGSM.blk_write_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',"SELECT SUM(PGSM.${col_shared_blk_write_time}) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE '%DELETE FROM pgbench_accounts%' GROUP BY PGSM.query;", extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
-is($stdout,'t',"Check: blk_write_time should not be 0.");
+is($stdout,'t',"Check: ${col_shared_blk_write_time} should not be 0.");
 
 # Compare values for query 'INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres','SELECT SUM(PGSM.shared_blks_hit) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
@@ -127,9 +136,9 @@ is($stdout,'t',"Check: shared_blks_dirtied should not be 0.");
 trim($stdout);
 is($stdout,'t',"Check: shared_blks_written should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres','SELECT SUM(PGSM.blk_write_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',"SELECT SUM(PGSM.${col_shared_blk_write_time}) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE '%INSERT INTO pgbench_history%' GROUP BY PGSM.query;", extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
-is($stdout,'t',"Check: blk_write_time should not be 0.");
+is($stdout,'t',"Check: ${col_shared_blk_write_time} should not be 0.");
 
 # Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2' 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres','SELECT SUM(PGSM.shared_blks_hit) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts SET abalance%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
@@ -148,13 +157,13 @@ is($stdout,'t',"Check: shared_blks_dirtied should not be 0.");
 trim($stdout);
 is($stdout,'t',"Check: shared_blks_written should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres','SELECT SUM(PGSM.blk_read_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts SET abalance%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT SUM(PGSM.${col_shared_blk_read_time}) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE '%UPDATE pgbench_accounts SET abalance%' GROUP BY PGSM.query;", extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
-is($stdout,'t',"Check: blk_read_time should not be 0.");
+is($stdout,'t',"Check: ${col_shared_blk_read_time} should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres','SELECT SUM(PGSM.blk_write_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts SET abalance%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',"SELECT SUM(PGSM.${col_shared_blk_write_time}) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE '%UPDATE pgbench_accounts SET abalance%' GROUP BY PGSM.query;", extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
-is($stdout,'t',"Check: blk_write_time should not be 0.");
+is($stdout,'t',"Check: ${col_shared_blk_write_time} should not be 0.");
 
 # DROP EXTENSION
 $stdout = $node->safe_psql('postgres', 'DROP EXTENSION pg_stat_monitor;', extra_params => ['-a']);

@@ -274,31 +274,33 @@ typedef struct Calls
 
 typedef struct Blocks
 {
-	int64		shared_blks_hit;	/* # of shared buffer hits */
-	int64		shared_blks_read;	/* # of shared disk blocks read */
+	int64		shared_blks_hit;		/* # of shared buffer hits */
+	int64		shared_blks_read;		/* # of shared disk blocks read */
 	int64		shared_blks_dirtied;	/* # of shared disk blocks dirtied */
 	int64		shared_blks_written;	/* # of shared disk blocks written */
-	int64		local_blks_hit; /* # of local buffer hits */
-	int64		local_blks_read;	/* # of local disk blocks read */
-	int64		local_blks_dirtied; /* # of local disk blocks dirtied */
-	int64		local_blks_written; /* # of local disk blocks written */
-	int64		temp_blks_read; /* # of temp blocks read */
-	int64		temp_blks_written;	/* # of temp blocks written */
-	double		blk_read_time;	/* time spent reading, in msec */
-	double		blk_write_time; /* time spent writing, in msec */
-
-	double		temp_blk_read_time; /* time spent reading temp blocks, in msec */
-	double		temp_blk_write_time;	/* time spent writing temp blocks, in
-										 * msec */
+	int64		local_blks_hit;			/* # of local buffer hits */
+	int64		local_blks_read;		/* # of local disk blocks read */
+	int64		local_blks_dirtied;		/* # of local disk blocks dirtied */
+	int64		local_blks_written;		/* # of local disk blocks written */
+	int64		temp_blks_read;			/* # of temp blocks read */
+	int64		temp_blks_written;		/* # of temp blocks written */
+	double 		shared_blk_read_time;	/* time spent reading shared blocks, in msec */
+	double 		shared_blk_write_time;	/* time spent writing shared blocks, in msec */
+	double 		local_blk_read_time;	/* time spent reading local blocks, in msec */
+	double 		local_blk_write_time;	/* time spent writing local blocks, in msec */
+	double 		temp_blk_read_time;		/* time spent reading temp blocks, in msec */
+	double 		temp_blk_write_time;	/* time spent writing temp blocks, in msec */
 
 	/*
 	 * Variables for local entry. The values to be passed to pgsm_update_entry
 	 * from pgsm_store.
 	 */
-	instr_time	instr_blk_read_time;	/* time spent reading blocks */
-	instr_time	instr_blk_write_time;	/* time spent writing blocks */
-	instr_time	instr_temp_blk_read_time;	/* time spent reading temp blocks */
-	instr_time	instr_temp_blk_write_time;	/* time spent writing temp blocks */
+	instr_time      instr_shared_blk_read_time;	 /* time spent reading shared blocks */
+	instr_time      instr_shared_blk_write_time; /* time spent writing shared blocks */
+	instr_time      instr_local_blk_read_time;	 /* time spent reading local blocks */
+	instr_time      instr_local_blk_write_time;  /* time spent writing local blocks */
+	instr_time      instr_temp_blk_read_time;	 /* time spent reading temp blocks */
+	instr_time      instr_temp_blk_write_time;	 /* time spent writing temp blocks */
 }			Blocks;
 
 typedef struct JitInfo
@@ -307,6 +309,9 @@ typedef struct JitInfo
 	double		jit_generation_time;	/* total time to generate jit code */
 	int64		jit_inlining_count; /* number of times inlining time has been
 									 * > 0 */
+	double		jit_deform_time;	/* total time to deform tuples in jit code */
+	int64		jit_deform_count;	/* number of times deform time has been >
+									 * 0 */
 	double		jit_inlining_time;	/* total time to inline jit code */
 	int64		jit_optimization_count; /* number of times optimization time
 										 * has been > 0 */
@@ -321,6 +326,7 @@ typedef struct JitInfo
 	 */
 	instr_time	instr_generation_counter;	/* generation counter */
 	instr_time	instr_inlining_counter; /* inlining counter */
+	instr_time	instr_deform_counter; /* deform counter */
 	instr_time	instr_optimization_counter; /* optimization counter */
 	instr_time	instr_emission_counter; /* emission counter */
 }			JitInfo;
@@ -370,6 +376,8 @@ typedef struct pgsmEntry
 	char		username[NAMEDATALEN];	/* user name */
 	Counters	counters;		/* the statistics for this query */
 	int			encoding;		/* query text encoding */
+	TimestampTz stats_since;	/* timestamp of entry allocation */
+	TimestampTz minmax_stats_since; /* timestamp of last min/max values reset */
 	slock_t		mutex;			/* protects the counters only */
 	union
 	{
