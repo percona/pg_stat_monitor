@@ -1258,6 +1258,12 @@ pgsm_hash_string(const char *str, int len)
 static PgBackendStatus *
 pg_get_backend_status(void)
 {
+
+#if PG_VERSION_NUM >= 170000
+	return &(pgstat_get_beentry_by_proc_number(MyProcPid)->backendStatus);
+#elif PG_VERSION_NUL >= 160000
+	return &(pgstat_get_local_beentry_by_backend_id(MyBackendId)->backendStatus);
+#else
 	LocalPgBackendStatus *local_beentry;
 	int			num_backends = pgstat_fetch_stat_numbackends();
 	int			i;
@@ -1265,11 +1271,8 @@ pg_get_backend_status(void)
 	for (i = 1; i <= num_backends; i++)
 	{
 		PgBackendStatus *beentry;
-#if PG_VERSION_NUM < 160000
+
 		local_beentry = pgstat_fetch_stat_local_beentry(i);
-#else
-		local_beentry = pgstat_get_local_beentry_by_index(i);
-#endif
 		if (!local_beentry)
 			continue;
 
@@ -1279,6 +1282,8 @@ pg_get_backend_status(void)
 			return beentry;
 	}
 	return NULL;
+
+#endif
 }
 
 /*
