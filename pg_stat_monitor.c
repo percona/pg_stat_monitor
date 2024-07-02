@@ -103,8 +103,8 @@ static struct rusage rusage_start;
 static struct rusage rusage_end;
 
 /* Application name and length; set each time when an entry is created locally */
-char		app_name[APPLICATIONNAME_LEN];
-int			app_name_len;
+static char app_name[APPLICATIONNAME_LEN];
+static int	app_name_len;
 
 
 /* Query buffer, store queries' text. */
@@ -1680,7 +1680,6 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 	pgsmEntry  *entry;
 	int			sec_ctx;
 	bool		found_client_addr = false;
-	char	   *app_name_ptr = app_name;
 	MemoryContext oldctx;
 	char	   *datname = NULL;
 	char	   *username = NULL;
@@ -1696,8 +1695,11 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 	GetUserIdAndSecContext((Oid *) &entry->key.userid, &sec_ctx);
 
 	/* Get the application name and set appid */
-	app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
-	entry->key.appid = pgsm_hash_string((const char *) app_name_ptr, app_name_len);
+	if (app_name_len == 0)
+	{
+		app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
+	}
+	entry->key.appid = pgsm_hash_string((const char *) app_name, app_name_len);
 
 	/* client address */
 	if (!pgsm_client_ip_is_valid())
