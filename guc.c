@@ -33,6 +33,7 @@ bool		pgsm_enable_query_plan;
 bool		pgsm_enable_overflow;
 bool		pgsm_normalized_query;
 bool		pgsm_track_utility;
+bool		pgsm_track_application_names;
 bool		pgsm_enable_pgsm_query_id;
 int			pgsm_track;
 static int	pgsm_overflow_target;	/* Not used since 2.0 */
@@ -183,6 +184,18 @@ init_guc(void)
 							 NULL,	/* long_desc */
 							 &pgsm_track_utility,	/* value address */
 							 true,	/* boot value */
+							 PGC_USERSET,	/* context */
+							 0, /* flags */
+							 NULL,	/* check_hook */
+							 NULL,	/* assign_hook */
+							 NULL	/* show_hook */
+		);
+
+	DefineCustomBoolVariable("pg_stat_monitor.pgsm_track_application_names",	/* name */
+							 "Enable/Disable application names tracking.",	/* short_desc */
+							 NULL,	/* long_desc */
+							 &pgsm_track_application_names, /* value address */
+							 false, /* boot value */
 							 PGC_USERSET,	/* context */
 							 0, /* flags */
 							 NULL,	/* check_hook */

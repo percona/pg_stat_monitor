@@ -1,4 +1,5 @@
 CREATE EXTENSION pg_stat_monitor;
+SET pg_stat_monitor.pgsm_track_application_names='TRUE';
 SELECT pg_stat_monitor_reset();
 SET application_name = 'naeem' ; 
 SELECT 1 AS num;

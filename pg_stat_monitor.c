@@ -1699,12 +1699,13 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 	 */
 	GetUserIdAndSecContext((Oid *) &entry->key.userid, &sec_ctx);
 
-	/* Get the application name and set appid */
-	if (app_name_len == 0)
+
+	if (pgsm_track_application_names)
 	{
+		/* Get the application name and set appid */
 		app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
+		entry->key.appid = pgsm_hash_string((const char *) app_name, app_name_len);
 	}
-	entry->key.appid = pgsm_hash_string((const char *) app_name, app_name_len);
 
 	/* client address */
 	if (!pgsm_client_ip_is_valid())
