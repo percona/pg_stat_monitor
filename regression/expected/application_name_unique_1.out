@@ -1,5 +1,4 @@
 CREATE EXTENSION pg_stat_monitor;
-SET pg_stat_monitor.pgsm_track_application_names='TRUE';
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------

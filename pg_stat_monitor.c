@@ -1456,7 +1456,7 @@ pgsm_update_entry(pgsmEntry * entry,
 		/* Only should process this once when storing the data */
 		if (kind == PGSM_STORE)
 		{
-			if (app_name_len > 0 && !e->counters.info.application_name[0])
+			if (pgsm_track_application_names && app_name_len > 0 && !e->counters.info.application_name[0])
 				_snprintf(e->counters.info.application_name, app_name, app_name_len + 1, APPLICATIONNAME_LEN);
 
 			e->counters.info.num_relations = num_relations;
@@ -1698,7 +1698,6 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 	 * throw an assertion in case of an error.
 	 */
 	GetUserIdAndSecContext((Oid *) &entry->key.userid, &sec_ctx);
-
 
 	if (pgsm_track_application_names)
 	{
