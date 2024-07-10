@@ -15,7 +15,7 @@ jobs:
           path: src/pg_stat_monitor
 
       - name: Install PGXN Client
-        run: pip install pgxnclient
+        run: sudo pip install pgxnclient
       
       - name: Install PGXN Utils
         run: sudo pgxn install pgxn_utils
