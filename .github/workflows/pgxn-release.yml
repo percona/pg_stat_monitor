@@ -1,0 +1,17 @@
+name: PGXN
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          path: src/pg_stat_monitor
+
+      - name: Install PGXN Client
+        run: pip install pgxnclient
