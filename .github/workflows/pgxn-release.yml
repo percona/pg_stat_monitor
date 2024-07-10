@@ -16,3 +16,9 @@ jobs:
 
       - name: Install PGXN Client
         run: pip install pgxnclient
+      
+      - name: Install PGXN Utils
+        run: pgxn install pgxn_utils
+
+      - name: Install PGXN meta validator
+        run: cpan PGXN::Meta::Validator
