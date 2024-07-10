@@ -195,7 +195,7 @@ init_guc(void)
 							 "Enable/Disable application names tracking.",	/* short_desc */
 							 NULL,	/* long_desc */
 							 &pgsm_track_application_names, /* value address */
-							 true, /* boot value */
+							 true,	/* boot value */
 							 PGC_USERSET,	/* context */
 							 0, /* flags */
 							 NULL,	/* check_hook */
