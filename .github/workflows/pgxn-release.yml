@@ -18,7 +18,7 @@ jobs:
         run: sudo pip install pgxnclient
       
       - name: Install PGXN Utils
-        run: sudo pgxn install pgxn_utils
+        run: gem install pgxn_utils
 
       - name: Install PGXN meta validator
         run: sudo cpan PGXN::Meta::Validator
