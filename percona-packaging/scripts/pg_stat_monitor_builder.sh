@@ -209,10 +209,19 @@ install_deps() {
         chmod 777 /usr/bin/percona-release
         percona-release enable ${PPG_REPO_NAME} testing
 
+        if [ x"$RHEL" = x8 ];
+        then
+                clang_version=$(yum list --showduplicates clang-devel | grep "16.0" | awk '{print $2}' | head -n 1)
+                yum install -y clang-devel-${clang_version} clang-${clang_version}
+                dnf module -y disable llvm-toolset
+        else
+                yum install -y clang-devel clang
+        fi
+
         PKGLIST="percona-postgresql${PG_RELEASE}-devel"
-        PKGLIST+=" clang-devel git clang llvm-devel rpmdevtools vim wget"
+        PKGLIST+=" git llvm-devel rpmdevtools vim wget"
         PKGLIST+=" perl binutils gcc gcc-c++"
-        PKGLIST+=" clang-devel llvm-devel git rpm-build rpmdevtools wget gcc make autoconf"
+        PKGLIST+=" llvm-devel git rpm-build rpmdevtools wget gcc make autoconf"
         if [[ "${RHEL}" -ge 8 ]]; then
             dnf config-manager --set-enabled ol${RHEL}_codeready_builder
             dnf -y module disable postgresql || true
