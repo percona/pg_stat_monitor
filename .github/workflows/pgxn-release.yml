@@ -10,7 +10,7 @@ on:
 jobs:
   release:
     name: Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container: pgxn/pgxn-tools
     steps:
     - name: Validate version tag
