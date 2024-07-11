@@ -1,5 +1,6 @@
 name: PGXN
 on:
+  pull_request:
   workflow_dispatch:
     inputs:
       version:
@@ -14,14 +15,18 @@ jobs:
     container: pgxn/pgxn-tools
     steps:
     - name: Validate version tag
-      run: '[[ ${{ inputs.version }} =~ ^[0-9]+.[0-9]+.[0-9]+ ]]'
+      run: '[[ 3.4.5 =~ ^[0-9]+.[0-9]+.[0-9]+ ]]'
+      shell: bash
+
     - name: Check out
       uses: actions/checkout@v4
       with:
         ref: '${{ inputs.version }}'
+
     - name: Bundle
       id: bundle
       run: pgxn-bundle
+
     # - name: Upload
     #   env:
     #     PGXN_USERNAME: percona
