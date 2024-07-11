@@ -1,24 +1,29 @@
 name: PGXN
 on:
   workflow_dispatch:
-  pull_request:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        type: string
 
 jobs:
   release:
     name: Release
-    runs-on: ubuntu-20.04
-
+    runs-on: ubuntu-latest
+    container: pgxn/pgxn-tools
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          path: src/pg_stat_monitor
-
-      - name: Install PGXN Client
-        run: sudo pip install pgxnclient
-      
-      - name: Install PGXN Utils
-        run: sudo gem install pgxn_utils
-
-      - name: Install PGXN meta validator
-        run: sudo cpan PGXN::Meta::Validator
+    - name: Validate version tag
+      run: '[[ ${{ inputs.version }} =~ ^[0-9]+.[0-9]+.[0-9]+ ]]'
+    - name: Check out
+      uses: actions/checkout@v4
+      with:
+        ref: '${{ inputs.version }}'
+    - name: Bundle
+      id: bundle
+      run: pgxn-bundle
+    # - name: Upload
+    #   env:
+    #     PGXN_USERNAME: percona
+    #     PGXN_PASSWORD: ${{ secrets.PGXN_PERCONA }}
+    #   run: pgxn-release
