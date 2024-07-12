@@ -1,5 +1,11 @@
-[![postgresql-12-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-12-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-12-pgdg-package.yml)  [![postgresql-13-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-13-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-13-pgdg-package.yml)  [![postgresql-14-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml)  [![postgresql-15-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml)  [![postgresql-16-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-16-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-16-pgdg-package.yml)  [![postgresql-17-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-17-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-17-pgdg-package.yml)
+[![postgresql-12-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-12-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-12-pgdg-package.yml)
+[![postgresql-13-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-13-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-13-pgdg-package.yml)
+[![postgresql-14-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml)
+[![postgresql-15-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml)
+[![postgresql-16-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-16-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-16-pgdg-package.yml)
+[![postgresql-17-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-17-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-17-pgdg-package.yml)
 
+[![PGXN version](https://badge.fury.io/pg/pg_stat_monitor.svg)](https://badge.fury.io/pg/pg_stat_monitor)
 [![Code coverage](https://codecov.io/gh/percona/pg_stat_monitor/branch/main/graph/badge.svg)](https://codecov.io/gh/percona/pg_stat_monitor)
 [![Forum](https://img.shields.io/badge/Forum-join-brightgreen)](https://forums.percona.com/)
 # pg_stat_monitor: Query Performance Monitoring Tool for PostgreSQL
@@ -17,6 +23,8 @@
       - [Installing from Percona repositories](#installing-from-percona-repositories)
       - [Installing from PostgreSQL `yum` repositories](#installing-from-postgresql-yum-repositories)
       - [Installing from PGXN](#installing-from-pgxn)
+      - [Installing from Trunk](#installing-from-trunk)
+      - [Installing from sources](#building-from-source)
     - [Configuration](#configuration)
     - [Setup](#setup)
     - [Building from source](#building-from-source)
@@ -96,10 +104,11 @@ Find the list of supported platforms for `pg_stat_monitor` within [Percona Distr
 
 You can install `pg_stat_monitor` from the following sources:
 
-* [Percona repositories](#installing-from-percona-repositories),
-* [PostgreSQL PGDG yum repositories](#installing-from-postgresql-yum-repositories),
-* [PGXN](#installing-from-pgxn) and
-* [source code](#building-from-source).
+* [Percona repositories](#installing-from-percona-repositories)
+* [PostgreSQL PGDG yum repositories](#installing-from-postgresql-yum-repositories)
+* [PGXN](#installing-from-pgxn)
+* [Trunk](#installing-from-trunk)
+* [source code](#building-from-source)
 
 
 #### Installing from Percona repositories
@@ -140,12 +149,22 @@ Replace the `VERSION` variable with the PostgreSQL version you are using (e.g. s
 
 #### Installing from PGXN
 
-You can install `pg_stat_monitor` from PGXN (PostgreSQL Extensions Network) using the [PGXN client](https://pgxn.github.io/pgxnclient/).
+You can install `pg_stat_monitor` from [PGXN (PostgreSQL Extensions Network)](https://pgxn.org/) using the [PGXN client](https://pgxn.github.io/pgxnclient/).
 
 Use the following command:
 
 ```
 pgxn install pg_stat_monitor
+```
+
+#### Installing from Trunk
+
+You can install `pg_stat_monitor` from [Trunk (A PostgreSQL Extensions Registry)](https://pgt.dev/) using the [Trunk CLI](https://github.com/tembo-io/trunk?tab=readme-ov-file#installation).
+
+Use the following command:
+
+```
+trunk install pg_stat_monitor
 ```
 
 ### Configuration

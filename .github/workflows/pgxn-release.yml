@@ -15,15 +15,19 @@ jobs:
     steps:
     - name: Validate version tag
       run: '[[ ${{ inputs.version }} =~ ^[0-9]+.[0-9]+.[0-9]+ ]]'
+      shell: bash
+
     - name: Check out
       uses: actions/checkout@v4
       with:
         ref: '${{ inputs.version }}'
+
     - name: Bundle
       id: bundle
       run: pgxn-bundle
-    # - name: Upload
-    #   env:
-    #     PGXN_USERNAME: percona
-    #     PGXN_PASSWORD: ${{ secrets.PGXN_PERCONA }}
-    #   run: pgxn-release
+
+    - name: Upload
+      env:
+        PGXN_USERNAME: percona
+        PGXN_PASSWORD: ${{ secrets.PGXN_PERCONA }}
+      run: pgxn-release
