@@ -1,5 +1,11 @@
 name: postgresql-15-pgdg-package
-on: [pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
   build:
@@ -7,7 +13,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           path: 'src/pg_stat_monitor'
 
@@ -22,7 +28,7 @@ jobs:
             /usr/lib/postgresql /usr/include/postgresql /usr/share/postgresql \
             /etc/postgresql
           sudo rm -f /usr/bin/pg_config
-          sudo /usr/bin/perl -MCPAN -e 'install IPC::RUN'
+          sudo /usr/bin/perl -MCPAN -e 'install IPC::Run'
           sudo /usr/bin/perl -MCPAN -e 'install Text::Trim'
 
       - name: Install PG Distribution Postgresql 15
@@ -68,7 +74,7 @@ jobs:
 
       - name: Upload logs on fail
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: Regressions diff and postgresql log
           path: |

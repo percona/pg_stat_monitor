@@ -2,9 +2,10 @@
    "name": "pg_stat_monitor",
    "abstract": "PostgreSQL Query Performance Monitoring Tool",
    "description": "pg_stat_monitor is a PostgreSQL Query Performance Monitoring tool, based on PostgreSQL's contrib module pg_stat_statements. PostgreSQL’s pg_stat_statements provides the basic statistics, which is sometimes not enough. The major shortcoming in pg_stat_statements is that it accumulates all the queries and their statistics and does not provide aggregated statistics nor histogram information. In this case, a user would need to calculate the aggregates, which is quite an expensive operation.",
-   "version": "2.0.1",
+   "version": "2.0.4",
    "maintainer": [
-      "ibrar.ahmed@percona.com"
+      "artem.gavrilov@percona.com",
+      "diego.fronza@percona.com"
    ],
    "license": "postgresql",
    "provides": {
@@ -12,7 +13,7 @@
          "abstract": "PostgreSQL Query Performance Monitoring Tool",
          "file": "pg_stat_monitor--2.0.sql",
          "docfile": "README.md",
-         "version": "2.0.1"
+         "version": "2.0.4"
       }
    },
    "prereqs": {
@@ -23,9 +24,9 @@
       }
    },
    "resources": {
-      "homepage": "https://percona.github.io/pg_stat_monitor/",
+      "homepage": "https://github.com/percona/pg_stat_monitor",
       "bugtracker": {
-         "web": "https://jira.percona.com/projects/PG/issues"
+         "web": "https://perconadev.atlassian.net/jira/software/c/projects/PG/issues"
       },
       "repository": {
         "url":  "https://github.com/percona/pg_stat_monitor.git",
@@ -33,7 +34,7 @@
         "type": "git"
       }
    },
-   "generated_by": "ibrar.ahmed@percona.com",
+   "generated_by": "artem.gavrilov@percona.com",
    "meta-spec": {
       "version": "1.0.0",
       "url": "http://pgxn.org/meta/spec.txt"

@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
- * guc.c: guc variable handling of pg_stat_monitor
+ * guc.c
+ *	  guc variable handling of pg_stat_monitor
  *
- * Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
+ * Portions Copyright © 2018-2024, Percona LLC and/or its affiliates
  *
- * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
- *
  *
  * IDENTIFICATION
  *	  contrib/pg_stat_monitor/guc.c
@@ -48,6 +48,7 @@ static bool check_overflow_targer(int *newval, void **extra, GucSource source);
 void
 init_guc(void)
 {
+    pgsm_track = PGSM_TRACK_TOP;
 
 	DefineCustomIntVariable("pg_stat_monitor.pgsm_max", /* name */
 							"Sets the maximum size of shared memory in (MB) used for statement's metadata tracked by pg_stat_monitor.", /* short_desc */

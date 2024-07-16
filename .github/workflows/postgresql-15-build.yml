@@ -1,5 +1,11 @@
 name: postgresql-15-build
-on: [push]
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
   build:
@@ -7,7 +13,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Clone postgres repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: 'postgres/postgres'
           ref: 'REL_15_STABLE'
@@ -28,7 +34,7 @@ jobs:
            /usr/lib/postgresql /usr/include/postgresql /usr/share/postgresql \
            /etc/postgresql
           sudo rm -f /usr/bin/pg_config
-          sudo /usr/bin/perl -MCPAN -e 'install IPC::RUN'
+          sudo /usr/bin/perl -MCPAN -e 'install IPC::Run'
           sudo /usr/bin/perl -MCPAN -e 'install Text::Trim'
 
       - name: Create pgsql dir
@@ -73,7 +79,7 @@ jobs:
           pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           path: 'src/pg_stat_monitor'
 
@@ -83,12 +89,13 @@ jobs:
           sudo make USE_PGXS=1 install
         working-directory: src/pg_stat_monitor
 
-      - name: Load pg_stat_monitor library and Restart Server
+      - name: Configure and Restart Server
         run: |
           export PATH="/usr/lib/postgresql/15/bin:$PATH"
           pg_ctl -D /opt/pgsql/data -l logfile stop
           echo "shared_preload_libraries = 'pg_stat_monitor'" >> \
             /opt/pgsql/data/postgresql.conf
+          echo "compute_query_id = regress" >> /opt/pgsql/data/postgresql.conf
           pg_ctl -D /opt/pgsql/data -l logfile start
         working-directory: src/pg_stat_monitor
 
@@ -107,7 +114,7 @@ jobs:
 
       - name: Upload logs on fail
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: Regressions diff and postgresql log
           path: |
@@ -126,15 +133,10 @@ jobs:
           retention-days: 3
 
       - name: Start Server installcheck-world tests
-        run: |
-          export PATH="/usr/lib/postgresql/15/bin:$PATH"
-          pg_ctl -D /opt/pgsql/data -l logfile stop
-          echo "compute_query_id = off" >> /opt/pgsql/data/postgresql.conf
-          pg_ctl -D /opt/pgsql/data -l logfile start
-          make installcheck-world
+        run: make installcheck-world
 
       - name: Report on installcheck-world test suites fail
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
           name: Regressions output files of failed testsuite, and pg log

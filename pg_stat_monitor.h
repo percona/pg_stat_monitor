@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * pg_stat_monitor.h
- *		Track statement execution times across a whole database cluster.
+ *	  Track statement execution times across a whole database cluster.
  *
- * Portions Copyright © 2018-2020, Percona LLC and/or its affiliates
+ * Portions Copyright © 2018-2024, Percona LLC and/or its affiliates
  *
- * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2024, PostgreSQL Global Development Group
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
  *
@@ -93,8 +93,8 @@
 /* the assumption of query max nested level */
 #define DEFAULT_MAX_NESTED_LEVEL	10
 
-#define MAX_QUERY_BUF						(pgsm_query_shared_buffer * 1024 * 1024)
-#define MAX_BUCKETS_MEM 					(pgsm_max * 1024 * 1024)
+#define MAX_QUERY_BUF						((int64)pgsm_query_shared_buffer * 1024 * 1024)
+#define MAX_BUCKETS_MEM 					((int64)pgsm_max * 1024 * 1024)
 #define BUCKETS_MEM_OVERFLOW() 				((hash_get_num_entries(pgsm_hash) * sizeof(pgsmEntry)) >= MAX_BUCKETS_MEM)
 #define MAX_BUCKET_ENTRIES 					(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
 #define QUERY_BUFFER_OVERFLOW(x,y)  		((x + y + sizeof(uint64) + sizeof(uint64)) > MAX_QUERY_BUF)

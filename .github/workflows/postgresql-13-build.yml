@@ -1,5 +1,11 @@
 name: postgresql-13-build
-on: [push]
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
   build:
@@ -7,7 +13,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Clone postgres repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: 'postgres/postgres'
           ref: 'REL_13_STABLE'
@@ -27,7 +33,7 @@ jobs:
            /usr/lib/postgresql /usr/include/postgresql /usr/share/postgresql \
            /etc/postgresql
           sudo rm -f /usr/bin/pg_config
-          sudo /usr/bin/perl -MCPAN -e 'install IPC::RUN'
+          sudo /usr/bin/perl -MCPAN -e 'install IPC::Run'
           sudo /usr/bin/perl -MCPAN -e 'install Text::Trim'
 
       - name: Create pgsql dir
@@ -73,7 +79,7 @@ jobs:
           pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           path: 'src/pg_stat_monitor'
 
@@ -107,7 +113,7 @@ jobs:
 
       - name: Upload logs on fail
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: Regressions diff and postgresql log
           path: |
@@ -130,7 +136,7 @@ jobs:
           make installcheck-world
 
       - name: Report on installcheck-world test suites fail
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
           name: Regressions output files of failed testsuite, and pg log

@@ -21,6 +21,7 @@ Usage: $0 [OPTIONS]
         --rpm_release       RPM version( default = 1)
         --deb_release       DEB version( default = 1)
         --pg_release        PPG version build on( default = 11)
+        --ppg_repo_name     PPG repo name (default ppg-11.18)
         --version           product version
         --help) usage ;;
 Example $0 --builddir=/tmp/test --get_sources=1 --build_src_rpm=1 --build_rpm=1
@@ -57,6 +58,7 @@ append_arg_to_args () {
             --rpm_release=*) RPM_RELEASE="$val" ;;
             --deb_release=*) DEB_RELEASE="$val" ;;
             --pg_release=*) PG_RELEASE="$val" ;;
+            --ppg_repo_name=*) PPG_REPO_NAME="$val";;
             --version=*) VERSION="$val" ;;
             --help) usage ;;
             *)
@@ -200,18 +202,28 @@ install_deps() {
     CURPLACE=$(pwd)
     if [ "$OS" == "rpm" ]
     then
-        yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-        if [[ ${PG_RELEASE} == "11" ]]; then
-            percona-release enable ppg-11 release
-        elif [[ $PG_RELEASE == "12" ]]; then
-            percona-release enable ppg-12 release
-        fi
         yum -y install git wget
+        yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+        wget https://raw.githubusercontent.com/percona/percona-repositories/release-1.0-28/scripts/percona-release.sh
+        mv percona-release.sh /usr/bin/percona-release
+        chmod 777 /usr/bin/percona-release
+        percona-release enable ${PPG_REPO_NAME} testing
+
+        if [ x"$RHEL" = x8 ];
+        then
+                clang_version=$(yum list --showduplicates clang-devel | grep "16.0" | awk '{print $2}' | head -n 1)
+                yum install -y clang-devel-${clang_version} clang-${clang_version}
+                dnf module -y disable llvm-toolset
+        else
+                yum install -y clang-devel clang
+        fi
+
         PKGLIST="percona-postgresql${PG_RELEASE}-devel"
-        PKGLIST+=" clang-devel git clang llvm-devel rpmdevtools vim wget"
+        PKGLIST+=" git llvm-devel rpmdevtools vim wget"
         PKGLIST+=" perl binutils gcc gcc-c++"
-        PKGLIST+=" clang-devel llvm-devel git rpm-build rpmdevtools wget gcc make autoconf"
-        if [[ "${RHEL}" -ge 8 ]]; then 
+        PKGLIST+=" llvm-devel git rpm-build rpmdevtools wget gcc make autoconf"
+        if [[ "${RHEL}" -ge 8 ]]; then
+            dnf config-manager --set-enabled ol${RHEL}_codeready_builder
             dnf -y module disable postgresql || true
         elif [[ "${RHEL}" -eq 7 ]]; then
             PKGLIST+=" llvm-toolset-7-clang llvm-toolset-7-llvm-devel llvm5.0-devel"
@@ -232,14 +244,12 @@ install_deps() {
         done
     else
         apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg git wget
+        DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg git wget curl
 
-        wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb && dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
-        if [[ "${PG_RELEASE}" == "11" ]]; then
-            percona-release enable ppg-11 release
-        elif [[ "${PG_RELEASE}" == "12" ]]; then
-            percona-release enable ppg-12 release
-        fi
+        wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+        dpkg -i percona-release_latest.generic_all.deb
+        rm -f percona-release_latest.generic_all.deb
+        percona-release enable ${PPG_REPO_NAME} testing
 
 
         PKGLIST="percona-postgresql-${PG_RELEASE} percona-postgresql-common percona-postgresql-server-dev-all"
@@ -261,8 +271,8 @@ install_deps() {
             fi
         fi
 
-        PKGLIST+=" debconf debhelper clang-7 devscripts dh-exec dh-systemd git wget libkrb5-dev libssl-dev"
-        PKGLIST+=" build-essential debconf debhelper devscripts dh-exec dh-systemd git wget libxml-checker-perl"
+        PKGLIST+=" debconf debhelper clang devscripts dh-exec git wget libkrb5-dev libssl-dev"
+        PKGLIST+=" build-essential debconf debhelper devscripts dh-exec git wget libxml-checker-perl"
         PKGLIST+=" libxml-libxml-perl libio-socket-ssl-perl libperl-dev libssl-dev libxml2-dev txt2man zlib1g-dev libpq-dev"
 
         until DEBIAN_FRONTEND=noninteractive apt-get -y install ${PKGLIST}; do
@@ -442,6 +452,19 @@ build_source_deb(){
     cp *.orig.tar.gz $CURDIR/source_deb
 }
 
+change_ddeb_package_to_deb(){
+
+   directory=$1
+
+   for file in "$directory"/*.ddeb; do
+    if [ -e "$file" ]; then
+        # Change extension to .deb
+        mv "$file" "${file%.ddeb}.deb"
+        echo "Changed extension of $file to ${file%.ddeb}.deb"
+    fi
+   done
+}
+
 build_deb(){
     if [ $DEB = 0 ]
     then
@@ -479,6 +502,7 @@ build_deb(){
     mkdir -p $WORKDIR/deb
     cp $WORKDIR/*.*deb $WORKDIR/deb
     cp $WORKDIR/*.*deb $CURDIR/deb
+    change_ddeb_package_to_deb "$CURDIR/deb"
 }
 
 CURDIR=$(pwd)
@@ -502,6 +526,7 @@ DEB_RELEASE=1
 REPO="https://github.com/Percona/pg_stat_monitor.git"
 VERSION="1.0.0"
 PG_RELEASE=11
+PPG_REPO_NAME=ppg-11
 parse_arguments PICK-ARGS-FROM-ARGV "$@"
 
 check_workdir

@@ -1,4 +1,4 @@
-name: postgresql-13-ppg-package
+name: postgresql-16-ppg-package
 on:
   pull_request:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: pg-13-ppg-package-test
+    name: pg-16-ppg-package-test
     runs-on: ubuntu-22.04
     steps:
       - name: Clone pg_stat_monitor repository
@@ -24,7 +24,7 @@ jobs:
             postgresql postgresql*
           sudo apt-get install -y libreadline6-dev systemtap-sdt-dev \
             zlib1g-dev libssl-dev libpam0g-dev python3-dev bison flex \
-            libipc-run-perl wget
+            libipc-run-perl wget 
           sudo rm -rf /var/lib/postgresql /var/log/postgresql /etc/postgresql \
             /usr/lib/postgresql /usr/include/postgresql /usr/share/postgresql \
             /etc/postgresql
@@ -41,17 +41,17 @@ jobs:
             https://repo.percona.com/apt/percona-release_latest.generic_all.deb
           sudo dpkg -i percona-release_latest.generic_all.deb
 
-      - name: Install Percona Distribution Postgresql 13 & Extensions
+      - name: Install Percona Distribution Postgresql 16 & Extensions
         run: |
-          sudo percona-release setup ppg-13
+          sudo percona-release setup ppg-16
           sudo apt-get update -y
-          sudo apt-get install -y percona-postgresql-13 \
+          sudo apt-get install -y percona-postgresql-16 \
             percona-postgresql-contrib percona-postgresql-server-dev-all \
-            percona-pgpool2 libpgpool2 percona-postgresql-13-pgaudit \
-            percona-postgresql-13-pgaudit-dbgsym percona-postgresql-13-repack \
-            percona-postgresql-13-repack-dbgsym percona-pgaudit13-set-user \
-            percona-pgaudit13-set-user-dbgsym percona-postgresql-13-postgis-3 \
-            percona-postgresql-13-postgis-3-scripts \
+            percona-pgpool2 libpgpool2 percona-postgresql-16-pgaudit \
+            percona-postgresql-16-pgaudit-dbgsym percona-postgresql-16-repack \
+            percona-postgresql-16-repack-dbgsym percona-pgaudit16-set-user \
+            percona-pgaudit16-set-user-dbgsym percona-postgresql-16-postgis-3 \
+            percona-postgresql-16-postgis-3-scripts \
             percona-postgresql-postgis-scripts percona-postgresql-postgis \
             percona-postgis
 
@@ -70,7 +70,7 @@ jobs:
         run: |
           sudo service postgresql stop
           echo "shared_preload_libraries = 'pg_stat_monitor'" | 
-            sudo tee -a /etc/postgresql/13/main/postgresql.conf
+            sudo tee -a /etc/postgresql/16/main/postgresql.conf
           sudo service postgresql start
           sudo psql -V
           export PG_TEST_PORT_DIR=${GITHUB_WORKSPACE}/src/pg_stat_monitor
