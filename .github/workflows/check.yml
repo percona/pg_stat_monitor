@@ -45,34 +45,24 @@ jobs:
         with:
           repository: 'postgres/postgres'
           ref: 'REL_16_STABLE'
-          path: 'postgres'
 
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
-          path: 'pg_stat_monitor'
+          path: 'contrib/pg_stat_monitor'
 
       - name: Configure postgres
-        working-directory: postgres
         run: ./configure
-
-      - name: Debug
-        run: |
-          pwd
-          ls -la
 
       - name: Install perltidy
         run: sudo cpan -T SHANCOCK/Perl-Tidy-20230309.tar.gz
 
       - name: Install pg_bsd_indent
-        working-directory: postgres/src/tools/pg_bsd_indent
+        working-directory: src/tools/pg_bsd_indent
         run: sudo make install
 
-      - name: Dubug
-        run: ls /usr/local/pgsql/bin
-
       - name: Format sources
-        working-directory: pg_stat_monitor
+        working-directory: contrib/pg_stat_monitor
         run: |
           make update-typedefs
           make indent
