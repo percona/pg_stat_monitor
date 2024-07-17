@@ -40,7 +40,7 @@ PG_MODULE_MAGIC;
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
-#define PG_STAT_MONITOR_COLS_V2_0    64
+#define PG_STAT_MONITOR_COLS_V2_0    65
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
@@ -256,7 +256,8 @@ static uint64 get_query_id(JumbleState *jstate, Query *query);
 #endif
 
 static char *generate_normalized_query(JumbleState *jstate, const char *query,
-									   int query_loc, int *query_len_p, int encoding);
+									   int query_loc, int *query_len_p, int encoding,
+									   char* bind_variables, int *bind_var_len_p);
 static void fill_in_constant_lengths(JumbleState *jstate, const char *query, int query_loc);
 static int	comp_location(const void *a, const void *b);
 
@@ -407,6 +408,10 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	int			norm_query_len;
 	int			location;
 	int			query_len;
+	/* custum bind_variables */
+	char		bind_variables[VAR_LEN] = "";
+	int 		bind_var_len = 0;
+	
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -477,8 +482,9 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 											   query_text,	/* query */
 											   location,	/* query location */
 											   &norm_query_len,
-											   GetDatabaseEncoding());
-
+											   GetDatabaseEncoding(),
+											   &bind_variables[0],
+											   &bind_var_len);
 		Assert(norm_query);
 	}
 
@@ -496,6 +502,10 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	 */
 	entry->pgsm_query_id = get_pgsm_query_id_hash(norm_query ? norm_query : query_text, norm_query_len);
 	entry->counters.info.cmd_type = query->commandType;
+	
+	if(bind_var_len > 0){
+		_snprintf(entry->counters.info.bind_variables, bind_variables, bind_var_len + 1, VAR_LEN);
+	}
 
 	/*
 	 * Add the query text and entry to the local list.
@@ -1776,6 +1786,10 @@ pgsm_store(pgsmEntry * entry)
 
 	pgsm = pgsm_get_ss();
 
+	/*
+	 * We should lock the hash table here what if the bucket is removed; e.g.
+	 * reset is called - HAMID
+	 */
 	prev_bucket_id = pg_atomic_read_u64(&pgsm->current_wbucket);
 	bucketid = get_next_wbucket(pgsm);
 
@@ -1852,6 +1866,7 @@ pgsm_store(pgsmEntry * entry)
 		 * Get the memory address from DSA pointer and copy the query text in
 		 * local variable
 		 */
+
 		query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
 		memcpy(query_buff, query, query_len);
 
@@ -1878,11 +1893,6 @@ pgsm_store(pgsmEntry * entry)
 
 		if (shared_hash_entry == NULL)
 		{
-			LWLockRelease(pgsm->lock);
-
-			if (DsaPointerIsValid(dsa_query_pointer))
-				dsa_free(query_dsa_area, dsa_query_pointer);
-
 			/*
 			 * Out of memory; report only if the state has changed now.
 			 * Otherwise we risk filling up the log file with these message.
@@ -1891,15 +1901,17 @@ pgsm_store(pgsmEntry * entry)
 			{
 				pgsm->pgsm_oom = true;
 
-				PGSM_DISABLE_ERROR_CAPUTRE();
-				{
-					ereport(WARNING,
-							(errcode(ERRCODE_OUT_OF_MEMORY),
-							errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
-							errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
-									"queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
-				} PGSM_END_DISABLE_ERROR_CAPTURE();
+				ereport(WARNING,
+						(errcode(ERRCODE_OUT_OF_MEMORY),
+						 errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
+						 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+								   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
 			}
+
+			LWLockRelease(pgsm->lock);
+
+			if (DsaPointerIsValid(dsa_query_pointer))
+				dsa_free(query_dsa_area, dsa_query_pointer);
 
 			return;
 		}
@@ -1922,6 +1934,9 @@ pgsm_store(pgsmEntry * entry)
 		snprintf(shared_hash_entry->datname, sizeof(shared_hash_entry->datname), "%s", entry->datname);
 		snprintf(shared_hash_entry->username, sizeof(shared_hash_entry->username), "%s", entry->username);
 	}
+
+	if(strlen(entry->counters.info.bind_variables) > 0)
+		strncpy(shared_hash_entry->counters.info.bind_variables, entry->counters.info.bind_variables, VAR_LEN);
 
 	pgsm_update_entry(shared_hash_entry,	/* entry */
 					  query,	/* query */
@@ -2230,6 +2245,18 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* application_name at column number 10 */
 		if (strlen(tmp.info.application_name) > 0)
 			values[i++] = CStringGetTextDatum(tmp.info.application_name);
+		else
+			nulls[i++] = true;
+		
+		/* bind_variables at column number 48 */
+		if (strlen(tmp.info.bind_variables) > 0)
+			values[i++] = CStringGetTextDatum(tmp.info.bind_variables);
+		else
+			nulls[i++] = true;		
+
+		/* bind_variables at column number 48 */
+		if (strlen(tmp.info.bind_variables) > 0)
+			values[i++] = CStringGetTextDatum(tmp.info.bind_variables);
 		else
 			nulls[i++] = true;
 
@@ -3303,15 +3330,18 @@ CleanQuerytext(const char *query, int *location, int *len)
  */
 static char *
 generate_normalized_query(JumbleState *jstate, const char *query,
-						  int query_loc, int *query_len_p, int encoding)
+						  int query_loc, int *query_len_p, int encoding,
+						  char* bind_variables, int *bind_var_len_p)
 {
 	char	   *norm_query;
 	int			query_len = *query_len_p;
+	int			bind_var_len;
 	int			i,
 				norm_query_buflen,	/* Space allowed for norm_query */
 				len_to_wrt,		/* Length (in bytes) to write */
 				quer_loc = 0,	/* Source query byte location */
 				n_quer_loc = 0, /* Normalized query byte location */
+				n_var_loc = 0, /* bind_variables byte location */
 				last_off = 0,	/* Offset from start for previous tok */
 				last_tok_len = 0;	/* Length (in bytes) of that tok */
 
@@ -3362,6 +3392,14 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 		quer_loc = off + tok_len;
 		last_off = off;
 		last_tok_len = tok_len;
+    if (pgsm_extract_bind_variables){
+			if (n_var_loc+tok_len + 1 < VAR_LEN-1){
+				memcpy(bind_variables + n_var_loc, query + quer_loc - tok_len, tok_len);
+				n_var_loc += tok_len;
+				memcpy(bind_variables + n_var_loc , "|", 1);
+				n_var_loc ++;
+			}
+		}
 	}
 
 	/*
@@ -3378,6 +3416,11 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 	norm_query[n_quer_loc] = '\0';
 
 	*query_len_p = n_quer_loc;
+	if (pgsm_extract_bind_variables){
+		bind_var_len = n_var_loc-1;
+		bind_variables[bind_var_len] = '\0';
+		*bind_var_len_p = bind_var_len;
+	}
 	return norm_query;
 }
 
