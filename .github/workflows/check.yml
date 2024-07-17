@@ -40,23 +40,32 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
       - name: Clone postgres repository
         uses: actions/checkout@v4
         with:
           repository: 'postgres/postgres'
           ref: 'REL_16_STABLE'
+          path: 'postgres'
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          path: 'pg_stat_monitor'
+
+      - name: Debug
+        run: |
+          pwd
+          ls -la
 
       - name: Install perltidy
         run: sudo cpan SHANCOCK/Perl-Tidy-20230309.tar.gz
 
       - name: Install pg_bsd_indent
-        working-directory: src/tools/pg_bsd_indent
+        working-directory: postgres/src/tools/pg_bsd_indent
         run: make install
 
       - name: Format sources
+        working-directory: pg_stat_monitor
         run: |
           make update-typedefs
           make indent
