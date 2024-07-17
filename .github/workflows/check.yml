@@ -61,8 +61,10 @@ jobs:
         working-directory: src/tools/pg_bsd_indent
         run: sudo make install
 
-      - name: Add pgindent to path
-        run: echo "${{ github.workspace }}/src/tools/pgindent" >> $GITHUB_PATH
+      - name: Add pg_bsd_indent and pgindent to path
+        run: |
+          echo "/usr/local/pgsql/bin" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/src/tools/pgindent" >> $GITHUB_PATH
 
       - name: Format sources
         working-directory: contrib/pg_stat_monitor
