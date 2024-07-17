@@ -62,11 +62,14 @@ jobs:
           ls -la
 
       - name: Install perltidy
-        run: sudo cpan SHANCOCK/Perl-Tidy-20230309.tar.gz
+        run: sudo cpan -T SHANCOCK/Perl-Tidy-20230309.tar.gz
 
       - name: Install pg_bsd_indent
         working-directory: postgres/src/tools/pg_bsd_indent
-        run: make install
+        run: sudo make install
+
+      - name: Dubug
+        run: ls /usr/local/pgsql/bin
 
       - name: Format sources
         working-directory: pg_stat_monitor
