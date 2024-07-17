@@ -30,3 +30,12 @@ top_builddir = ../..
 include $(top_builddir)/src/Makefile.global
 include $(top_srcdir)/contrib/contrib-global.mk
 endif
+
+
+update-typedefs:
+	wget -q -O - "https://buildfarm.postgresql.org/cgi-bin/typedefs.pl?branch=REL_16_STABLE" | cat - typedefs.list | sort | uniq > typedefs-full.list
+
+indent:
+	pgindent --typedefs=typedefs-full.list .
+
+.PHONY: update-typedefs indent
