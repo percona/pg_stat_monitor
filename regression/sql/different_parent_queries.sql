@@ -21,6 +21,6 @@ SELECT test();
 SELECT test2();  	
 
 SELECT 1 + 2;
-SELECT left(query, 15) as query, calls, top_query, toplevel, pgsm_query_id FROM pg_stat_monitor ORDER BY query, top_query COLLATE "C";
+SELECT left(query, 15) as query, calls, top_query, pgsm_query_id FROM pg_stat_monitor ORDER BY query, top_query COLLATE "C";
 
 DROP EXTENSION pg_stat_monitor;
