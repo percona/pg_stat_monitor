@@ -19,9 +19,9 @@
 #include "pg_stat_monitor.h"
 
 static pgsmLocalState pgsmStateLocal;
-static PGSM_HASH_TABLE_HANDLE pgsm_create_bucket_hash(pgsmSharedState * pgsm, dsa_area *dsa);
+static PGSM_HASH_TABLE_HANDLE pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa);
 static Size pgsm_get_shared_area_size(void);
-static void InitializeSharedState(pgsmSharedState * pgsm);
+static void InitializeSharedState(pgsmSharedState *pgsm);
 
 #define PGSM_BUCKET_INFO_SIZE	(sizeof(TimestampTz) * pgsm_max_buckets)
 #define PGSM_SHARED_STATE_SIZE	(sizeof(pgsmSharedState) + PGSM_BUCKET_INFO_SIZE)
@@ -142,9 +142,9 @@ pgsm_startup(void)
 		 */
 		dsa_detach(dsa);
 
-	    pgsmStateLocal.pgsm_mem_cxt = AllocSetContextCreate(TopMemoryContext,
-                                                            "pg_stat_monitor local store",
-                                                            ALLOCSET_DEFAULT_SIZES);
+		pgsmStateLocal.pgsm_mem_cxt = AllocSetContextCreate(TopMemoryContext,
+															"pg_stat_monitor local store",
+															ALLOCSET_DEFAULT_SIZES);
 	}
 
 #ifdef BENCHMARK
@@ -161,7 +161,7 @@ pgsm_startup(void)
 }
 
 static void
-InitializeSharedState(pgsmSharedState * pgsm)
+InitializeSharedState(pgsmSharedState *pgsm)
 {
 	pg_atomic_init_u64(&pgsm->current_wbucket, 0);
 	pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
@@ -172,7 +172,7 @@ InitializeSharedState(pgsmSharedState * pgsm)
  * Create the classic or dshahs hash table for storing the query statistics.
  */
 static PGSM_HASH_TABLE_HANDLE
-pgsm_create_bucket_hash(pgsmSharedState * pgsm, dsa_area *dsa)
+pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa)
 {
 	PGSM_HASH_TABLE_HANDLE bucket_hash;
 
@@ -238,7 +238,8 @@ pgsm_attach_shmem(void)
 	MemoryContextSwitchTo(oldcontext);
 }
 
-MemoryContext GetPgsmMemoryContext(void)
+MemoryContext
+GetPgsmMemoryContext(void)
 {
 	return pgsmStateLocal.pgsm_mem_cxt;
 }
@@ -287,7 +288,7 @@ pgsm_shmem_shutdown(int code, Datum arg)
 }
 
 pgsmEntry *
-hash_entry_alloc(pgsmSharedState * pgsm, pgsmHashKey * key, int encoding)
+hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding)
 {
 	pgsmEntry  *entry = NULL;
 	bool		found = false;
@@ -391,7 +392,7 @@ IsSystemOOM(void)
  */
 
 void *
-pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey * key, bool *found)
+pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found)
 {
 #if USE_DYNAMIC_HASH
 	void	   *entry;
@@ -404,7 +405,7 @@ pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey * key, bool 
 }
 
 void *
-pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey * key, bool *found)
+pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found)
 {
 #if USE_DYNAMIC_HASH
 	return dshash_find(shared_hash, key, false);
