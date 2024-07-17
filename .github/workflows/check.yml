@@ -73,6 +73,7 @@ jobs:
           make indent
 
       - name: Check files are formatted and no source code changes
+        working-directory: contrib/pg_stat_monitor
         run: |
           git status
           git diff --exit-code
