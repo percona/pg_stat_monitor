@@ -1,0 +1,60 @@
+Create EXTENSION pg_stat_monitor;
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+ALTER SYSTEM SET pg_stat_monitor.pgsm_track TO 'all';
+SELECT pg_reload_conf();
+ pg_reload_conf 
+----------------
+ t
+(1 row)
+
+CREATE OR REPLACE FUNCTION test() RETURNS VOID AS
+$$
+BEGIN
+	PERFORM 1 + 2;
+END; $$ language plpgsql;
+CREATE OR REPLACE FUNCTION test2() RETURNS VOID AS
+$$
+BEGIN
+	PERFORM 1 + 2;
+END; $$ language plpgsql;
+SELECT pg_stat_monitor_reset(); 
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+SELECT test(); 
+ test 
+------
+ 
+(1 row)
+
+SELECT test2();  	
+ test2 
+-------
+ 
+(1 row)
+
+SELECT 1 + 2;
+ ?column? 
+----------
+        3
+(1 row)
+
+SELECT left(query, 15) as query, calls, top_query, toplevel, pgsm_query_id FROM pg_stat_monitor ORDER BY query, top_query COLLATE "C";
+      query      | calls |    top_query    | toplevel |    pgsm_query_id     
+-----------------+-------+-----------------+----------+----------------------
+ SELECT 1 + 2    |     1 | SELECT test();  | f        |  5193804135051352284
+ SELECT 1 + 2    |     1 | SELECT test2(); | f        |  5193804135051352284
+ SELECT 1 + 2    |     1 |                 | t        |  5193804135051352284
+ SELECT pg_stat_ |     1 |                 | t        |   689150021118383254
+ SELECT test()   |     1 |                 | t        | -6801876889834540522
+ SELECT test2()  |     1 |                 | t        |   369102705908374543
+(6 rows)
+
+DROP EXTENSION pg_stat_monitor;
