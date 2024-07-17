@@ -1464,7 +1464,6 @@ pgsm_update_entry(pgsmEntry * entry,
 					int			parent_query_len = nested_query_txts[exec_nested_level - 1] ?
 					strlen(nested_query_txts[exec_nested_level - 1]) : 0;
 
-					e->counters.info.parent_query = InvalidDsaPointer;
 					/* If we have a parent query, store it in the raw dsa area */
 					if (parent_query_len > 0)
 					{
