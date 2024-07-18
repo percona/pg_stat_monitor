@@ -31,16 +31,18 @@
 typedef enum pgsmVersion
 {
 	PGSM_V1_0 = 0,
-	PGSM_V2_0
+	PGSM_V2_0,
+	PGSM_V2_1
 }			pgsmVersion;
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION                   "2.0.4"
+#define BUILD_VERSION                   "2.1.0"
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
+#define PG_STAT_MONITOR_COLS_V2_1    70
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
@@ -71,11 +73,12 @@ do                                                      \
 /*---- Initicalization Function Declarations ----*/
 void		_PG_init(void);
 
-/* Current nesting depth of ExecutorRun+ProcessUtility calls */
-static int	exec_nested_level = 0;
+/* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
+static int	nesting_level = 0;
 volatile bool __pgsm_do_not_capture_error = false;
 
-#if PG_VERSION_NUM >= 130000
+#if PG_VERSION_NUM >= 130000 && PG_VERSION_NUM < 170000
+/* Before planner nesting level was conunted separately */
 static int	plan_nested_level = 0;
 #endif
 
@@ -145,6 +148,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_version);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_reset);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_1_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_0);
+PG_FUNCTION_INFO_V1(pg_stat_monitor_2_1);
 PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(get_histogram_timings);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
@@ -196,11 +200,6 @@ DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 #endif
 static uint64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
-
-#define PGSM_HANDLED_UTILITY(n)  (!IsA(n, ExecuteStmt) && \
-									!IsA(n, PrepareStmt) && \
-									!IsA(n, DeallocateStmt))
-
 
 static pgsmEntry * pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info);
 static void pgsm_add_to_list(pgsmEntry * entry, char *query_text, int query_len);
@@ -425,17 +424,18 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 		}
 	}
 
-	if (!pgsm_enabled(exec_nested_level))
+	if (!pgsm_enabled(nesting_level))
 		return;
 
 	/*
-	 * Clear queryId for prepared statements related utility, as those will
-	 * inherit from the underlying statement's one (except DEALLOCATE which is
-	 * entirely untracked).
+	 * If it's EXECUTE, clear the queryId so that stats will accumulate for
+	 * the underlying PREPARE.  But don't do this if we're not tracking
+	 * utility statements, to avoid messing up another extension that might be
+	 * tracking them.
 	 */
 	if (query->utilityStmt)
 	{
-		if (pgsm_track_utility && !PGSM_HANDLED_UTILITY(query->utilityStmt))
+		if (pgsm_track_utility && IsA(query->utilityStmt, ExecuteStmt))
 			query->queryId = UINT64CONST(0);
 
 		return;
@@ -568,7 +568,7 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 * counting of optimizable statements that are directly contained in
 	 * utility statements.
 	 */
-	if (pgsm_enabled(exec_nested_level) &&
+	if (pgsm_enabled(nesting_level) &&
 		queryDesc->plannedstmt->queryId != UINT64CONST(0))
 	{
 		/*
@@ -599,37 +599,37 @@ static void
 pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 				 bool execute_once)
 {
-	if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+	if (nesting_level >= 0 && nesting_level < max_stack_depth)
 	{
-		nested_queryids[exec_nested_level] = queryDesc->plannedstmt->queryId;
-		nested_query_txts[exec_nested_level] = strdup(queryDesc->sourceText);
+		nested_queryids[nesting_level] = queryDesc->plannedstmt->queryId;
+		nested_query_txts[nesting_level] = strdup(queryDesc->sourceText);
 	}
 
-	exec_nested_level++;
+	nesting_level++;
 	PG_TRY();
 	{
 		if (prev_ExecutorRun)
 			prev_ExecutorRun(queryDesc, direction, count, execute_once);
 		else
 			standard_ExecutorRun(queryDesc, direction, count, execute_once);
-		exec_nested_level--;
-		if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+		nesting_level--;
+		if (nesting_level >= 0 && nesting_level < max_stack_depth)
 		{
-			nested_queryids[exec_nested_level] = UINT64CONST(0);
-			if (nested_query_txts[exec_nested_level])
-				free(nested_query_txts[exec_nested_level]);
-			nested_query_txts[exec_nested_level] = NULL;
+			nested_queryids[nesting_level] = UINT64CONST(0);
+			if (nested_query_txts[nesting_level])
+				free(nested_query_txts[nesting_level]);
+			nested_query_txts[nesting_level] = NULL;
 		}
 	}
 	PG_CATCH();
 	{
-		exec_nested_level--;
-		if (exec_nested_level >= 0 && exec_nested_level < max_stack_depth)
+		nesting_level--;
+		if (nesting_level >= 0 && nesting_level < max_stack_depth)
 		{
-			nested_queryids[exec_nested_level] = UINT64CONST(0);
-			if (nested_query_txts[exec_nested_level])
-				free(nested_query_txts[exec_nested_level]);
-			nested_query_txts[exec_nested_level] = NULL;
+			nested_queryids[nesting_level] = UINT64CONST(0);
+			if (nested_query_txts[nesting_level])
+				free(nested_query_txts[nesting_level]);
+			nested_query_txts[nesting_level] = NULL;
 		}
 		PG_RE_THROW();
 	}
@@ -642,7 +642,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 static void
 pgsm_ExecutorFinish(QueryDesc *queryDesc)
 {
-	exec_nested_level++;
+	nesting_level++;
 
 	PG_TRY();
 	{
@@ -650,11 +650,11 @@ pgsm_ExecutorFinish(QueryDesc *queryDesc)
 			prev_ExecutorFinish(queryDesc);
 		else
 			standard_ExecutorFinish(queryDesc);
-		exec_nested_level--;
+		nesting_level--;
 	}
 	PG_CATCH();
 	{
-		exec_nested_level--;
+		nesting_level--;
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
@@ -722,7 +722,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		MemoryContextSwitchTo(oldctx);
 	}
 
-	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(exec_nested_level))
+	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
 	{
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true);
 		if (!entry)
@@ -868,8 +868,14 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	 * top level planner call.
 	 */
 
-	if (pgsm_enabled(plan_nested_level + exec_nested_level) &&
-		pgsm_track_planning && query_string && parse->queryId != UINT64CONST(0))
+	bool		enabled;
+#if PG_VERSION_NUM >= 170000
+	enabled = pgsm_enabled(nesting_level);
+#else
+	enabled = pgsm_enabled(plan_nested_level + nesting_level);
+#endif
+
+	if (enabled && pgsm_track_planning && query_string && parse->queryId != UINT64CONST(0))
 	{
 		pgsmEntry  *entry = NULL;
 		instr_time	start;
@@ -892,7 +898,11 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		if (MemoryContextIsValid(MessageContext))
 			entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true);
 
+#if PG_VERSION_NUM >= 170000
+		nesting_level++;
+#else
 		plan_nested_level++;
+#endif
 		PG_TRY();
 		{
 			/*
@@ -909,7 +919,11 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		}
 		PG_FINALLY();
 		{
+#if PG_VERSION_NUM >= 170000
+			nesting_level--;
+#else
 			plan_nested_level--;
+#endif
 		}
 		PG_END_TRY();
 
@@ -945,19 +959,38 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	else
 	{
 		/*
+		 * Even though we're not tracking plan time for this statement, we
+		 * must still increment the nesting level, to ensure that functions
+		 * evaluated during planning are not seen as top-level calls.
+		 *
 		 * If there is a previous installed hook, then assume it's going to
 		 * call standard_planner() function, otherwise we call the function
 		 * here. This is to avoid calling standard_planner() function twice,
 		 * since it modifies the first argument (Query *), the second call
 		 * would trigger an assertion failure.
 		 */
-		plan_nested_level++;
 
-		if (planner_hook_next)
-			result = planner_hook_next(parse, query_string, cursorOptions, boundParams);
-		else
-			result = standard_planner(parse, query_string, cursorOptions, boundParams);
-		plan_nested_level--;
+#if PG_VERSION_NUM >= 170000
+		nesting_level++;
+#else
+		plan_nested_level++;
+#endif
+		PG_TRY();
+		{
+			if (planner_hook_next)
+				result = planner_hook_next(parse, query_string, cursorOptions, boundParams);
+			else
+				result = standard_planner(parse, query_string, cursorOptions, boundParams);
+		}
+		PG_FINALLY();
+		{
+#if PG_VERSION_NUM >= 170000
+			nesting_level--;
+#else
+			plan_nested_level--;
+#endif
+		}
+		PG_END_TRY();
 
 	}
 	return result;
@@ -995,6 +1028,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 {
 	Node	   *parsetree = pstmt->utilityStmt;
 	uint64		queryId = 0;
+	bool		enabled = pgsm_track_utility && pgsm_enabled(nesting_level);
 
 #if PG_VERSION_NUM < 140000
 	int			len = strlen(queryString);
@@ -1012,7 +1046,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * since we are already measuring the statement's costs at the utility
 	 * level.
 	 */
-	if (pgsm_track_utility && pgsm_enabled(exec_nested_level))
+	if (enabled)
 		pstmt->queryId = UINT64CONST(0);
 #endif
 
@@ -1025,13 +1059,16 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * hash table entry for the PREPARE (with hash calculated from the query
 	 * string), and then a different one with the same query string (but hash
 	 * calculated from the query tree) would be used to accumulate costs of
-	 * ensuing EXECUTEs.  This would be confusing, and inconsistent with other
-	 * cases where planning time is not included at all.
+	 * ensuing EXECUTEs.  This would be confusing.  Since PREPARE doesn't
+	 * actually run the planner (only parse+rewrite), its costs are generally
+	 * pretty negligible and it seems okay to just ignore it.
 	 *
 	 * Likewise, we don't track execution of DEALLOCATE.
 	 */
-	if (pgsm_track_utility && pgsm_enabled(exec_nested_level) &&
-		PGSM_HANDLED_UTILITY(parsetree))
+	if (enabled &&
+		!IsA(parsetree, ExecuteStmt) &&
+		!IsA(parsetree, PrepareStmt) &&
+		!IsA(parsetree, DeallocateStmt))
 	{
 		pgsmEntry  *entry;
 		char	   *query_text;
@@ -1052,7 +1089,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
 
 		INSTR_TIME_SET_CURRENT(start);
-		exec_nested_level++;
+		nesting_level++;
 
 		PG_TRY();
 		{
@@ -1092,11 +1129,11 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										dest,
 										completionTag);
 #endif
-			exec_nested_level--;
+			nesting_level--;
 		}
 		PG_CATCH();
 		{
-			exec_nested_level--;
+			nesting_level--;
 			PG_RE_THROW();
 		}
 
@@ -1182,41 +1219,80 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	}
 	else
 	{
+		/*
+		 * Even though we're not tracking execution time for this statement,
+		 * we must still increment the nesting level, to ensure that functions
+		 * evaluated within it are not seen as top-level calls.  But don't do
+		 * so for EXECUTE; that way, when control reaches pgss_planner or
+		 * pgss_ExecutorStart, we will treat the costs as top-level if
+		 * appropriate.  Likewise, don't bump for PREPARE, so that parse
+		 * analysis will treat the statement as top-level if appropriate.
+		 *
+		 * Likewise, we don't track execution of DEALLOCATE.
+		 *
+		 * To be absolutely certain we don't mess up the nesting level,
+		 * evaluate the bump_level condition just once.
+		 */
+
+#if PG_VERSION_NUM >= 170000
+		bool		bump_level =
+			!IsA(parsetree, ExecuteStmt) &&
+			!IsA(parsetree, PrepareStmt) &&
+			!IsA(parsetree, DeallocateStmt);
+
+		if (bump_level)
+			nesting_level++;
+
+		PG_TRY();
+		{
+#endif
 #if PG_VERSION_NUM >= 140000
-		if (prev_ProcessUtility)
-			prev_ProcessUtility(pstmt, queryString,
-								readOnlyTree,
-								context, params, queryEnv,
-								dest,
-								qc);
-		else
-			standard_ProcessUtility(pstmt, queryString,
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString,
 									readOnlyTree,
 									context, params, queryEnv,
 									dest,
 									qc);
+			else
+				standard_ProcessUtility(pstmt, queryString,
+										readOnlyTree,
+										context, params, queryEnv,
+										dest,
+										qc);
 #elif PG_VERSION_NUM >= 130000
-		if (prev_ProcessUtility)
-			prev_ProcessUtility(pstmt, queryString,
-								context, params, queryEnv,
-								dest,
-								qc);
-		else
-			standard_ProcessUtility(pstmt, queryString,
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString,
 									context, params, queryEnv,
 									dest,
 									qc);
+			else
+				standard_ProcessUtility(pstmt, queryString,
+										context, params, queryEnv,
+										dest,
+										qc);
 #else
-		if (prev_ProcessUtility)
-			prev_ProcessUtility(pstmt, queryString,
-								context, params, queryEnv,
-								dest,
-								completionTag);
-		else
-			standard_ProcessUtility(pstmt, queryString,
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString,
 									context, params, queryEnv,
 									dest,
 									completionTag);
+			else
+				standard_ProcessUtility(pstmt, queryString,
+										context, params, queryEnv,
+										dest,
+										completionTag);
+#endif
+#if PG_VERSION_NUM >= 170000
+			if (bump_level)
+				nesting_level--;
+		}
+		PG_CATCH();
+		{
+			if (bump_level)
+				nesting_level--;
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
 #endif
 	}
 }
@@ -1358,9 +1434,13 @@ pgsm_update_entry(pgsmEntry * entry,
 	int			sqlcode_len = error_info ? strlen(error_info->sqlcode) : 0;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
-	/* Start collecting data for next bucket and reset all counters */
+	/* Start collecting data for next bucket and reset all counters and timestamps */
 	if (reset)
+	{
 		memset(&entry->counters, 0, sizeof(Counters));
+		entry->stats_since = GetCurrentTimestamp();
+		entry->minmax_stats_since = entry->stats_since;
+	}
 
 	/* volatile block */
 	{
@@ -1457,12 +1537,12 @@ pgsm_update_entry(pgsmEntry * entry,
 			e->counters.info.num_relations = num_relations;
 			_snprintf2(e->counters.info.relations, relations, num_relations, REL_LEN);
 
-			if (exec_nested_level > 0 && exec_nested_level < max_stack_depth && e->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
+			if (nesting_level > 0 && nesting_level < max_stack_depth && e->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
 			{
 				if (!DsaPointerIsValid(e->counters.info.parent_query))
 				{
-					int			parent_query_len = nested_query_txts[exec_nested_level - 1] ?
-					strlen(nested_query_txts[exec_nested_level - 1]) : 0;
+					int			parent_query_len = nested_query_txts[nesting_level - 1] ?
+						strlen(nested_query_txts[nesting_level - 1]) : 0;
 
 					/* If we have a parent query, store it in the raw dsa area */
 					if (parent_query_len > 0)
@@ -1480,7 +1560,7 @@ pgsm_update_entry(pgsmEntry * entry,
 						if (DsaPointerIsValid(qry))
 						{
 							qry_buff = dsa_get_address(query_dsa_area, qry);
-							memcpy(qry_buff, nested_query_txts[exec_nested_level - 1], parent_query_len);
+							memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
 							qry_buff[parent_query_len] = 0;
 							/* store the dsa pointer for parent query text */
 							e->counters.info.parent_query = qry;
@@ -1515,15 +1595,32 @@ pgsm_update_entry(pgsmEntry * entry,
 			e->counters.blocks.local_blks_written += bufusage->local_blks_written;
 			e->counters.blocks.temp_blks_read += bufusage->temp_blks_read;
 			e->counters.blocks.temp_blks_written += bufusage->temp_blks_written;
-			e->counters.blocks.blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
-			e->counters.blocks.blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
+
+#if PG_VERSION_NUM < 170000
+			e->counters.blocks.shared_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
+			e->counters.blocks.shared_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
+#else
+			e->counters.blocks.shared_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_read_time);
+			e->counters.blocks.shared_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_write_time);
+			e->counters.blocks.local_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->local_blk_read_time);
+			e->counters.blocks.local_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->local_blk_write_time);
+#endif
+
 #if PG_VERSION_NUM >= 150000
 			e->counters.blocks.temp_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
 			e->counters.blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
 #endif
 
-			memcpy((void *) &e->counters.blocks.instr_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
-			memcpy((void *) &e->counters.blocks.instr_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
+#if PG_VERSION_NUM < 170000
+			memcpy((void *) &e->counters.blocks.instr_shared_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_shared_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
+#else
+			memcpy((void *) &e->counters.blocks.instr_shared_blk_read_time, &bufusage->shared_blk_read_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_shared_blk_write_time, &bufusage->shared_blk_write_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_local_blk_write_time, &bufusage->local_blk_write_time, sizeof(instr_time));
+			memcpy((void *) &e->counters.blocks.instr_local_blk_write_time, &bufusage->local_blk_write_time, sizeof(instr_time));
+#endif
+
 
 #if PG_VERSION_NUM >= 150000
 			memcpy((void *) &e->counters.blocks.instr_temp_blk_read_time, &bufusage->temp_blk_read_time, sizeof(bufusage->temp_blk_read_time));
@@ -1561,6 +1658,12 @@ pgsm_update_entry(pgsmEntry * entry,
 				e->counters.jitinfo.jit_emission_count++;
 			e->counters.jitinfo.jit_emission_time += INSTR_TIME_GET_MILLISEC(jitusage->emission_counter);
 
+#if PG_VERSION_NUM >= 170000
+			if (INSTR_TIME_GET_MILLISEC(jitusage->deform_counter))
+				e->counters.jitinfo.jit_deform_count++;
+			e->counters.jitinfo.jit_deform_time += INSTR_TIME_GET_MILLISEC(jitusage->deform_counter);
+#endif
+
 			/* Only do this for local storage scenarios */
 			if (kind != PGSM_STORE)
 			{
@@ -1568,6 +1671,10 @@ pgsm_update_entry(pgsmEntry * entry,
 				memcpy((void *) &e->counters.jitinfo.instr_inlining_counter, &jitusage->inlining_counter, sizeof(instr_time));
 				memcpy((void *) &e->counters.jitinfo.instr_optimization_counter, &jitusage->optimization_counter, sizeof(instr_time));
 				memcpy((void *) &e->counters.jitinfo.instr_emission_counter, &jitusage->emission_counter, sizeof(instr_time));
+
+#if PG_VERSION_NUM >= 170000
+				memcpy((void *) &e->counters.jitinfo.instr_deform_counter, &jitusage->deform_counter, sizeof(instr_time));
+#endif
 			}
 		}
 
@@ -1714,7 +1821,11 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 #if PG_VERSION_NUM < 140000
 	entry->key.toplevel = 1;
 #else
-	entry->key.toplevel = ((exec_nested_level + plan_nested_level) == 0);
+#if PG_VERSION_NUM >= 170000
+	entry->key.toplevel = ((nesting_level) == 0);
+#else
+	entry->key.toplevel = ((nesting_level + plan_nested_level) == 0);
+#endif
 #endif
 
 	if (IsTransactionState())
@@ -1800,8 +1911,15 @@ pgsm_store(pgsmEntry * entry)
 	bufusage.temp_blks_read = entry->counters.blocks.temp_blks_read;
 	bufusage.temp_blks_written = entry->counters.blocks.temp_blks_written;
 
-	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_blk_write_time, sizeof(instr_time));
+#if PG_VERSION_NUM < 170000
+	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
+#else
+	memcpy(&bufusage.shared_blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.shared_blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
+	memcpy(&bufusage.local_blk_read_time, &entry->counters.blocks.instr_local_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.local_blk_write_time, &entry->counters.blocks.instr_local_blk_write_time, sizeof(instr_time));
+#endif
 
 #if PG_VERSION_NUM >= 150000
 	memcpy(&bufusage.temp_blk_read_time, &entry->counters.blocks.instr_temp_blk_read_time, sizeof(instr_time));
@@ -1822,14 +1940,18 @@ pgsm_store(pgsmEntry * entry)
 
 
 	// Update parent id if needed
-	if(pgsm_track == PGSM_TRACK_ALL && exec_nested_level > 0 && exec_nested_level < max_stack_depth)
+	if(pgsm_track == PGSM_TRACK_ALL && nesting_level > 0 && nesting_level < max_stack_depth)
 	{
-		entry->key.parentid = nested_queryids[exec_nested_level - 1];
+		entry->key.parentid = nested_queryids[nesting_level - 1];
 	}
 	else
 	{
 		entry->key.parentid = UINT64CONST(0);
 	}
+
+#if PG_VERSION_NUM >= 170000
+	memcpy(&jitusage.deform_counter, &entry->counters.jitinfo.instr_deform_counter, sizeof(instr_time));
+#endif
 
 	/*
 	 * Acquire a share lock to start with. We'd have to acquire exclusive if
@@ -1989,6 +2111,13 @@ pg_stat_monitor_2_0(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
+Datum
+pg_stat_monitor_2_1(PG_FUNCTION_ARGS)
+{
+	pg_stat_monitor_internal(fcinfo, PGSM_V2_1, true);
+	return (Datum) 0;
+}
+
 /*
   * Legacy entry point for pg_stat_monitor() API versions 1.0
   */
@@ -2009,7 +2138,7 @@ IsBucketValid(uint64 bucketid)
 
 	TimestampDifference(pgsm->bucket_start_time[bucketid], current_tz, &secs, &microsecs);
 
-	if (secs > ((int64)pgsm_bucket_time * pgsm_max_buckets))
+	if (secs > ((int64) pgsm_bucket_time * pgsm_max_buckets))
 		return false;
 	return true;
 }
@@ -2028,7 +2157,25 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	PGSM_HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
-	int			expected_columns = (api_version >= PGSM_V2_0) ? PG_STAT_MONITOR_COLS_V2_0 : PG_STAT_MONITOR_COLS_V1_0;
+
+	int			expected_columns;
+
+	switch (api_version)
+	{
+		case PGSM_V1_0:
+			expected_columns = PG_STAT_MONITOR_COLS_V1_0;
+			break;
+		case PGSM_V2_0:
+			expected_columns = PG_STAT_MONITOR_COLS_V2_0;
+			break;
+		case PGSM_V2_1:
+			expected_columns = PG_STAT_MONITOR_COLS_V2_1;
+			break;
+		default:
+			ereport(ERROR,
+					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+					 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Unknown API version")));
+	}
 
 	/* Disallow old api usage */
 	if (api_version < PGSM_V2_0)
@@ -2160,17 +2307,17 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* userid at column number 1 */
 		values[i++] = ObjectIdGetDatum(userid);
 
-		/* userid at column number 1 */
+		/* username at column number 2 */
 		values[i++] = CStringGetTextDatum(entry->username);
 
-		/* dbid at column number 2 */
+		/* dbid at column number 3 */
 		values[i++] = ObjectIdGetDatum(dbid);
 
-		/* userid at column number 1 */
+		/* datname at column number 4 */
 		values[i++] = CStringGetTextDatum(entry->datname);
 
 		/*
-		 * ip address at column number 3, Superusers or members of
+		 * ip address at column number 5, Superusers or members of
 		 * pg_read_all_stats members are allowed
 		 */
 		if (is_allowed_role || userid == GetUserId())
@@ -2178,10 +2325,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		else
 			nulls[i++] = true;
 
-		/* queryid at column number 4 */
+		/* queryid at column number 6 */
 		values[i++] = UInt64GetDatum(queryid);
 
-		/* planid at column number 5 */
+		/* planid at column number 7 */
 		if (planid)
 		{
 			values[i++] = UInt64GetDatum(planid);
@@ -2196,12 +2343,12 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			{
 				char	   *enc;
 
-				/* query at column number 6 */
+				/* query at column number 8 */
 				enc = pg_any_to_server(query_txt, strlen(query_txt), GetDatabaseEncoding());
 				values[i++] = CStringGetTextDatum(enc);
 				if (enc != query_txt)
 					pfree(enc);
-				/* plan at column number 7 */
+				/* plan at column number 9 */
 				if (planid && tmp.planinfo.plan_text[0])
 					values[i++] = CStringGetTextDatum(tmp.planinfo.plan_text);
 				else
@@ -2209,19 +2356,20 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			}
 			else
 			{
-				/* query at column number 6 */
+				/* query at column number 8 */
 				nulls[i++] = true;
-				/* plan at column number 7 */
+				/* plan at column number 9 */
 				nulls[i++] = true;
 			}
 		}
 		else
 		{
-			/* query text at column number 6 */
+			/* query text and plan at column number 8 and 9 */
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 		}
 
+		/* pgsm_query_id at column number 10 */
 		if (pgsm_query_id)
 			values[i++] = UInt64GetDatum(pgsm_query_id);
 		else
@@ -2239,13 +2387,13 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			nulls[i++] = true;
 		}
 
-		/* application_name at column number 10 */
+		/* application_name at column number 15 */
 		if (strlen(tmp.info.application_name) > 0)
 			values[i++] = CStringGetTextDatum(tmp.info.application_name);
 		else
 			nulls[i++] = true;
 
-		/* relations at column number 10 */
+		/* relations at column number 14 */
 		if (tmp.info.num_relations > 0)
 		{
 			int			j;
@@ -2274,28 +2422,28 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		else
 			nulls[i++] = true;
 
-		/* cmd_type at column number 11 */
+		/* cmd_type at column number 15 */
 		if (tmp.info.cmd_type == CMD_NOTHING)
 			nulls[i++] = true;
 		else
 			values[i++] = Int64GetDatumFast((int64) tmp.info.cmd_type);
 
-		/* elevel at column number 12 */
+		/* elevel at column number 16 */
 		values[i++] = Int64GetDatumFast(tmp.error.elevel);
 
-		/* sqlcode at column number 13 */
+		/* sqlcode at column number 17 */
 		if (strlen(tmp.error.sqlcode) == 0)
 			nulls[i++] = true;
 		else
 			values[i++] = CStringGetTextDatum(tmp.error.sqlcode);
 
-		/* message at column number 14 */
+		/* message at column number 18 */
 		if (strlen(tmp.error.message) == 0)
 			nulls[i++] = true;
 		else
 			values[i++] = CStringGetTextDatum(tmp.error.message);
 
-		/* bucket_start_time at column number 15 */
+		/* bucket_start_time at column number 19 */
 		values[i++] = TimestampTzGetDatum(pgsm->bucket_start_time[entry->key.bucket_id]);
 
 		if (tmp.calls.calls == 0)
@@ -2305,29 +2453,29 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			tmp.resp_calls[0]++;
 		}
 
-		/* calls at column number 16 */
+		/* calls at column number 20 */
 		values[i++] = Int64GetDatumFast(tmp.calls.calls);
 
-		/* total_time at column number 17 */
+		/* total_time at column number 21 */
 		values[i++] = Float8GetDatumFast(tmp.time.total_time);
 
-		/* min_time at column number 18 */
+		/* min_time at column number 22 */
 		values[i++] = Float8GetDatumFast(tmp.time.min_time);
 
-		/* max_time at column number 19 */
+		/* max_time at column number 23 */
 		values[i++] = Float8GetDatumFast(tmp.time.max_time);
 
-		/* mean_time at column number 20 */
+		/* mean_time at column number 24 */
 		values[i++] = Float8GetDatumFast(tmp.time.mean_time);
 		if (tmp.calls.calls > 1)
 			stddev = sqrt(tmp.time.sum_var_time / tmp.calls.calls);
 		else
 			stddev = 0.0;
 
-		/* calls at column number 21 */
+		/* stddev_exec_time at column number 25 */
 		values[i++] = Float8GetDatumFast(stddev);
 
-		/* calls at column number 22 */
+		/* rows at column number 26 */
 		values[i++] = Int64GetDatumFast(tmp.calls.rows);
 
 		if (tmp.calls.calls == 0)
@@ -2337,29 +2485,29 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			tmp.resp_calls[0]++;
 		}
 
-		/* calls at column number 23 */
+		/* plans at column number 27 */
 		values[i++] = Int64GetDatumFast(tmp.plancalls.calls);
 
-		/* total_time at column number 24 */
+		/* total_plan_time at column number 28 */
 		values[i++] = Float8GetDatumFast(tmp.plantime.total_time);
 
-		/* min_time at column number 25 */
+		/* min_plan_time at column number 29 */
 		values[i++] = Float8GetDatumFast(tmp.plantime.min_time);
 
-		/* max_time at column number 26 */
+		/* max_plan_time at column number 30 */
 		values[i++] = Float8GetDatumFast(tmp.plantime.max_time);
 
-		/* mean_time at column number 27 */
+		/* mean_plan_time at column number 31 */
 		values[i++] = Float8GetDatumFast(tmp.plantime.mean_time);
 		if (tmp.plancalls.calls > 1)
 			stddev = sqrt(tmp.plantime.sum_var_time / tmp.plancalls.calls);
 		else
 			stddev = 0.0;
 
-		/* calls at column number 28 */
+		/* stddev_plan_time at column number 32 */
 		values[i++] = Float8GetDatumFast(stddev);
 
-		/* blocks are from column number 29 - 40 */
+		/* blocks are from column number 33 - 48 */
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_hit);
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_read);
 		values[i++] = Int64GetDatumFast(tmp.blocks.shared_blks_dirtied);
@@ -2370,27 +2518,29 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Int64GetDatumFast(tmp.blocks.local_blks_written);
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_read);
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_written);
-		values[i++] = Float8GetDatumFast(tmp.blocks.blk_read_time);
-		values[i++] = Float8GetDatumFast(tmp.blocks.blk_write_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.shared_blk_read_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.shared_blk_write_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.local_blk_read_time);
+		values[i++] = Float8GetDatumFast(tmp.blocks.local_blk_write_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
 
-		/* resp_calls at column number 41 */
+		/* resp_calls at column number 49 */
 		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, hist_bucket_count_total);
 
-		/* utime at column number 42 */
+		/* cpu_user_time at column number 50 */
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.utime);
 
-		/* stime at column number 43 */
+		/* cpu_sys_time at column number 51 */
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.stime);
 		{
 			char		buf[256];
 			Datum		wal_bytes;
 
-			/* wal_records at column number 44 */
+			/* wal_records at column number 52 */
 			values[i++] = Int64GetDatumFast(tmp.walusage.wal_records);
 
-			/* wal_fpi at column number 45 */
+			/* wal_fpi at column number 53 */
 			values[i++] = Int64GetDatumFast(tmp.walusage.wal_fpi);
 
 			snprintf(buf, sizeof buf, UINT64_FORMAT, tmp.walusage.wal_bytes);
@@ -2400,15 +2550,16 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 											CStringGetDatum(buf),
 											ObjectIdGetDatum(0),
 											Int32GetDatum(-1));
-			/* wal_bytes at column number 46 */
+			/* wal_bytes at column number 54 */
 			values[i++] = wal_bytes;
 
-			/* application_name at column number 47 */
+			/* application_name at column number 55 */
 			if (strlen(tmp.info.comments) > 0)
 				values[i++] = CStringGetTextDatum(tmp.info.comments);
 			else
 				nulls[i++] = true;
 
+			/* blocks are from column number 56 - 63 */
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
@@ -2417,8 +2568,18 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_optimization_time);
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
+			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_deform_count);
+			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_deform_time);
 		}
+
+		/* at column number 64 */
+		values[i++] = TimestampTzGetDatum(entry->stats_since);
+		values[i++] = TimestampTzGetDatum(entry->minmax_stats_since);
+
+		/* toplevel at column number 66 */
 		values[i++] = BoolGetDatum(toplevel);
+
+		/* bucket_done at column number 67 */
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgsm->current_wbucket) != bucketid);
 
 		/* clean up and return the tuplestore */
@@ -2432,9 +2593,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	/* clean up and return the tuplestore */
 	pgsm_hash_seq_term(&hstat);
 	LWLockRelease(pgsm->lock);
-
-
-	tuplestore_donestoring(tupstore);
 }
 
 static uint64

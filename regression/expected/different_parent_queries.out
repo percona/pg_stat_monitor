@@ -1,15 +1,9 @@
-Create EXTENSION pg_stat_monitor;
+CREATE EXTENSION pg_stat_monitor;
+SET pg_stat_monitor.pgsm_track='all';
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------
  
-(1 row)
-
-ALTER SYSTEM SET pg_stat_monitor.pgsm_track TO 'all';
-SELECT pg_reload_conf();
- pg_reload_conf 
-----------------
- t
 (1 row)
 
 CREATE OR REPLACE FUNCTION test() RETURNS VOID AS
