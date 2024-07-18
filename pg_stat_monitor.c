@@ -1336,7 +1336,7 @@ pg_get_backend_status(void)
 {
 
 #if PG_VERSION_NUM >= 170000
-	return &(pgstat_get_beentry_by_proc_number(MyProcPid)->backendStatus);
+	return pgstat_get_beentry_by_proc_number(MyProcPid);
 #elif PG_VERSION_NUM >= 160000
 	return &(pgstat_get_local_beentry_by_backend_id(MyBackendId)->backendStatus);
 #else
