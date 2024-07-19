@@ -43,7 +43,7 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
 #define PG_STAT_MONITOR_COLS_V2_1    70
-#define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
+#define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_1	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
 
