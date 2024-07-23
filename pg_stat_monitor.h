@@ -528,6 +528,7 @@ extern bool pgsm_enable_query_plan;
 extern bool pgsm_enable_overflow;
 extern bool pgsm_normalized_query;
 extern bool pgsm_track_utility;
+extern bool pgsm_track_application_names;
 extern bool pgsm_enable_pgsm_query_id;
 extern int	pgsm_track;
 

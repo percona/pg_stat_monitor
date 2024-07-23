@@ -43,7 +43,7 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
 #define PG_STAT_MONITOR_COLS_V2_1    70
-#define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_0	/* maximum of above */
+#define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_1	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
 
@@ -106,8 +106,8 @@ static struct rusage rusage_start;
 static struct rusage rusage_end;
 
 /* Application name and length; set each time when an entry is created locally */
-char		app_name[APPLICATIONNAME_LEN];
-int			app_name_len;
+static char app_name[APPLICATIONNAME_LEN];
+static int	app_name_len;
 
 
 /* Query buffer, store queries' text. */
@@ -1334,6 +1334,12 @@ pgsm_hash_string(const char *str, int len)
 static PgBackendStatus *
 pg_get_backend_status(void)
 {
+
+#if PG_VERSION_NUM >= 170000
+	return pgstat_get_beentry_by_proc_number(MyProcPid);
+#elif PG_VERSION_NUM >= 160000
+	return &(pgstat_get_local_beentry_by_backend_id(MyBackendId)->backendStatus);
+#else
 	LocalPgBackendStatus *local_beentry;
 	int			num_backends = pgstat_fetch_stat_numbackends();
 	int			i;
@@ -1341,11 +1347,8 @@ pg_get_backend_status(void)
 	for (i = 1; i <= num_backends; i++)
 	{
 		PgBackendStatus *beentry;
-#if PG_VERSION_NUM < 160000
+
 		local_beentry = pgstat_fetch_stat_local_beentry(i);
-#else
-		local_beentry = pgstat_get_local_beentry_by_index(i);
-#endif
 		if (!local_beentry)
 			continue;
 
@@ -1355,6 +1358,8 @@ pg_get_backend_status(void)
 			return beentry;
 	}
 	return NULL;
+
+#endif
 }
 
 /*
@@ -1534,7 +1539,7 @@ pgsm_update_entry(pgsmEntry *entry,
 		/* Only should process this once when storing the data */
 		if (kind == PGSM_STORE)
 		{
-			if (app_name_len > 0 && !e->counters.info.application_name[0])
+			if (pgsm_track_application_names && app_name_len > 0 && !e->counters.info.application_name[0])
 				_snprintf(e->counters.info.application_name, app_name, app_name_len + 1, APPLICATIONNAME_LEN);
 
 			e->counters.info.num_relations = num_relations;
@@ -1790,7 +1795,6 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
 	pgsmEntry  *entry;
 	int			sec_ctx;
 	bool		found_client_addr = false;
-	char	   *app_name_ptr = app_name;
 	MemoryContext oldctx;
 	char	   *datname = NULL;
 	char	   *username = NULL;
@@ -1805,9 +1809,12 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
 	 */
 	GetUserIdAndSecContext((Oid *) &entry->key.userid, &sec_ctx);
 
-	/* Get the application name and set appid */
-	app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
-	entry->key.appid = pgsm_hash_string((const char *) app_name_ptr, app_name_len);
+	if (pgsm_track_application_names)
+	{
+		/* Get the application name and set appid */
+		app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
+		entry->key.appid = pgsm_hash_string((const char *) app_name, app_name_len);
+	}
 
 	/* client address */
 	if (!pgsm_client_ip_is_valid())
