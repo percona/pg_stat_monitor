@@ -20,6 +20,7 @@
 #include "nodes/pg_list.h"
 #include "utils/guc.h"
 #include <regex.h>
+#include <stddef.h>
 #include "pgstat.h"
 #include "commands/dbcommands.h"
 #include "commands/explain.h"
@@ -4085,40 +4086,58 @@ get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
 	int             i;
 	char          **param_text;
 	const char     *cursor_ori;
+	const char     *cursor_curr;
 	StringInfoData  result_buf;
+	ptrdiff_t       len;
 
 	param_text = get_params_text_list(paramlist);
 	param_num = paramlist->numParams;
 	current_param = 0;
 	cursor_ori = query_text;
+	cursor_curr = cursor_ori;
 	initStringInfo(&result_buf);
 
-	while(*cursor_ori != '\0')
+	do
 	{
-		if(*cursor_ori != '$')
+		// advance cursor until detecting a placeholder '$' start.
+		while (*cursor_ori && *cursor_ori != '$')
+		++cursor_ori;
+
+		// calculate length of query text before placeholder.
+		len = cursor_ori - cursor_curr;
+
+		// check if end of string is reached
+		if (!*cursor_ori)
 		{
-			/* copy the origin query string to result*/
-			appendStringInfoChar(&result_buf,*cursor_ori);
-			cursor_ori++;
+			// there may have remaining query data to append
+			if (len > 0)
+				appendBinaryStringInfo(&result_buf, cursor_curr, len);
+
+			break;
 		}
-		else
-		{
-			/* skip the placeholder */
+
+		// append query text before the '$' sign found.
+		if (len > 0)
+			appendBinaryStringInfo(&result_buf, cursor_curr, len);
+
+		// skip '$'
+		++cursor_ori;
+
+		/* skip the placeholder */
+		while(*cursor_ori && *cursor_ori >= '0' && *cursor_ori <= '9')
 			cursor_ori++;
-			while(*cursor_ori >= '0' && *cursor_ori <= '9')
-			{
-					cursor_ori++;
-			}
-			/* replace the placeholder with actual value */
-			appendStringInfo(&result_buf,"%s",param_text[current_param++]);
-		}
-	}
+
+		// advance current cursor
+		cursor_curr = cursor_ori;
+
+		/* replace the placeholder with actual value */
+		appendStringInfoString(&result_buf, param_text[current_param++]);
+	} while (*cursor_ori != '\0');
 
 	/* free the query text array*/
 	for(i = 0; i < param_num; i++)
-	{
 		pfree(param_text[i]);
-	}
+
 	pfree(param_text);
 
 	return result_buf;
