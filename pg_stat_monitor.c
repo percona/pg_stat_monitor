@@ -23,6 +23,7 @@
 #include "pgstat.h"
 #include "commands/dbcommands.h"
 #include "commands/explain.h"
+#include "lib/stringinfo.h"
 #include "pg_stat_monitor.h"
 
  /*
@@ -205,6 +206,12 @@ static pgsmEntry *pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanI
 static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
 static pgsmEntry *pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create);
 static uint64 get_pgsm_query_id_hash(const char *norm_query, int len);
+
+/* transform parameters value from datum to string*/
+static char **get_params_text_list(const ParamListInfo paramlist);
+
+/* denormalize the query, replace placeholders with actual values */
+static StringInfoData get_denormalized_query(const ParamListInfo paramlist, const char *query_text);
 
 static void pgsm_cleanup_callback(void *arg);
 static void pgsm_store_error(const char *query, ErrorData *edata);
@@ -692,6 +699,8 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	PlanInfo	plan_info;
 	PlanInfo   *plan_ptr = NULL;
 	pgsmEntry  *entry = NULL;
+	StringInfoData query_info;
+	MemoryContext oldctx;
 
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
@@ -750,6 +759,13 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 			sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
 			sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
 		}
+
+        if (!pgsm_normalized_query && queryDesc->params) {
+            query_info = get_denormalized_query(queryDesc->params, queryDesc->sourceText);
+            oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
+            entry->query_text.query_pointer = pnstrdup(query_info.data, query_info.len);
+            MemoryContextSwitchTo(oldctx);
+        }
 
 		pgsm_update_entry(entry,	/* entry */
 						  NULL, /* query */
@@ -4018,3 +4034,92 @@ get_query_id(JumbleState *jstate, Query *query)
 	return queryid;
 }
 #endif
+
+static char **
+get_params_text_list(const ParamListInfo paramlist)
+{
+	StringInfoData  buf;
+	int             entry_num = paramlist->numParams;
+	int             i;
+	char          **params_text;
+
+	initStringInfo(&buf);
+	params_text = (char **)palloc0(sizeof(char *) * entry_num);
+
+	for(i = 0; i < entry_num; i++)
+	{
+		ParamExternData *param = &paramlist->params[i];
+
+		if (param->isnull || !OidIsValid(param->ptype))
+		{
+			appendStringInfoString(&buf, "NULL");
+		}
+		else
+		{
+			Oid		typoutput;
+			bool	typisvarlena;
+			char	*pstring;
+
+			getTypeOutputInfo(param->ptype, &typoutput, &typisvarlena);
+			pstring = OidOutputFunctionCall(typoutput, param->value);
+			appendStringInfo(&buf, "%s",pstring);
+		}
+
+		/* assign memory space and add terminate symbol at the end of string*/
+		params_text[i] = (char *)palloc0(sizeof(char) * (buf.len + 1));
+		memcpy(params_text[i], buf.data, buf.len);
+		memset(params_text[i] + sizeof(char) * buf.len,'\0',sizeof(char));
+
+		/*clean the temp buffer*/
+		resetStringInfo(&buf);
+	}
+
+	return params_text;
+}
+
+StringInfoData
+get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
+{
+	int             current_param;
+	int             param_num;
+	int             i;
+	char          **param_text;
+	const char     *cursor_ori;
+	StringInfoData  result_buf;
+
+	param_text = get_params_text_list(paramlist);
+	param_num = paramlist->numParams;
+	current_param = 0;
+	cursor_ori = query_text;
+	initStringInfo(&result_buf);
+
+	while(*cursor_ori != '\0')
+	{
+		if(*cursor_ori != '$')
+		{
+			/* copy the origin query string to result*/
+			appendStringInfoChar(&result_buf,*cursor_ori);
+			cursor_ori++;
+		}
+		else
+		{
+			/* skip the placeholder */
+			cursor_ori++;
+			while(*cursor_ori >= '0' && *cursor_ori <= '9')
+			{
+					cursor_ori++;
+			}
+			/* replace the placeholder with actual value */
+			appendStringInfo(&result_buf,"%s",param_text[current_param++]);
+		}
+	}
+
+	/* free the query text array*/
+	for(i = 0; i < param_num; i++)
+	{
+		pfree(param_text[i]);
+	}
+	pfree(param_text);
+
+	return result_buf;
+}
