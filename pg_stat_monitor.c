@@ -208,8 +208,11 @@ static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
 static pgsmEntry *pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create);
 static uint64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
-/* transform parameters value from datum to string*/
-static char **get_params_text_list(const ParamListInfo paramlist);
+/*
+ * extract parameter value (Datum) from plist->params[idx], cast it to string then
+ * append the resulting string to the buffer.
+ */
+static void get_param_value(const ParamListInfo plist, int idx, StringInfoData *buffer);
 
 /* denormalize the query, replace placeholders with actual values */
 static StringInfoData get_denormalized_query(const ParamListInfo paramlist, const char *query_text);
@@ -706,8 +709,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
 	{
-		int			rv;
-		MemoryContext oldctx;
+		int rv;
 
 		/*
 		 * Making sure it is a per query context so that there's no memory
@@ -4036,72 +4038,49 @@ get_query_id(JumbleState *jstate, Query *query)
 }
 #endif
 
-static char **
-get_params_text_list(const ParamListInfo paramlist)
+void
+get_param_value(const ParamListInfo plist, int idx, StringInfoData *buffer)
 {
-	StringInfoData  buf;
-	int             entry_num = paramlist->numParams;
-	int             i;
-	char          **params_text;
+	Oid  typoutput;
+	bool typisvarlena;
+	char *pstring;
+	ParamExternData *param;
 
-	initStringInfo(&buf);
-	params_text = (char **)palloc0(sizeof(char *) * entry_num);
+	Assert(idx < plist->numParams);
 
-	for(i = 0; i < entry_num; i++)
+	param = &plist->params[idx];
+
+	if (param->isnull || !OidIsValid(param->ptype))
 	{
-		ParamExternData *param = &paramlist->params[i];
-
-		if (param->isnull || !OidIsValid(param->ptype))
-		{
-			appendStringInfoString(&buf, "NULL");
-		}
-		else
-		{
-			Oid		typoutput;
-			bool	typisvarlena;
-			char	*pstring;
-
-			getTypeOutputInfo(param->ptype, &typoutput, &typisvarlena);
-			pstring = OidOutputFunctionCall(typoutput, param->value);
-			appendStringInfo(&buf, "%s",pstring);
-		}
-
-		/* assign memory space and add terminate symbol at the end of string*/
-		params_text[i] = (char *)palloc0(sizeof(char) * (buf.len + 1));
-		memcpy(params_text[i], buf.data, buf.len);
-		memset(params_text[i] + sizeof(char) * buf.len,'\0',sizeof(char));
-
-		/*clean the temp buffer*/
-		resetStringInfo(&buf);
+		appendStringInfoString(buffer, "NULL");
+		return;
 	}
 
-	return params_text;
+	getTypeOutputInfo(param->ptype, &typoutput, &typisvarlena);
+	pstring = OidOutputFunctionCall(typoutput, param->value);
+	appendStringInfo(buffer, "%s", pstring);
 }
 
 StringInfoData
 get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
 {
 	int             current_param;
-	int             param_num;
-	int             i;
-	char          **param_text;
 	const char     *cursor_ori;
 	const char     *cursor_curr;
 	StringInfoData  result_buf;
 	ptrdiff_t       len;
 
-	param_text = get_params_text_list(paramlist);
-	param_num = paramlist->numParams;
 	current_param = 0;
 	cursor_ori = query_text;
 	cursor_curr = cursor_ori;
+
 	initStringInfo(&result_buf);
 
 	do
 	{
 		// advance cursor until detecting a placeholder '$' start.
 		while (*cursor_ori && *cursor_ori != '$')
-		++cursor_ori;
+			++cursor_ori;
 
 		// calculate length of query text before placeholder.
 		len = cursor_ori - cursor_curr;
@@ -4131,14 +4110,11 @@ get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
 		cursor_curr = cursor_ori;
 
 		/* replace the placeholder with actual value */
-		appendStringInfoString(&result_buf, param_text[current_param++]);
+		get_param_value(paramlist, current_param, &result_buf);
+
+		++current_param;
 	} while (*cursor_ori != '\0');
 
-	/* free the query text array*/
-	for(i = 0; i < param_num; i++)
-		pfree(param_text[i]);
-
-	pfree(param_text);
 
 	return result_buf;
 }
