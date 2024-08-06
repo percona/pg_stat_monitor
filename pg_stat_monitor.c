@@ -33,7 +33,7 @@ typedef enum pgsmVersion
 	PGSM_V1_0 = 0,
 	PGSM_V2_0,
 	PGSM_V2_1
-} pgsmVersion;
+}			pgsmVersion;
 
 PG_MODULE_MAGIC;
 
@@ -201,9 +201,9 @@ DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 static uint64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
 
-static pgsmEntry *pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info);
-static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
-static pgsmEntry *pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create);
+static pgsmEntry * pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info);
+static void pgsm_add_to_list(pgsmEntry * entry, char *query_text, int query_len);
+static pgsmEntry * pgsm_get_entry_for_query(uint64 queryid, PlanInfo * plan_info, const char *query_text, int query_len, bool create);
 static uint64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
@@ -217,13 +217,13 @@ MemoryContextCallback mem_cxt_reset_callback =
 };
 volatile bool callback_setup = false;
 
-static void pgsm_update_entry(pgsmEntry *entry,
+static void pgsm_update_entry(pgsmEntry * entry,
 							  const char *query,
 							  char *comments,
 							  int comments_len,
-							  PlanInfo *plan_info,
-							  SysInfo *sys_info,
-							  ErrorInfo *error_info,
+							  PlanInfo * plan_info,
+							  SysInfo * sys_info,
+							  ErrorInfo * error_info,
 							  double plan_total_time,
 							  double exec_total_time,
 							  uint64 rows,
@@ -232,7 +232,7 @@ static void pgsm_update_entry(pgsmEntry *entry,
 							  const struct JitInstrumentation *jitusage,
 							  bool reset,
 							  pgsmStoreKind kind);
-static void pgsm_store(pgsmEntry *entry);
+static void pgsm_store(pgsmEntry * entry);
 
 static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 									 pgsmVersion api_version,
@@ -259,7 +259,7 @@ static char *generate_normalized_query(JumbleState *jstate, const char *query,
 static void fill_in_constant_lengths(JumbleState *jstate, const char *query, int query_loc);
 static int	comp_location(const void *a, const void *b);
 
-static uint64 get_next_wbucket(pgsmSharedState *pgsm);
+static uint64 get_next_wbucket(pgsmSharedState * pgsm);
 
 /*
  * Module load callback
@@ -696,7 +696,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
 	{
-		int			rv;
+		int rv;
 		MemoryContext oldctx;
 
 		/*
@@ -806,9 +806,9 @@ pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort)
 
 		if (rte->rtekind != RTE_RELATION
 #if PG_VERSION_NUM >= 160000
-			&& (rte->rtekind != RTE_SUBQUERY && rte->relkind != 'v')
+            && (rte->rtekind != RTE_SUBQUERY && rte->relkind != 'v')
 #endif
-			)
+           )
 			continue;
 
 		if (i < REL_LST)
@@ -1417,13 +1417,13 @@ pg_get_client_addr(bool *ok)
 }
 
 static void
-pgsm_update_entry(pgsmEntry *entry,
+pgsm_update_entry(pgsmEntry * entry,
 				  const char *query,
 				  char *comments,
 				  int comments_len,
-				  PlanInfo *plan_info,
-				  SysInfo *sys_info,
-				  ErrorInfo *error_info,
+				  PlanInfo * plan_info,
+				  SysInfo * sys_info,
+				  ErrorInfo * error_info,
 				  double plan_total_time,
 				  double exec_total_time,
 				  uint64 rows,
@@ -1439,10 +1439,7 @@ pgsm_update_entry(pgsmEntry *entry,
 	int			sqlcode_len = error_info ? strlen(error_info->sqlcode) : 0;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
-	/*
-	 * Start collecting data for next bucket and reset all counters and
-	 * timestamps
-	 */
+	/* Start collecting data for next bucket and reset all counters and timestamps */
 	if (reset)
 	{
 		memset(&entry->counters, 0, sizeof(Counters));
@@ -1452,7 +1449,7 @@ pgsm_update_entry(pgsmEntry *entry,
 
 	/* volatile block */
 	{
-		volatile pgsmEntry *e = (volatile pgsmEntry *) entry;
+		volatile	pgsmEntry *e = (volatile pgsmEntry *) entry;
 
 		if (kind == PGSM_STORE)
 			SpinLockAcquire(&e->mutex);
@@ -1721,7 +1718,7 @@ pgsm_store_error(const char *query, ErrorData *edata)
 }
 
 static void
-pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len)
+pgsm_add_to_list(pgsmEntry * entry, char *query_text, int query_len)
 {
 	/* Switch to pgsm memory context */
 	MemoryContext oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
@@ -1732,7 +1729,7 @@ pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len)
 }
 
 static pgsmEntry *
-pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create)
+pgsm_get_entry_for_query(uint64 queryid, PlanInfo * plan_info, const char *query_text, int query_len, bool create)
 {
 	pgsmEntry  *entry = NULL;
 	ListCell   *lc = NULL;
@@ -1790,7 +1787,7 @@ pgsm_cleanup_callback(void *arg)
  * The bucket_id may not be known at this stage. So pass any value that you may wish.
  */
 static pgsmEntry *
-pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
+pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 {
 	pgsmEntry  *entry;
 	int			sec_ctx;
@@ -1875,7 +1872,7 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
  * query string.  total_time, rows, bufusage are ignored in this case.
  */
 static void
-pgsm_store(pgsmEntry *entry)
+pgsm_store(pgsmEntry * entry)
 {
 	pgsmEntry  *shared_hash_entry;
 	pgsmSharedState *pgsm;
@@ -2027,9 +2024,9 @@ pgsm_store(pgsmEntry *entry)
 				{
 					ereport(WARNING,
 							(errcode(ERRCODE_OUT_OF_MEMORY),
-							 errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
-							 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
-									   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+							errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
+							errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+									"queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
 				} PGSM_END_DISABLE_ERROR_CAPTURE();
 			}
 
@@ -2268,7 +2265,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		/* copy counters to a local variable to keep locking time short */
 		{
-			volatile pgsmEntry *e = (volatile pgsmEntry *) entry;
+			volatile	pgsmEntry *e = (volatile pgsmEntry *) entry;
 
 			SpinLockAcquire(&e->mutex);
 			tmp = e->counters;
@@ -2594,7 +2591,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 }
 
 static uint64
-get_next_wbucket(pgsmSharedState *pgsm)
+get_next_wbucket(pgsmSharedState * pgsm)
 {
 	struct timeval tv;
 	uint64		current_bucket_sec;

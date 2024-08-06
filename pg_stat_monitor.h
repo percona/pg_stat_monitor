@@ -195,7 +195,7 @@ typedef enum pgsmStoreKind
 	PGSM_ERROR,
 
 	PGSM_NUMKIND				/* Must be last value of this enum */
-} pgsmStoreKind;
+}			pgsmStoreKind;
 
 /* the assumption of query max nested level */
 #define DEFAULT_MAX_NESTED_LEVEL	10
@@ -208,7 +208,7 @@ typedef enum AGG_KEY
 	AGG_KEY_DATABASE = 0,
 	AGG_KEY_USER,
 	AGG_KEY_HOST
-} AGG_KEY;
+}			AGG_KEY;
 
 #define MAX_QUERY_LEN 1024
 
@@ -220,7 +220,7 @@ typedef struct CallTime
 	double		max_time;		/* maximum execution time in msec */
 	double		mean_time;		/* mean execution time in msec */
 	double		sum_var_time;	/* sum of variances in execution time in msec */
-} CallTime;
+}			CallTime;
 
 
 typedef struct PlanInfo
@@ -228,7 +228,7 @@ typedef struct PlanInfo
 	uint64		planid;			/* plan identifier */
 	char		plan_text[PLAN_TEXT_LEN];	/* plan text */
 	size_t		plan_len;		/* strlen(plan_text) */
-} PlanInfo;
+}			PlanInfo;
 
 typedef struct pgsmHashKey
 {
@@ -240,7 +240,7 @@ typedef struct pgsmHashKey
 	Oid			dbid;			/* database OID */
 	uint32		ip;				/* client ip address */
 	bool		toplevel;		/* query executed at top level */
-} pgsmHashKey;
+}			pgsmHashKey;
 
 typedef struct QueryInfo
 {
@@ -262,53 +262,46 @@ typedef struct ErrorInfo
 	int64		elevel;			/* error elevel */
 	char		sqlcode[SQLCODE_LEN];	/* error sqlcode  */
 	char		message[ERROR_MESSAGE_LEN]; /* error message text */
-} ErrorInfo;
+}			ErrorInfo;
 
 typedef struct Calls
 {
 	int64		calls;			/* # of times executed */
 	int64		rows;			/* total # of retrieved or affected rows */
 	double		usage;			/* usage factor */
-} Calls;
+}			Calls;
 
 
 typedef struct Blocks
 {
-	int64		shared_blks_hit;	/* # of shared buffer hits */
-	int64		shared_blks_read;	/* # of shared disk blocks read */
+	int64		shared_blks_hit;		/* # of shared buffer hits */
+	int64		shared_blks_read;		/* # of shared disk blocks read */
 	int64		shared_blks_dirtied;	/* # of shared disk blocks dirtied */
 	int64		shared_blks_written;	/* # of shared disk blocks written */
-	int64		local_blks_hit; /* # of local buffer hits */
-	int64		local_blks_read;	/* # of local disk blocks read */
-	int64		local_blks_dirtied; /* # of local disk blocks dirtied */
-	int64		local_blks_written; /* # of local disk blocks written */
-	int64		temp_blks_read; /* # of temp blocks read */
-	int64		temp_blks_written;	/* # of temp blocks written */
-	double		shared_blk_read_time;	/* time spent reading shared blocks,
-										 * in msec */
-	double		shared_blk_write_time;	/* time spent writing shared blocks,
-										 * in msec */
-	double		local_blk_read_time;	/* time spent reading local blocks, in
-										 * msec */
-	double		local_blk_write_time;	/* time spent writing local blocks, in
-										 * msec */
-	double		temp_blk_read_time; /* time spent reading temp blocks, in msec */
-	double		temp_blk_write_time;	/* time spent writing temp blocks, in
-										 * msec */
+	int64		local_blks_hit;			/* # of local buffer hits */
+	int64		local_blks_read;		/* # of local disk blocks read */
+	int64		local_blks_dirtied;		/* # of local disk blocks dirtied */
+	int64		local_blks_written;		/* # of local disk blocks written */
+	int64		temp_blks_read;			/* # of temp blocks read */
+	int64		temp_blks_written;		/* # of temp blocks written */
+	double 		shared_blk_read_time;	/* time spent reading shared blocks, in msec */
+	double 		shared_blk_write_time;	/* time spent writing shared blocks, in msec */
+	double 		local_blk_read_time;	/* time spent reading local blocks, in msec */
+	double 		local_blk_write_time;	/* time spent writing local blocks, in msec */
+	double 		temp_blk_read_time;		/* time spent reading temp blocks, in msec */
+	double 		temp_blk_write_time;	/* time spent writing temp blocks, in msec */
 
 	/*
 	 * Variables for local entry. The values to be passed to pgsm_update_entry
 	 * from pgsm_store.
 	 */
-	instr_time	instr_shared_blk_read_time; /* time spent reading shared
-											 * blocks */
-	instr_time	instr_shared_blk_write_time;	/* time spent writing shared
-												 * blocks */
-	instr_time	instr_local_blk_read_time;	/* time spent reading local blocks */
-	instr_time	instr_local_blk_write_time; /* time spent writing local blocks */
-	instr_time	instr_temp_blk_read_time;	/* time spent reading temp blocks */
-	instr_time	instr_temp_blk_write_time;	/* time spent writing temp blocks */
-} Blocks;
+	instr_time      instr_shared_blk_read_time;	 /* time spent reading shared blocks */
+	instr_time      instr_shared_blk_write_time; /* time spent writing shared blocks */
+	instr_time      instr_local_blk_read_time;	 /* time spent reading local blocks */
+	instr_time      instr_local_blk_write_time;  /* time spent writing local blocks */
+	instr_time      instr_temp_blk_read_time;	 /* time spent reading temp blocks */
+	instr_time      instr_temp_blk_write_time;	 /* time spent writing temp blocks */
+}			Blocks;
 
 typedef struct JitInfo
 {
@@ -333,23 +326,23 @@ typedef struct JitInfo
 	 */
 	instr_time	instr_generation_counter;	/* generation counter */
 	instr_time	instr_inlining_counter; /* inlining counter */
-	instr_time	instr_deform_counter;	/* deform counter */
+	instr_time	instr_deform_counter; /* deform counter */
 	instr_time	instr_optimization_counter; /* optimization counter */
 	instr_time	instr_emission_counter; /* emission counter */
-} JitInfo;
+}			JitInfo;
 
 typedef struct SysInfo
 {
 	double		utime;			/* user cpu time */
 	double		stime;			/* system cpu time */
-} SysInfo;
+}			SysInfo;
 
 typedef struct Wal_Usage
 {
 	int64		wal_records;	/* # of WAL records generated */
 	int64		wal_fpi;		/* # of WAL full page images generated */
 	uint64		wal_bytes;		/* total amount of WAL bytes generated */
-} Wal_Usage;
+}			Wal_Usage;
 
 typedef struct Counters
 {
@@ -391,7 +384,7 @@ typedef struct pgsmEntry
 		dsa_pointer query_pos;	/* query location within query buffer */
 		char	   *query_pointer;
 	}			query_text;
-} pgsmEntry;
+}			pgsmEntry;
 
 /*
  * Global shared state
@@ -414,8 +407,8 @@ typedef struct pgsmSharedState
 	 */
 
 	bool		pgsm_oom;
-	TimestampTz bucket_start_time[];	/* start time of the bucket */
-} pgsmSharedState;
+	TimestampTz bucket_start_time[]; /* start time of the bucket */
+}			pgsmSharedState;
 
 typedef struct pgsmLocalState
 {
@@ -423,9 +416,9 @@ typedef struct pgsmLocalState
 	dsa_area   *dsa;			/* local dsa area for backend attached to the
 								 * dsa area created by postmaster at startup. */
 	PGSM_HASH_TABLE *shared_hash;
-	MemoryContext pgsm_mem_cxt;
+    MemoryContext pgsm_mem_cxt;
 
-} pgsmLocalState;
+}			pgsmLocalState;
 
 #if PG_VERSION_NUM < 140000
 /*
@@ -480,7 +473,7 @@ pgsmSharedState *pgsm_get_ss(void);
 void		hash_query_entries();
 void		hash_query_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer[]);
 void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
-pgsmEntry  *hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding);
+pgsmEntry  *hash_entry_alloc(pgsmSharedState * pgsm, pgsmHashKey * key, int encoding);
 Size		pgsm_ShmemSize(void);
 void		pgsm_startup(void);
 
@@ -498,7 +491,7 @@ typedef enum
 	PSGM_TRACK_NONE = 0,		/* track no statements */
 	PGSM_TRACK_TOP,				/* only top level statements */
 	PGSM_TRACK_ALL				/* all statements, including nested ones */
-} PGSMTrackLevel;
+}			PGSMTrackLevel;
 static const struct config_enum_entry track_options[] =
 {
 	{"none", PSGM_TRACK_NONE, false},
@@ -512,7 +505,7 @@ typedef enum
 	HISTOGRAM_START,
 	HISTOGRAM_END,
 	HISTOGRAM_COUNT
-} HistogramTimingType;
+}			HistogramTimingType;
 
 extern int	pgsm_max;
 extern int	pgsm_query_max_len;
@@ -538,8 +531,8 @@ extern int	pgsm_track;
 #define HOOK_STATS_SIZE 0
 #endif
 
-void	   *pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
-void	   *pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
+void	   *pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey * key, bool *found);
+void	   *pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey * key, bool *found);
 void		pgsm_hash_seq_init(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, bool lock);
 void	   *pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS * hstat);
 void		pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat);
