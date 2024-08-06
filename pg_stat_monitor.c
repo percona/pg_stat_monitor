@@ -1542,15 +1542,13 @@ pgsm_update_entry(pgsmEntry * entry,
 			e->counters.info.num_relations = num_relations;
 			_snprintf2(e->counters.info.relations, relations, num_relations, REL_LEN);
 
-			if (nesting_level > 0 && e->counters.info.parentid == 0 && pgsm_track == PGSM_TRACK_ALL)
+			if (nesting_level > 0 && nesting_level < max_stack_depth && e->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
 			{
-				if (nesting_level >= 0 && nesting_level < max_stack_depth)
+				if (!DsaPointerIsValid(e->counters.info.parent_query))
 				{
 					int			parent_query_len = nested_query_txts[nesting_level - 1] ?
 						strlen(nested_query_txts[nesting_level - 1]) : 0;
 
-					e->counters.info.parentid = nested_queryids[nesting_level - 1];
-					e->counters.info.parent_query = InvalidDsaPointer;
 					/* If we have a parent query, store it in the raw dsa area */
 					if (parent_query_len > 0)
 					{
@@ -1577,8 +1575,7 @@ pgsm_update_entry(pgsmEntry * entry,
 			}
 			else
 			{
-				e->counters.info.parentid = UINT64CONST(0);
-				e->counters.info.parent_query = InvalidDsaPointer;
+                                Assert(!DsaPointerIsValid(e->counters.info.parent_query));
 			}
 		}
 
@@ -1826,6 +1823,7 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo * plan_info)
 	entry->key.dbid = MyDatabaseId;
 	entry->key.queryid = queryid;
 	entry->key.bucket_id = bucket_id;
+	entry->key.parentid = 0;
 
 #if PG_VERSION_NUM < 140000
 	entry->key.toplevel = 1;
@@ -1947,13 +1945,24 @@ pgsm_store(pgsmEntry * entry)
 	memcpy(&jitusage.optimization_counter, &entry->counters.jitinfo.instr_optimization_counter, sizeof(instr_time));
 	memcpy(&jitusage.emission_counter, &entry->counters.jitinfo.instr_emission_counter, sizeof(instr_time));
 
+
+	// Update parent id if needed
+	if(pgsm_track == PGSM_TRACK_ALL && nesting_level > 0 && nesting_level < max_stack_depth)
+	{
+		entry->key.parentid = nested_queryids[nesting_level - 1];
+	}
+	else
+	{
+		entry->key.parentid = UINT64CONST(0);
+	}
+
 #if PG_VERSION_NUM >= 170000
 	memcpy(&jitusage.deform_counter, &entry->counters.jitinfo.instr_deform_counter, sizeof(instr_time));
 #endif
 
 	/*
 	 * Acquire a share lock to start with. We'd have to acquire exclusive if
-	 * we need ot create the entry.
+	 * we need to create the entry.
 	 */
 	LWLockAcquire(pgsm->lock, LW_SHARED);
 	shared_hash_entry = (pgsmEntry *) pgsm_hash_find(get_pgsmHash(), &entry->key, &found);
@@ -2047,6 +2056,7 @@ pgsm_store(pgsmEntry * entry)
 		shared_hash_entry->pgsm_query_id = entry->pgsm_query_id;
 		shared_hash_entry->encoding = entry->encoding;
 		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
+		shared_hash_entry->counters.info.parent_query = InvalidDsaPointer;
 
 		snprintf(shared_hash_entry->datname, sizeof(shared_hash_entry->datname), "%s", entry->datname);
 		snprintf(shared_hash_entry->username, sizeof(shared_hash_entry->username), "%s", entry->username);
@@ -2233,6 +2243,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		bool		nulls[PG_STAT_MONITOR_COLS] = {0};
 		int			i = 0;
 		Counters	tmp;
+		pgsmHashKey     tmpkey;
 		double		stddev;
 		uint64		queryid = entry->key.queryid;
 		int64		bucketid = entry->key.bucket_id;
@@ -2269,6 +2280,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 			SpinLockAcquire(&e->mutex);
 			tmp = e->counters;
+			tmpkey = e->key;
 			SpinLockRelease(&e->mutex);
 		}
 
@@ -2285,7 +2297,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		}
 
 		/* read the parent query text if any */
-		if (tmp.info.parentid != UINT64CONST(0))
+		if (tmpkey.parentid != UINT64CONST(0))
 		{
 			if (DsaPointerIsValid(tmp.info.parent_query))
 			{
@@ -2370,10 +2382,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		else
 			nulls[i++] = true;
 
-		/* parentid at column number 11 */
-		if (tmp.info.parentid != UINT64CONST(0))
+		/* parentid at column number 9 */
+		if (tmpkey.parentid != UINT64CONST(0))
 		{
-			values[i++] = UInt64GetDatum(tmp.info.parentid);
+			values[i++] = UInt64GetDatum(tmpkey.parentid);
 			values[i++] = CStringGetTextDatum(parent_query_txt);
 		}
 		else
