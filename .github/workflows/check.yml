@@ -35,6 +35,49 @@ jobs:
           set -x
           cppcheck --enable=all --inline-suppr --template='{file}:{line},{severity},{id},{message}' --error-exitcode=1 --suppress=missingIncludeSystem --suppress=missingInclude --suppress=unmatchedSuppression:pg_stat_monitor.c --check-config .
 
+  format:
+    name: Format
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Clone postgres repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'postgres/postgres'
+          ref: 'REL_17_STABLE'
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          path: 'contrib/pg_stat_monitor'
+
+      - name: Configure postgres
+        run: ./configure
+
+      - name: Install perltidy
+        run: sudo cpan -T SHANCOCK/Perl-Tidy-20230309.tar.gz
+
+      - name: Install pg_bsd_indent
+        working-directory: src/tools/pg_bsd_indent
+        run: sudo make install
+
+      - name: Add pg_bsd_indent and pgindent to path
+        run: |
+          echo "/usr/local/pgsql/bin" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/src/tools/pgindent" >> $GITHUB_PATH
+
+      - name: Format sources
+        working-directory: contrib/pg_stat_monitor
+        run: |
+          make update-typedefs
+          make indent
+
+      - name: Check files are formatted and no source code changes
+        working-directory: contrib/pg_stat_monitor
+        run: |
+          git status
+          git diff --exit-code
+
   license:
     name: License
     runs-on: ubuntu-22.04
