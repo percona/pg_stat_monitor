@@ -16,6 +16,7 @@ install_data(
   'pg_stat_monitor.control',
   'pg_stat_monitor--2.0.sql',
   'pg_stat_monitor--1.0--2.0.sql',
+  'pg_stat_monitor--2.0--2.1.sql',
   kwargs: contrib_data_args,
 )
 
@@ -31,11 +32,13 @@ tests += {
       'cmd_type',
       'counters',
       'database',
+      'different_parent_queries'
       'error_insert',
       'error',
       'functions',
       'guc',
       'histogram',
+      'level_tracking'
       'pgsqm_query_id',
       'relations',
       'rows',
