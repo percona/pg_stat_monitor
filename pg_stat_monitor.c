@@ -20,9 +20,11 @@
 #include "nodes/pg_list.h"
 #include "utils/guc.h"
 #include <regex.h>
+#include <stddef.h>
 #include "pgstat.h"
 #include "commands/dbcommands.h"
 #include "commands/explain.h"
+#include "lib/stringinfo.h"
 #include "pg_stat_monitor.h"
 
  /*
@@ -205,6 +207,15 @@ static pgsmEntry *pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanI
 static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
 static pgsmEntry *pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create);
 static uint64 get_pgsm_query_id_hash(const char *norm_query, int len);
+
+/*
+ * extract parameter value (Datum) from plist->params[idx], cast it to string then
+ * append the resulting string to the buffer.
+ */
+static void get_param_value(const ParamListInfo plist, int idx, StringInfoData *buffer);
+
+/* denormalize the query, replace placeholders with actual values */
+static StringInfoData get_denormalized_query(const ParamListInfo paramlist, const char *query_text);
 
 static void pgsm_cleanup_callback(void *arg);
 static void pgsm_store_error(const char *query, ErrorData *edata);
@@ -692,6 +703,8 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	PlanInfo	plan_info;
 	PlanInfo   *plan_ptr = NULL;
 	pgsmEntry  *entry = NULL;
+	StringInfoData query_info;
+	MemoryContext oldctx;
 
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
@@ -750,6 +763,13 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 			sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
 			sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
 		}
+
+        if (!pgsm_normalized_query && queryDesc->params) {
+            query_info = get_denormalized_query(queryDesc->params, queryDesc->sourceText);
+            oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
+            entry->query_text.query_pointer = pnstrdup(query_info.data, query_info.len);
+            MemoryContextSwitchTo(oldctx);
+        }
 
 		pgsm_update_entry(entry,	/* entry */
 						  NULL, /* query */
@@ -4018,3 +4038,85 @@ get_query_id(JumbleState *jstate, Query *query)
 	return queryid;
 }
 #endif
+
+void
+get_param_value(const ParamListInfo plist, int idx, StringInfoData *buffer)
+{
+	Oid  typoutput;
+	bool typisvarlena;
+	char *pstring;
+	ParamExternData *param;
+
+	Assert(idx < plist->numParams);
+
+	param = &plist->params[idx];
+
+	if (param->isnull || !OidIsValid(param->ptype))
+	{
+		appendStringInfoString(&buffer, "NULL");
+		return;
+	}
+
+	getTypeOutputInfo(param->ptype, &typoutput, &typisvarlena);
+	pstring = OidOutputFunctionCall(typoutput, param->value);
+	appendStringInfo(buffer, "%s", pstring);
+}
+
+StringInfoData
+get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
+{
+	int             current_param;
+	int             i;
+	const char     *cursor_ori;
+	const char     *cursor_curr;
+	StringInfoData  result_buf;
+	ptrdiff_t       len;
+
+	current_param = 0;
+	cursor_ori = query_text;
+	cursor_curr = cursor_ori;
+
+	initStringInfo(&result_buf);
+
+	do
+	{
+		// advance cursor until detecting a placeholder '$' start.
+		while (*cursor_ori && *cursor_ori != '$')
+			++cursor_ori;
+
+		// calculate length of query text before placeholder.
+		len = cursor_ori - cursor_curr;
+
+		// check if end of string is reached
+		if (!*cursor_ori)
+		{
+			// there may have remaining query data to append
+			if (len > 0)
+				appendBinaryStringInfo(&result_buf, cursor_curr, len);
+
+			break;
+		}
+
+		// append query text before the '$' sign found.
+		if (len > 0)
+			appendBinaryStringInfo(&result_buf, cursor_curr, len);
+
+		// skip '$'
+		++cursor_ori;
+
+		/* skip the placeholder */
+		while(*cursor_ori && *cursor_ori >= '0' && *cursor_ori <= '9')
+			cursor_ori++;
+
+		// advance current cursor
+		cursor_curr = cursor_ori;
+
+		/* replace the placeholder with actual value */
+		get_param_value(paramlist, current_param, &result_buf);
+
+		++current_param;
+	} while (*cursor_ori != '\0');
+
+
+	return result_buf;
+}
