@@ -238,10 +238,11 @@ static void pgsm_update_entry(pgsmEntry *entry,
 							  const struct JitInstrumentation *jitusage,
 							  bool reset,
 							  pgsmStoreKind kind);
-static void pgsm_store_ex(pgsmEntry * entry, ParamListInfo params);
+static void pgsm_store_ex(pgsmEntry *entry, ParamListInfo params);
 
 /* Stores query entry in normalized form */
-static inline void pgsm_store(pgsmEntry * entry)
+static inline void
+pgsm_store(pgsmEntry *entry)
 {
 	pgsm_store_ex(entry, NULL);
 }
@@ -709,7 +710,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
 	{
-		int rv;
+		int			rv;
 
 		/*
 		 * Making sure it is a per query context so that there's no memory
@@ -1889,7 +1890,8 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
  * inserted or if the time to execute the query exceeds the average
  * time computed for the same query.
  */
-void pgsm_store_ex(pgsmEntry *entry, ParamListInfo params)
+void
+pgsm_store_ex(pgsmEntry *entry, ParamListInfo params)
 {
 	pgsmEntry  *shared_hash_entry;
 	pgsmSharedState *pgsm;
@@ -1994,7 +1996,8 @@ void pgsm_store_ex(pgsmEntry *entry, ParamListInfo params)
 		char	   *query_buff;
 
 		/* Denormalize the query if normalization is off */
-		if (!pgsm_normalized_query && params != NULL) {
+		if (!pgsm_normalized_query && params != NULL)
+		{
 			query_info = get_denormalized_query(params, query);
 			query = query_info.data;
 			query_len = query_info.len;
@@ -2088,15 +2091,19 @@ void pgsm_store_ex(pgsmEntry *entry, ParamListInfo params)
 		snprintf(shared_hash_entry->datname, sizeof(shared_hash_entry->datname), "%s", entry->datname);
 		snprintf(shared_hash_entry->username, sizeof(shared_hash_entry->username), "%s", entry->username);
 	}
-	/* Entry already exists, if query normalization is disabled and
-	 * the query execution time exceeds the mean time for this query,
-	 * then we denormalize the query so users can inspect which arguments
-	 * caused the query to take more time to execute */
+
+	/*
+	 * Entry already exists, if query normalization is disabled and the query
+	 * execution time exceeds the mean time for this query, then we
+	 * denormalize the query so users can inspect which arguments caused the
+	 * query to take more time to execute
+	 */
 	else if (
-		!pgsm_normalized_query &&
-		params != NULL &&
-		entry->counters.time.total_time > shared_hash_entry->counters.time.mean_time
-	){
+			 !pgsm_normalized_query &&
+			 params != NULL &&
+			 entry->counters.time.total_time > shared_hash_entry->counters.time.mean_time
+		)
+	{
 		dsa_pointer dsa_query_pointer;
 		dsa_area   *query_dsa_area;
 		char	   *query_buff;
@@ -2114,7 +2121,10 @@ void pgsm_store_ex(pgsmEntry *entry, ParamListInfo params)
 		dsa_query_pointer = dsa_allocate_extended(query_dsa_area, query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
 		if (DsaPointerIsValid(dsa_query_pointer))
 		{
-			/* Get the memory address from DSA pointer and copy the query text to it. */
+			/*
+			 * Get the memory address from DSA pointer and copy the query text
+			 * to it.
+			 */
 			query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
 			memcpy(query_buff, query, query_len);
 
@@ -4087,9 +4097,9 @@ get_query_id(JumbleState *jstate, Query *query)
 void
 get_param_value(const ParamListInfo plist, int idx, StringInfoData *buffer)
 {
-	Oid  typoutput;
-	bool typisvarlena;
-	char *pstring;
+	Oid			typoutput;
+	bool		typisvarlena;
+	char	   *pstring;
 	ParamExternData *param;
 
 	Assert(idx < plist->numParams);
@@ -4111,11 +4121,11 @@ get_param_value(const ParamListInfo plist, int idx, StringInfoData *buffer)
 StringInfoData
 get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
 {
-	int             current_param;
-	const char     *cursor_ori;
-	const char     *cursor_curr;
-	StringInfoData  result_buf;
-	ptrdiff_t       len;
+	int			current_param;
+	const char *cursor_ori;
+	const char *cursor_curr;
+	StringInfoData result_buf;
+	ptrdiff_t	len;
 
 	current_param = 0;
 	cursor_ori = query_text;
@@ -4125,35 +4135,35 @@ get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
 
 	do
 	{
-		// advance cursor until detecting a placeholder '$' start.
+		/* advance cursor until detecting a placeholder '$' start. */
 		while (*cursor_ori && *cursor_ori != '$')
 			++cursor_ori;
 
-		// calculate length of query text before placeholder.
+		/* calculate length of query text before placeholder. */
 		len = cursor_ori - cursor_curr;
 
-		// check if end of string is reached
+		/* check if end of string is reached */
 		if (!*cursor_ori)
 		{
-			// there may have remaining query data to append
+			/* there may have remaining query data to append */
 			if (len > 0)
 				appendBinaryStringInfo(&result_buf, cursor_curr, len);
 
 			break;
 		}
 
-		// append query text before the '$' sign found.
+		/* append query text before the '$' sign found. */
 		if (len > 0)
 			appendBinaryStringInfo(&result_buf, cursor_curr, len);
 
-		// skip '$'
+		/* skip '$' */
 		++cursor_ori;
 
 		/* skip the placeholder */
-		while(*cursor_ori && *cursor_ori >= '0' && *cursor_ori <= '9')
+		while (*cursor_ori && *cursor_ori >= '0' && *cursor_ori <= '9')
 			cursor_ori++;
 
-		// advance current cursor
+		/* advance current cursor */
 		cursor_curr = cursor_ori;
 
 		/* replace the placeholder with actual value */
