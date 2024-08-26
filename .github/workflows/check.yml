@@ -6,6 +6,7 @@ jobs:
   cppcheck:
     name: Cppcheck
     runs-on: ubuntu-22.04
+    timeout-minutes: 5
 
     steps:
       - name: Checkout sources
@@ -38,6 +39,7 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-22.04
+    timeout-minutes: 5
 
     steps:
       - name: Clone postgres repository
@@ -81,6 +83,7 @@ jobs:
   license:
     name: License
     runs-on: ubuntu-22.04
+    timeout-minutes: 5
 
     steps:
       - name: Checkout sources
