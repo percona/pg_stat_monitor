@@ -11,6 +11,8 @@ jobs:
   build:
     name: pg-12-pgdg-package-test
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
     steps:
       - name: Clone pg_stat_monitor repository
         uses: actions/checkout@v4
