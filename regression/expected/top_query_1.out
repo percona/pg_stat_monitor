@@ -37,7 +37,7 @@ SELECT query, top_query FROM pg_stat_monitor ORDER BY query COLLATE "C";
          return add($1,$2);                                  +| 
  END;                                                        +| 
  $$ language plpgsql                                          | 
- SELECT (select $1 + $2)                                      | SELECT add2(1,2);
+ SELECT (select NULL + NULL)                                  | SELECT add2(1,2);
  SELECT add2(1,2)                                             | 
  SELECT pg_stat_monitor_reset()                               | 
 (5 rows)
