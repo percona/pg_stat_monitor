@@ -1,5 +1,5 @@
 CREATE EXTENSION pg_stat_monitor;
-Set pg_stat_monitor.pgsm_normalized_query='off';
+SET pg_stat_monitor.pgsm_normalized_query='off';
 
 CREATE TABLE t1 (a TEXT, b TEXT, c TEXT);
 
@@ -30,4 +30,5 @@ SELECT SUBSTRING(query, 0, 128), calls FROM pg_stat_monitor ORDER BY query COLLA
 DROP TABLE t1;
 
 SELECT pg_stat_monitor_reset();
+SET pg_stat_monitor.pgsm_normalized_query='on';
 DROP EXTENSION pg_stat_monitor;

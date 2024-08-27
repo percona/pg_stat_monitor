@@ -1,5 +1,5 @@
 CREATE EXTENSION pg_stat_monitor;
-Set pg_stat_monitor.pgsm_normalized_query='off';
+SET pg_stat_monitor.pgsm_normalized_query='off';
 CREATE TABLE t1 (a TEXT, b TEXT, c TEXT);
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
@@ -60,4 +60,5 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
+SET pg_stat_monitor.pgsm_normalized_query='on';
 DROP EXTENSION pg_stat_monitor;
