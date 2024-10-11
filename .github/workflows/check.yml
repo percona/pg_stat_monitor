@@ -34,7 +34,7 @@ jobs:
         working-directory: src/pg_stat_monitor
         run: |
           set -x
-          cppcheck --enable=all --inline-suppr --template='{file}:{line},{severity},{id},{message}' --error-exitcode=1 --suppress=missingIncludeSystem --suppress=missingInclude --suppress=unmatchedSuppression:pg_stat_monitor.c --check-config .
+          cppcheck --enable=all --inline-suppr --std=c99 --check-level=exhaustive --error-exitcode=1 --suppress=missingIncludeSystem --suppress=missingInclude .
 
   format:
     name: Format
