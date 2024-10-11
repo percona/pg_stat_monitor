@@ -263,10 +263,10 @@ static uint64 get_next_wbucket(pgsmSharedState *pgsm);
 
 /*
  * Module load callback
+ *
  */
-/*  cppcheck-suppress unusedFunction */
 void
-_PG_init(void)
+_PG_init(void)					/* cppcheck-suppress unusedFunction */
 {
 	int			rc;
 
@@ -1369,14 +1369,12 @@ pg_get_backend_status(void)
 static int
 pg_get_application_name(char *name, int buff_size)
 {
-	PgBackendStatus *beentry;
-
 	/* Try to read application name from GUC directly */
 	if (application_name && *application_name)
 		snprintf(name, buff_size, "%s", application_name);
 	else
 	{
-		beentry = pg_get_backend_status();
+		PgBackendStatus *beentry = pg_get_backend_status();
 
 		if (!beentry)
 			snprintf(name, buff_size, "%s", "unknown");
@@ -1555,7 +1553,6 @@ pgsm_update_entry(pgsmEntry *entry,
 					/* If we have a parent query, store it in the raw dsa area */
 					if (parent_query_len > 0)
 					{
-						char	   *qry_buff;
 						dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
 
 						/*
@@ -1567,7 +1564,8 @@ pgsm_update_entry(pgsmEntry *entry,
 
 						if (DsaPointerIsValid(qry))
 						{
-							qry_buff = dsa_get_address(query_dsa_area, qry);
+							char	   *qry_buff = dsa_get_address(query_dsa_area, qry);
+
 							memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
 							qry_buff[parent_query_len] = 0;
 							/* store the dsa pointer for parent query text */
@@ -1696,12 +1694,14 @@ pgsm_store_error(const char *query, ErrorData *edata)
 {
 	pgsmEntry  *entry;
 	uint64		queryid = 0;
-	int			len = strlen(query);
+	int			len;
 
-	if (!query || len == 0)
+	if (query == NULL)
 		return;
 
 	len = strlen(query);
+	if (len == 0)
+		return;
 
 	queryid = pgsm_hash_string(query, len);
 
@@ -3959,7 +3959,6 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 static void
 extract_query_comments(const char *query, char *comments, size_t max_len)
 {
-	int			rc;
 	size_t		nmatch = 1;
 	regmatch_t	pmatch;
 	regoff_t	comment_len,
@@ -3968,7 +3967,8 @@ extract_query_comments(const char *query, char *comments, size_t max_len)
 
 	while (total_len < max_len)
 	{
-		rc = regexec(&preg_query_comments, s, nmatch, &pmatch, 0);
+		int			rc = regexec(&preg_query_comments, s, nmatch, &pmatch, 0);
+
 		if (rc != 0)
 			break;
 
@@ -4002,6 +4002,7 @@ extract_query_comments(const char *query, char *comments, size_t max_len)
 static uint64
 get_query_id(JumbleState *jstate, Query *query)
 {
+	/* cppcheck-suppress-begin nullPointerRedundantCheck symbolName=jstate */
 	uint64		queryid;
 
 	/* Set up workspace for query jumbling */
@@ -4016,5 +4017,6 @@ get_query_id(JumbleState *jstate, Query *query)
 	JumbleQuery(jstate, query);
 	queryid = pgsm_hash_string((const char *) jstate->jumble, jstate->jumble_len);
 	return queryid;
+	/* cppcheck-suppress-end nullPointerRedundantCheck symbolName=jstate */
 }
 #endif
