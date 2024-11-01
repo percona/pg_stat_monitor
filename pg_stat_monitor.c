@@ -20,9 +20,11 @@
 #include "nodes/pg_list.h"
 #include "utils/guc.h"
 #include <regex.h>
+#include <stddef.h>
 #include "pgstat.h"
 #include "commands/dbcommands.h"
 #include "commands/explain.h"
+#include "lib/stringinfo.h"
 #include "pg_stat_monitor.h"
 
  /*
@@ -206,6 +208,10 @@ static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
 static pgsmEntry *pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create);
 static uint64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
+static void get_param_value(const ParamListInfo plist, int idx, StringInfoData *buffer);
+
+static StringInfoData get_denormalized_query(const ParamListInfo paramlist, const char *query_text);
+
 static void pgsm_cleanup_callback(void *arg);
 static void pgsm_store_error(const char *query, ErrorData *edata);
 
@@ -232,7 +238,14 @@ static void pgsm_update_entry(pgsmEntry *entry,
 							  const struct JitInstrumentation *jitusage,
 							  bool reset,
 							  pgsmStoreKind kind);
-static void pgsm_store(pgsmEntry *entry);
+static void pgsm_store_ex(pgsmEntry *entry, ParamListInfo params);
+
+/* Stores query entry in normalized form */
+static inline void
+pgsm_store(pgsmEntry *entry)
+{
+	pgsm_store_ex(entry, NULL);
+}
 
 static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 									 pgsmVersion api_version,
@@ -692,12 +705,12 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	PlanInfo	plan_info;
 	PlanInfo   *plan_ptr = NULL;
 	pgsmEntry  *entry = NULL;
+	MemoryContext oldctx;
 
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
 	{
 		int			rv;
-		MemoryContext oldctx;
 
 		/*
 		 * Making sure it is a per query context so that there's no memory
@@ -775,7 +788,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 						  false,	/* reset */
 						  PGSM_EXEC);	/* kind */
 
-		pgsm_store(entry);
+		pgsm_store_ex(entry, queryDesc->params);
 	}
 
 	if (prev_ExecutorEnd)
@@ -1861,7 +1874,6 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
 	return entry;
 }
 
-
 /*
  * Store some statistics for a statement.
  *
@@ -1871,9 +1883,15 @@ pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
  * If jstate is not NULL then we're trying to create an entry for which
  * we have no statistics as yet; we just want to record the normalized
  * query string.  total_time, rows, bufusage are ignored in this case.
+ *
+ * If params argument is not null and pgsm_normalized_query is off then we
+ * denormalize the query using it's actual arguments found in params.
+ * The denormalization is done during the first time the query is
+ * inserted or if the time to execute the query exceeds the average
+ * time computed for the same query.
  */
-static void
-pgsm_store(pgsmEntry *entry)
+void
+pgsm_store_ex(pgsmEntry *entry, ParamListInfo params)
 {
 	pgsmEntry  *shared_hash_entry;
 	pgsmSharedState *pgsm;
@@ -1888,6 +1906,7 @@ pgsm_store(pgsmEntry *entry)
 	JitInstrumentation jitusage;
 	char		comments[COMMENTS_LEN] = {0};
 	int			comments_len;
+	StringInfoData query_info;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1976,6 +1995,14 @@ pgsm_store(pgsmEntry *entry)
 		dsa_area   *query_dsa_area;
 		char	   *query_buff;
 
+		/* Denormalize the query if normalization is off */
+		if (!pgsm_normalized_query && params != NULL)
+		{
+			query_info = get_denormalized_query(params, query);
+			query = query_info.data;
+			query_len = query_info.len;
+		}
+
 		/* New query, truncate length if necessary. */
 		if (query_len > pgsm_query_max_len)
 			query_len = pgsm_query_max_len;
@@ -2063,6 +2090,50 @@ pgsm_store(pgsmEntry *entry)
 
 		snprintf(shared_hash_entry->datname, sizeof(shared_hash_entry->datname), "%s", entry->datname);
 		snprintf(shared_hash_entry->username, sizeof(shared_hash_entry->username), "%s", entry->username);
+	}
+
+	/*
+	 * Entry already exists, if query normalization is disabled and the query
+	 * execution time exceeds the mean time for this query, then we
+	 * denormalize the query so users can inspect which arguments caused the
+	 * query to take more time to execute
+	 */
+	else if (
+			 !pgsm_normalized_query &&
+			 params != NULL &&
+			 entry->counters.time.total_time > shared_hash_entry->counters.time.mean_time
+		)
+	{
+		dsa_pointer dsa_query_pointer;
+		dsa_area   *query_dsa_area;
+		char	   *query_buff;
+
+		query_info = get_denormalized_query(params, query);
+		query = query_info.data;
+		query_len = query_info.len;
+
+		/* truncate length if necessary. */
+		if (query_len > pgsm_query_max_len)
+			query_len = pgsm_query_max_len;
+
+		/* Save the query text in raw dsa area */
+		query_dsa_area = get_dsa_area_for_query_text();
+		dsa_query_pointer = dsa_allocate_extended(query_dsa_area, query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
+		if (DsaPointerIsValid(dsa_query_pointer))
+		{
+			/*
+			 * Get the memory address from DSA pointer and copy the query text
+			 * to it.
+			 */
+			query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
+			memcpy(query_buff, query, query_len);
+
+			/* release previous query from shared memory */
+			if (DsaPointerIsValid(shared_hash_entry->query_text.query_pos))
+				dsa_free(query_dsa_area, shared_hash_entry->query_text.query_pos);
+
+			shared_hash_entry->query_text.query_pos = dsa_query_pointer;
+		}
 	}
 
 	pgsm_update_entry(shared_hash_entry,	/* entry */
@@ -4018,3 +4089,89 @@ get_query_id(JumbleState *jstate, Query *query)
 	return queryid;
 }
 #endif
+
+/*
+ * extract parameter value (Datum) from plist->params[idx], cast it to string then
+ * append the resulting string to the buffer.
+ */
+void
+get_param_value(const ParamListInfo plist, int idx, StringInfoData *buffer)
+{
+	Oid			typoutput;
+	bool		typisvarlena;
+	char	   *pstring;
+	ParamExternData *param;
+
+	Assert(idx < plist->numParams);
+
+	param = &plist->params[idx];
+
+	if (param->isnull || !OidIsValid(param->ptype))
+	{
+		appendStringInfoString(buffer, "NULL");
+		return;
+	}
+
+	getTypeOutputInfo(param->ptype, &typoutput, &typisvarlena);
+	pstring = OidOutputFunctionCall(typoutput, param->value);
+	appendStringInfo(buffer, "%s", pstring);
+}
+
+/* denormalize the query, replace placeholders with actual values */
+StringInfoData
+get_denormalized_query(const ParamListInfo paramlist, const char *query_text)
+{
+	int			current_param;
+	const char *cursor_ori;
+	const char *cursor_curr;
+	StringInfoData result_buf;
+	ptrdiff_t	len;
+
+	current_param = 0;
+	cursor_ori = query_text;
+	cursor_curr = cursor_ori;
+
+	initStringInfo(&result_buf);
+
+	do
+	{
+		/* advance cursor until detecting a placeholder '$' start. */
+		while (*cursor_ori && *cursor_ori != '$')
+			++cursor_ori;
+
+		/* calculate length of query text before placeholder. */
+		len = cursor_ori - cursor_curr;
+
+		/* check if end of string is reached */
+		if (!*cursor_ori)
+		{
+			/* there may have remaining query data to append */
+			if (len > 0)
+				appendBinaryStringInfo(&result_buf, cursor_curr, len);
+
+			break;
+		}
+
+		/* append query text before the '$' sign found. */
+		if (len > 0)
+			appendBinaryStringInfo(&result_buf, cursor_curr, len);
+
+		/* skip '$' */
+		++cursor_ori;
+
+		/* skip the placeholder */
+		while (*cursor_ori && *cursor_ori >= '0' && *cursor_ori <= '9')
+			cursor_ori++;
+
+		/* advance current cursor */
+		cursor_curr = cursor_ori;
+
+		/* replace the placeholder with actual value */
+		get_param_value(paramlist, current_param, &result_buf);
+
+		++current_param;
+	} while (*cursor_ori != '\0');
+
+
+	return result_buf;
+}
