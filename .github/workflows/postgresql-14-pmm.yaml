@@ -7,6 +7,9 @@ on:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+*'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: pg-14-pgsm-pmm-integration-test
@@ -14,7 +17,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Clone QA Integration repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: 'Percona-Lab/qa-integration'
           ref: 'main'
@@ -39,7 +42,7 @@ jobs:
         run: docker exec pgsql_pgsm_14 cat pmm-agent.log > ./pmm-ui-tests/tests/output/pmm-agent.log
 
       - name: Upload Tests Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         if: success() || failure()    # run this step even if previous step failed
         with:
           name: tests-artifact
