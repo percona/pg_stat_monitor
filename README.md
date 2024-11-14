@@ -6,6 +6,7 @@
 [![postgresql-17-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-17-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-17-pgdg-package.yml)
 
 [![PGXN version](https://badge.fury.io/pg/pg_stat_monitor.svg)](https://badge.fury.io/pg/pg_stat_monitor)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/percona/pg_stat_monitor/badge)](https://scorecard.dev/viewer/?uri=github.com/percona/pg_stat_monitor)
 [![Code coverage](https://codecov.io/gh/percona/pg_stat_monitor/branch/main/graph/badge.svg)](https://codecov.io/gh/percona/pg_stat_monitor)
 [![Forum](https://img.shields.io/badge/Forum-join-brightgreen)](https://forums.percona.com/)
 # pg_stat_monitor: Query Performance Monitoring Tool for PostgreSQL
