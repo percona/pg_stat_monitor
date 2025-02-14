@@ -27,7 +27,7 @@ CREATE FUNCTION add(integer, integer) RETURNS integer
 SELECT pg_stat_monitor_reset();
 \c db1
 SELECT * FROM t1;
-SELECT *, ADD(1234, 1000) FROM t1;
+SELECT *, ADD(1, 2) FROM t1;
 SELECT * FROM t2;
 -- Check that spaces and comments do not generate a different pgsm_query_id
 SELECT     *     FROM t2 --WHATEVER;
@@ -40,7 +40,7 @@ More comments to check for spaces.
 
 \c db2
 SELECT * FROM t1;
-SELECT *, ADD(1234, 1000) FROM t1;
+SELECT *, ADD(1, 2) FROM t1;
 
 set pg_stat_monitor.pgsm_enable_pgsm_query_id = off;
 SELECT * FROM t3;
