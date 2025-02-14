@@ -1968,6 +1968,9 @@ pgsm_store(pgsmEntry *entry)
 	 * we need to create the entry.
 	 */
 	LWLockAcquire(pgsm->lock, LW_SHARED);
+
+	PG_TRY();
+	{
 	shared_hash_entry = (pgsmEntry *) pgsm_hash_find(get_pgsmHash(), &entry->key, &found);
 
 	if (!shared_hash_entry)
@@ -2008,8 +2011,6 @@ pgsm_store(pgsmEntry *entry)
 			}
 			PG_CATCH();
 			{
-				LWLockRelease(pgsm->lock);
-
 				if (DsaPointerIsValid(dsa_query_pointer))
 					dsa_free(query_dsa_area, dsa_query_pointer);
 				PG_RE_THROW();
@@ -2082,6 +2083,15 @@ pgsm_store(pgsmEntry *entry)
 					  PGSM_STORE);
 
 	memset(&entry->counters, 0, sizeof(entry->counters));
+
+	}
+	PG_CATCH();
+	{
+		HOLD_INTERRUPTS();
+		LWLockRelease(pgsm->lock);
+		PG_RE_THROW();
+	}
+	PG_END_TRY();
 	LWLockRelease(pgsm->lock);
 }
 
