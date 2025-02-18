@@ -1968,120 +1968,142 @@ pgsm_store(pgsmEntry *entry)
 	 * we need to create the entry.
 	 */
 	LWLockAcquire(pgsm->lock, LW_SHARED);
-	shared_hash_entry = (pgsmEntry *) pgsm_hash_find(get_pgsmHash(), &entry->key, &found);
 
-	if (!shared_hash_entry)
+	PG_TRY();
 	{
-		dsa_pointer dsa_query_pointer;
-		dsa_area   *query_dsa_area;
-		char	   *query_buff;
 
-		/* New query, truncate length if necessary. */
-		if (query_len > pgsm_query_max_len)
-			query_len = pgsm_query_max_len;
+		shared_hash_entry = (pgsmEntry *) pgsm_hash_find(get_pgsmHash(), &entry->key, &found);
 
-		/* Save the query text in raw dsa area */
-		query_dsa_area = get_dsa_area_for_query_text();
-		dsa_query_pointer = dsa_allocate_extended(query_dsa_area, query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
-		if (!DsaPointerIsValid(dsa_query_pointer))
+		if (!shared_hash_entry)
 		{
-			LWLockRelease(pgsm->lock);
-			return;
-		}
+			dsa_pointer dsa_query_pointer;
+			dsa_area   *query_dsa_area;
+			char	   *query_buff;
 
-		/*
-		 * Get the memory address from DSA pointer and copy the query text in
-		 * local variable
-		 */
-		query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
-		memcpy(query_buff, query, query_len);
+			/* New query, truncate length if necessary. */
+			if (query_len > pgsm_query_max_len)
+				query_len = pgsm_query_max_len;
 
-		LWLockRelease(pgsm->lock);
-		LWLockAcquire(pgsm->lock, LW_EXCLUSIVE);
-
-		/* OK to create a new hashtable entry */
-		PGSM_DISABLE_ERROR_CAPUTRE();
-		{
-			PG_TRY();
-			{
-				shared_hash_entry = hash_entry_alloc(pgsm, &entry->key, GetDatabaseEncoding());
-			}
-			PG_CATCH();
+			/* Save the query text in raw dsa area */
+			query_dsa_area = get_dsa_area_for_query_text();
+			dsa_query_pointer = dsa_allocate_extended(query_dsa_area, query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
+			if (!DsaPointerIsValid(dsa_query_pointer))
 			{
 				LWLockRelease(pgsm->lock);
-
-				if (DsaPointerIsValid(dsa_query_pointer))
-					dsa_free(query_dsa_area, dsa_query_pointer);
-				PG_RE_THROW();
+				return;
 			}
-			PG_END_TRY();
-		} PGSM_END_DISABLE_ERROR_CAPTURE();
-
-		if (shared_hash_entry == NULL)
-		{
-			LWLockRelease(pgsm->lock);
-
-			if (DsaPointerIsValid(dsa_query_pointer))
-				dsa_free(query_dsa_area, dsa_query_pointer);
 
 			/*
-			 * Out of memory; report only if the state has changed now.
-			 * Otherwise we risk filling up the log file with these message.
+			 * Get the memory address from DSA pointer and copy the query text
+			 * in local variable
 			 */
-			if (!IsSystemOOM())
-			{
-				pgsm->pgsm_oom = true;
+			query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
+			memcpy(query_buff, query, query_len);
 
-				PGSM_DISABLE_ERROR_CAPUTRE();
+			/* Promotion to exclusive lock */
+			LWLockRelease(pgsm->lock);
+			LWLockAcquire(pgsm->lock, LW_EXCLUSIVE);
+
+			/* OK to create a new hashtable entry */
+			PGSM_DISABLE_ERROR_CAPUTRE();
+			{
+				PG_TRY();
 				{
-					ereport(WARNING,
-							(errcode(ERRCODE_OUT_OF_MEMORY),
-							 errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
-							 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
-									   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
-				} PGSM_END_DISABLE_ERROR_CAPTURE();
+					shared_hash_entry = hash_entry_alloc(pgsm, &entry->key, GetDatabaseEncoding());
+				}
+				PG_CATCH();
+				{
+					if (DsaPointerIsValid(dsa_query_pointer))
+						dsa_free(query_dsa_area, dsa_query_pointer);
+					PG_RE_THROW();
+				}
+				PG_END_TRY();
+			} PGSM_END_DISABLE_ERROR_CAPTURE();
+
+			if (shared_hash_entry == NULL)
+			{
+				if (DsaPointerIsValid(dsa_query_pointer))
+					dsa_free(query_dsa_area, dsa_query_pointer);
+
+				/*
+				 * Out of memory; report only if the state has changed now.
+				 * Otherwise we risk filling up the log file with these
+				 * message.
+				 */
+				if (!IsSystemOOM())
+				{
+					pgsm->pgsm_oom = true;
+
+					PGSM_DISABLE_ERROR_CAPUTRE();
+					{
+						ereport(WARNING,
+								(errcode(ERRCODE_OUT_OF_MEMORY),
+								 errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
+								 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+										   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+					} PGSM_END_DISABLE_ERROR_CAPTURE();
+				}
+
+				LWLockRelease(pgsm->lock);
+
+				return;
+			}
+			else
+			{
+				/* If we got a new entry, reset the oom value false */
+				pgsm->pgsm_oom = false;
 			}
 
-			return;
+			/* If we already have the pointer set, free this one */
+			if (DsaPointerIsValid(shared_hash_entry->query_text.query_pos))
+				dsa_free(query_dsa_area, dsa_query_pointer);
+			else
+				shared_hash_entry->query_text.query_pos = dsa_query_pointer;
+
+			shared_hash_entry->pgsm_query_id = entry->pgsm_query_id;
+			shared_hash_entry->encoding = entry->encoding;
+			shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
+			shared_hash_entry->counters.info.parent_query = InvalidDsaPointer;
+
+			snprintf(shared_hash_entry->datname, sizeof(shared_hash_entry->datname), "%s", entry->datname);
+			snprintf(shared_hash_entry->username, sizeof(shared_hash_entry->username), "%s", entry->username);
 		}
-		else
-		{
-			/* If we got a new entry, reset the oom value false */
-			pgsm->pgsm_oom = false;
-		}
 
-		/* If we already have the pointer set, free this one */
-		if (DsaPointerIsValid(shared_hash_entry->query_text.query_pos))
-			dsa_free(query_dsa_area, dsa_query_pointer);
-		else
-			shared_hash_entry->query_text.query_pos = dsa_query_pointer;
+		pgsm_update_entry(shared_hash_entry,	/* entry */
+						  query,	/* query */
+						  comments, /* comments */
+						  comments_len, /* comments length */
+						  &entry->counters.planinfo,	/* PlanInfo */
+						  &entry->counters.sysinfo, /* SysInfo */
+						  &entry->counters.error,	/* ErrorInfo */
+						  entry->counters.plantime.total_time,	/* plan_total_time */
+						  entry->counters.time.total_time,	/* exec_total_time */
+						  entry->counters.calls.rows,	/* rows */
+						  &bufusage,	/* bufusage */
+						  &walusage,	/* walusage */
+						  &jitusage,	/* jitusage */
+						  reset,	/* reset */
+						  PGSM_STORE);
 
-		shared_hash_entry->pgsm_query_id = entry->pgsm_query_id;
-		shared_hash_entry->encoding = entry->encoding;
-		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
-		shared_hash_entry->counters.info.parent_query = InvalidDsaPointer;
+		memset(&entry->counters, 0, sizeof(entry->counters));
 
-		snprintf(shared_hash_entry->datname, sizeof(shared_hash_entry->datname), "%s", entry->datname);
-		snprintf(shared_hash_entry->username, sizeof(shared_hash_entry->username), "%s", entry->username);
 	}
+	PG_CATCH();
+	{
+		/*
+		 * Force LWLock release in case of error because we need to aquire it
+		 * again in pgsm_emit_log_hook
+		 *
+		 * On ereport with level >= ERROR Postgres resets
+		 * InterruptHoldoffCount counter (see errfinish funcion in elog.c). We
+		 * need to increment it to be able to release lock here.
+		 */
+		HOLD_INTERRUPTS();		/* Increments holdoff counter */
+		LWLockRelease(pgsm->lock);	/* Decrements holdoff counter */
+		PG_RE_THROW();
+	}
+	PG_END_TRY();
 
-	pgsm_update_entry(shared_hash_entry,	/* entry */
-					  query,	/* query */
-					  comments, /* comments */
-					  comments_len, /* comments length */
-					  &entry->counters.planinfo,	/* PlanInfo */
-					  &entry->counters.sysinfo, /* SysInfo */
-					  &entry->counters.error,	/* ErrorInfo */
-					  entry->counters.plantime.total_time,	/* plan_total_time */
-					  entry->counters.time.total_time,	/* exec_total_time */
-					  entry->counters.calls.rows,	/* rows */
-					  &bufusage,	/* bufusage */
-					  &walusage,	/* walusage */
-					  &jitusage,	/* jitusage */
-					  reset,	/* reset */
-					  PGSM_STORE);
-
-	memset(&entry->counters, 0, sizeof(entry->counters));
 	LWLockRelease(pgsm->lock);
 }
 
