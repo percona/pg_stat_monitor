@@ -262,6 +262,18 @@ static int	comp_location(const void *a, const void *b);
 static uint64 get_next_wbucket(pgsmSharedState *pgsm);
 
 /*
+ * To prevent deadlocks against our own backend we need to disable error
+ * capture while holding the LWLock. The error capture hook is resposible
+ * itself for re-enabling data capture when called on ERROR or above since
+ * then we may not have been able to call pgsm_lock_release() due to the
+ * statement being aborted.
+ */
+static bool disable_error_capture = false;
+
+static void pgsm_lock_aquire(pgsmSharedState *pgsm, LWLockMode mode);
+static void pgsm_lock_release(pgsmSharedState *pgsm);
+
+/*
  * Module load callback
  */
 /*  cppcheck-suppress unusedFunction */
@@ -1967,7 +1979,7 @@ pgsm_store(pgsmEntry *entry)
 	 * Acquire a share lock to start with. We'd have to acquire exclusive if
 	 * we need to create the entry.
 	 */
-	LWLockAcquire(pgsm->lock, LW_SHARED);
+	pgsm_lock_aquire(pgsm, LW_SHARED);
 	shared_hash_entry = (pgsmEntry *) pgsm_hash_find(get_pgsmHash(), &entry->key, &found);
 
 	if (!shared_hash_entry)
@@ -1985,7 +1997,7 @@ pgsm_store(pgsmEntry *entry)
 		dsa_query_pointer = dsa_allocate_extended(query_dsa_area, query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
 		if (!DsaPointerIsValid(dsa_query_pointer))
 		{
-			LWLockRelease(pgsm->lock);
+			pgsm_lock_release(pgsm);
 			return;
 		}
 
@@ -1996,30 +2008,27 @@ pgsm_store(pgsmEntry *entry)
 		query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
 		memcpy(query_buff, query, query_len);
 
-		LWLockRelease(pgsm->lock);
-		LWLockAcquire(pgsm->lock, LW_EXCLUSIVE);
+		pgsm_lock_release(pgsm);
+		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
 
 		/* OK to create a new hashtable entry */
-		PGSM_DISABLE_ERROR_CAPUTRE();
+		PG_TRY();
 		{
-			PG_TRY();
-			{
-				shared_hash_entry = hash_entry_alloc(pgsm, &entry->key, GetDatabaseEncoding());
-			}
-			PG_CATCH();
-			{
-				LWLockRelease(pgsm->lock);
+			shared_hash_entry = hash_entry_alloc(pgsm, &entry->key, GetDatabaseEncoding());
+		}
+		PG_CATCH();
+		{
+			pgsm_lock_release(pgsm);
 
-				if (DsaPointerIsValid(dsa_query_pointer))
-					dsa_free(query_dsa_area, dsa_query_pointer);
-				PG_RE_THROW();
-			}
-			PG_END_TRY();
-		} PGSM_END_DISABLE_ERROR_CAPTURE();
+			if (DsaPointerIsValid(dsa_query_pointer))
+				dsa_free(query_dsa_area, dsa_query_pointer);
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
 
 		if (shared_hash_entry == NULL)
 		{
-			LWLockRelease(pgsm->lock);
+			pgsm_lock_release(pgsm);
 
 			if (DsaPointerIsValid(dsa_query_pointer))
 				dsa_free(query_dsa_area, dsa_query_pointer);
@@ -2032,14 +2041,13 @@ pgsm_store(pgsmEntry *entry)
 			{
 				pgsm->pgsm_oom = true;
 
-				PGSM_DISABLE_ERROR_CAPUTRE();
-				{
-					ereport(WARNING,
-							(errcode(ERRCODE_OUT_OF_MEMORY),
-							 errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
-							 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
-									   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
-				} PGSM_END_DISABLE_ERROR_CAPTURE();
+				disable_error_capture = true;
+				ereport(WARNING,
+						(errcode(ERRCODE_OUT_OF_MEMORY),
+						 errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
+						 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+								   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+				disable_error_capture = false;
 			}
 
 			return;
@@ -2082,7 +2090,7 @@ pgsm_store(pgsmEntry *entry)
 					  PGSM_STORE);
 
 	memset(&entry->counters, 0, sizeof(entry->counters));
-	LWLockRelease(pgsm->lock);
+	pgsm_lock_release(pgsm);
 }
 
 /*
@@ -2100,10 +2108,10 @@ pg_stat_monitor_reset(PG_FUNCTION_ARGS)
 				 errmsg("pg_stat_monitor: must be loaded via shared_preload_libraries")));
 
 	pgsm = pgsm_get_ss();
-	LWLockAcquire(pgsm->lock, LW_EXCLUSIVE);
+	pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
 	hash_entry_dealloc(-1, -1, NULL);
 
-	LWLockRelease(pgsm->lock);
+	pgsm_lock_release(pgsm);
 	PG_RETURN_VOID();
 }
 
@@ -2237,7 +2245,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	MemoryContextSwitchTo(oldcontext);
 
 	pgsm = pgsm_get_ss();
-	LWLockAcquire(pgsm->lock, LW_SHARED);
+	pgsm_lock_aquire(pgsm, LW_SHARED);
 	pgsm_hash_seq_init(&hstat, get_pgsmHash(), false);
 
 	while ((entry = pgsm_hash_seq_next(&hstat)) != NULL)
@@ -2602,7 +2610,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	}
 	/* clean up and return the tuplestore */
 	pgsm_hash_seq_term(&hstat);
-	LWLockRelease(pgsm->lock);
+	pgsm_lock_release(pgsm);
 }
 
 static uint64
@@ -2652,10 +2660,10 @@ get_next_wbucket(pgsmSharedState *pgsm)
 		/* Update bucket id and retrieve the previous one. */
 		prev_bucket_id = pg_atomic_exchange_u64(&pgsm->current_wbucket, new_bucket_id);
 
-		LWLockAcquire(pgsm->lock, LW_EXCLUSIVE);
+		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
 		hash_entry_dealloc(new_bucket_id, prev_bucket_id, NULL);
 
-		LWLockRelease(pgsm->lock);
+		pgsm_lock_release(pgsm);
 
 		/* Allign the value in prev_bucket_sec to the bucket start time */
 		tv.tv_sec = (tv.tv_sec) - (tv.tv_sec % pgsm_bucket_time);
@@ -3754,12 +3762,12 @@ pgsm_emit_log_hook(ErrorData *edata)
 	if (MyProc == NULL)
 		goto exit;
 
-	/* Do not store */
-	if (PGSM_ERROR_CAPTURE_ENABLED && edata->elevel >= WARNING && IsSystemOOM() == false)
-	{
-		pgsm_store_error(debug_query_string ? debug_query_string : "",
-						 edata);
-	}
+	if (edata->elevel >= WARNING && !disable_error_capture && IsSystemOOM() == false)
+		pgsm_store_error(debug_query_string ? debug_query_string : "", edata);
+
+	/* We need to make sure we re-enble error capture if query was aborted */
+	if (edata->elevel >= ERROR)
+		disable_error_capture = false;
 exit:
 	if (prev_emit_log_hook)
 		prev_emit_log_hook(edata);
@@ -4018,3 +4026,18 @@ get_query_id(JumbleState *jstate, Query *query)
 	return queryid;
 }
 #endif
+
+static void
+pgsm_lock_aquire(pgsmSharedState *pgsm, LWLockMode mode)
+{
+	/* Disable error capturing while holding the lock to avoid deadlocks */
+	LWLockAcquire(pgsm->lock, mode);
+	disable_error_capture = true;
+}
+
+static void
+pgsm_lock_release(pgsmSharedState *pgsm)
+{
+	disable_error_capture = false;
+	LWLockRelease(pgsm->lock);
+}

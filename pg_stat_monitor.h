@@ -113,31 +113,6 @@
 #define MAX_ENUM_OPTIONS 6
 
 /*
- * API for disabling error capture ereport(ERROR,..) by PGSM's error capture hook
- * pgsm_emit_log_hook()
- *
- * Use these macros as follows:
- * 		 	PGSM_DISABLE_ERROR_CAPUTRE();
- * 			{
- * 				... code that might throw ereport(ERROR) ...
- * 			}PGSM_END_DISABLE_ERROR_CAPTURE();
- *
- * These macros can be used to error recursion if the error gets
- * thrown from within the function called from pgsm_emit_log_hook()
- */
-extern volatile bool __pgsm_do_not_capture_error;
-#define PGSM_DISABLE_ERROR_CAPUTRE() \
-	do { \
-		__pgsm_do_not_capture_error = true
-
-#define PGSM_END_DISABLE_ERROR_CAPTURE() \
-	__pgsm_do_not_capture_error = false; \
-	} while (0)
-
-#define PGSM_ERROR_CAPTURE_ENABLED \
-	__pgsm_do_not_capture_error == false
-
-/*
  * pg_stat_monitor uses the hash structure to store all query statistics
  * except the query text, which gets stored out of line in the raw DSA area.
  * Enabling USE_DYNAMIC_HASH uses the dshash for storing the query statistics
