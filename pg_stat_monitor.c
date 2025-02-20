@@ -2018,8 +2018,6 @@ pgsm_store(pgsmEntry *entry)
 		}
 		PG_CATCH();
 		{
-			pgsm_lock_release(pgsm);
-
 			if (DsaPointerIsValid(dsa_query_pointer))
 				dsa_free(query_dsa_area, dsa_query_pointer);
 			PG_RE_THROW();
