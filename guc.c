@@ -293,7 +293,8 @@ init_guc(void)
 
 /* Maximum value must be greater or equal to minimum + 1.0 */
 static bool
-check_histogram_min(double *newval, void **extra, GucSource source)
+check_histogram_min(double *newval, void **extra, GucSource source) /* cppcheck-suppress
+																	 * constParameterCallback */
 {
 	/*
 	 * During module initialization PGSM_HISTOGRAM_MIN is initialized before
@@ -303,7 +304,8 @@ check_histogram_min(double *newval, void **extra, GucSource source)
 }
 
 static bool
-check_histogram_max(double *newval, void **extra, GucSource source)
+check_histogram_max(double *newval, void **extra, GucSource source) /* cppcheck-suppress
+																	 * constParameterCallback */
 {
 	return (*newval >= (pgsm_histogram_min + 1.0));
 }
