@@ -3,7 +3,7 @@ description: File a bug report
 labels: ["bug"]
 assignees: 
   - artemgavrilov 
-  - darkfronza
+  - dutow
   
 body:
   - type: markdown

@@ -3,7 +3,7 @@ description: Suggest an idea for this project
 labels: ["feature"]
 assignees: 
   - artemgavrilov 
-  - darkfronza
+  - dutow
 
 body:
   - type: markdown
