@@ -37,7 +37,7 @@ typedef enum pgsmVersion
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION                   "2.1.1"
+#define BUILD_VERSION                   "2.2.0"
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
@@ -203,7 +203,7 @@ char	   *unpack_sql_state(int sql_state);
 
 static pgsmEntry *pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info);
 static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
-static pgsmEntry *pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create);
+static pgsmEntry *pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
 static uint64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
@@ -736,7 +736,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 
 	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
 	{
-		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true);
+		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true, queryDesc->operation);
 		if (!entry)
 		{
 			elog(DEBUG2, "[pg_stat_monitor] pgsm_ExecutorEnd: Failed to find entry for [%lu] %s.", queryId, queryDesc->sourceText);
@@ -762,6 +762,8 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 			sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
 			sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
 		}
+
+		entry->counters.info.cmd_type = queryDesc->operation;
 
 		pgsm_update_entry(entry,	/* entry */
 						  NULL, /* query */
@@ -908,7 +910,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		INSTR_TIME_SET_CURRENT(start);
 
 		if (MemoryContextIsValid(MessageContext))
-			entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true);
+			entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true, parse->commandType);
 
 #if PG_VERSION_NUM >= 170000
 		nesting_level++;
@@ -1199,7 +1201,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		query_text = (char *) CleanQuerytext(queryString, &location, &query_len);
 
 		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
-		entry->counters.info.cmd_type = 0;
+		entry->counters.info.cmd_type = pstmt->commandType;
 
 		pgsm_add_to_list(entry, query_text, query_len);
 
@@ -1741,7 +1743,7 @@ pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len)
 }
 
 static pgsmEntry *
-pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create)
+pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type)
 {
 	pgsmEntry  *entry = NULL;
 	ListCell   *lc = NULL;
@@ -1778,6 +1780,7 @@ pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_
 		 * worry about these.
 		 */
 		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
+		entry->counters.info.cmd_type = cmd_type;
 		pgsm_add_to_list(entry, (char *) query_text, query_len);
 	}
 
@@ -2086,6 +2089,11 @@ pgsm_store(pgsmEntry *entry)
 					  &jitusage,	/* jitusage */
 					  reset,	/* reset */
 					  PGSM_STORE);
+
+	if (reset)
+	{
+		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
+	}
 
 	memset(&entry->counters, 0, sizeof(entry->counters));
 	pgsm_lock_release(pgsm);
