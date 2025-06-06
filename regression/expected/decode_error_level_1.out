@@ -1,0 +1,25 @@
+CREATE EXTENSION pg_stat_monitor;
+DO $$
+DECLARE
+    i integer;
+BEGIN
+    FOR i IN 10..24 LOOP
+         RAISE NOTICE 'error_code: %, error_level: %', i, decode_error_level(i);
+    END LOOP;
+END $$;
+NOTICE:  error_code: 10, error_level: DEBUG5
+NOTICE:  error_code: 11, error_level: DEBUG4
+NOTICE:  error_code: 12, error_level: DEBUG3
+NOTICE:  error_code: 13, error_level: DEBUG2
+NOTICE:  error_code: 14, error_level: DEBUG1
+NOTICE:  error_code: 15, error_level: LOG
+NOTICE:  error_code: 16, error_level: LOG_SERVER_ONLY
+NOTICE:  error_code: 17, error_level: INFO
+NOTICE:  error_code: 18, error_level: NOTICE
+NOTICE:  error_code: 19, error_level: WARNING
+NOTICE:  error_code: 20, error_level: ERROR
+NOTICE:  error_code: 21, error_level: FATAL
+NOTICE:  error_code: 22, error_level: PANIC
+NOTICE:  error_code: 23, error_level: <NULL>
+NOTICE:  error_code: 24, error_level: <NULL>
+DROP EXTENSION pg_stat_monitor;
