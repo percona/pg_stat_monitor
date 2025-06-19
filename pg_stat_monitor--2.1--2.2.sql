@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION get_cmd_type (cmd_type INTEGER) RETURNS TEXT AS
 $$
 SELECT
     CASE
+        WHEN cmd_type = 0 THEN ''
         WHEN cmd_type = 1 THEN 'SELECT'
         WHEN cmd_type = 2 THEN 'UPDATE'
         WHEN cmd_type = 3 THEN 'INSERT'
