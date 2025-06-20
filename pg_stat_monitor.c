@@ -2715,12 +2715,19 @@ get_pgsm_query_id_hash(const char *norm_query, int norm_len)
 		 */
 		if (*norm_q_iter == '/' && *(norm_q_iter + 1) == '*')
 		{
-			while (*norm_q_iter && *norm_q_iter != '*' && *(norm_q_iter + 1) != '/')
+			while (*norm_q_iter && *(norm_q_iter + 1) && (*norm_q_iter != '*' || *(norm_q_iter + 1) != '/'))
 				norm_q_iter++;
 
-			/* Skip the '/' if the current character is valid. */
+			/*
+			 * Skip the end if the current character is valid. norm_q_iter
+			 * points to the *, we have to skip 2 characters
+			 */
 			if (*norm_q_iter)
 				norm_q_iter++;
+			if (*norm_q_iter)
+				norm_q_iter++;
+
+			continue;
 		}
 
 		/*
