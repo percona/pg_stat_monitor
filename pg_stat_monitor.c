@@ -19,7 +19,6 @@
 #include "access/parallel.h"
 #include "nodes/pg_list.h"
 #include "utils/guc.h"
-#include <regex.h>
 #include "pgstat.h"
 #include "commands/dbcommands.h"
 #include "commands/explain.h"
@@ -96,8 +95,6 @@ uint64	   *nested_queryids;
 char	  **nested_query_txts;
 List	   *lentries = NIL;
 
-/* Regex object used to extract query comments. */
-static regex_t preg_query_comments;
 static char relations[REL_LST][REL_LEN];
 
 static int	num_relations;		/* Number of relation in the query */
@@ -280,8 +277,6 @@ static void pgsm_lock_release(pgsmSharedState *pgsm);
 void
 _PG_init(void)
 {
-	int			rc;
-
 	elog(DEBUG2, "[pg_stat_monitor] pg_stat_monitor: %s().", __FUNCTION__);
 
 	/*
@@ -309,17 +304,7 @@ _PG_init(void)
 	EnableQueryId();
 #endif
 
-
 	EmitWarningsOnPlaceholders("pg_stat_monitor");
-
-	/*
-	 * Compile regular expression for extracting out query comments only once.
-	 */
-	rc = regcomp(&preg_query_comments, "/\\*([^*]|[\r\n]|(\\*+([^*/]|[\r\n])))*\\*+/", REG_EXTENDED);
-	if (rc != 0)
-	{
-		elog(ERROR, "[pg_stat_monitor] _PG_init: query comments regcomp() failed, return code=(%d).", rc);
-	}
 
 	/*
 	 * Install hooks.
@@ -3977,46 +3962,70 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 	return CStringGetTextDatum(text_str);
 }
 
+
+static bool
+append_comment_char(char *comments, size_t max_len, size_t *idx, char c)
+{
+	if (*idx >= max_len)
+		return false;
+
+	comments[*idx] = c;
+	(*idx)++;
+
+	return true;
+}
+
 static void
 extract_query_comments(const char *query, char *comments, size_t max_len)
 {
-	int			rc;
-	size_t		nmatch = 1;
-	regmatch_t	pmatch;
-	regoff_t	comment_len,
-				total_len = 0;
-	const char *s = query;
+	size_t		curr_len = 0;
+	const char *q_iter = query;
 
-	while (total_len < max_len)
+	if (!pgsm_extract_comments)
 	{
-		rc = regexec(&preg_query_comments, s, nmatch, &pmatch, 0);
-		if (rc != 0)
-			break;
+		comments[0] = 0;
+		return;
+	}
 
-		comment_len = pmatch.rm_eo - pmatch.rm_so;
-
-		if (total_len + comment_len > max_len)
-			break;				/* TODO: log error in error view, insufficient
-								 * space for comment. */
-
-		total_len += comment_len;
-
-		/* Not 1st iteration, append ", " before next comment. */
-		if (s != query)
+	while (q_iter && *q_iter)
+	{
+		/*
+		 * multiline comments, + 1 is safe even if we've reach end of string
+		 */
+		if (*q_iter == '/' && *(q_iter + 1) == '*')
 		{
-			if (total_len + 2 > max_len)
-				break;			/* TODO: log error in error view, insufficient
-								 * space for ", " + comment. */
+			if (curr_len != 0)
+			{
+				if (!append_comment_char(comments, max_len, &curr_len, ','))
+					return;
+				if (!append_comment_char(comments, max_len, &curr_len, ' '))
+					return;
+			}
+			while (*q_iter && *(q_iter + 1) && (*q_iter != '*' || *(q_iter + 1) != '/'))
+			{
+				if (!append_comment_char(comments, max_len, &curr_len, *q_iter))
+					return;
+				q_iter++;
+			}
 
-			memcpy(comments, ", ", 2);
-			comments += 2;
-			total_len += 2;
+			if (*q_iter)
+			{
+				if (!append_comment_char(comments, max_len, &curr_len, *q_iter))
+					return;
+				q_iter++;
+			}
+			if (*q_iter)
+			{
+				if (!append_comment_char(comments, max_len, &curr_len, *q_iter))
+					return;
+				q_iter++;
+			}
 		}
 
-		memcpy(comments, s + pmatch.rm_so, comment_len);
-		comments += comment_len;
-		s += pmatch.rm_eo;
+		q_iter++;
 	}
+
+	comments[curr_len] = 0;
 }
 
 #if PG_VERSION_NUM < 140000
