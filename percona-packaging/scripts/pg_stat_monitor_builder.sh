@@ -119,7 +119,7 @@ get_sources(){
     fi
     IS_RELEASE_BRANCH=$(echo ${VERSION} | grep -c release)
     if [ ${IS_RELEASE_BRANCH} != 0 ]; then
-        VERSION=$(echo $BRANCH | awk -F'-' '{print $2}')
+        VERSION=$(echo $VERSION | awk -F'-' '{print $2}')
     fi
     PRODUCT=percona-pg-stat-monitor${PG_RELEASE}
     PRODUCT_FULL=${PRODUCT}-${VERSION}
