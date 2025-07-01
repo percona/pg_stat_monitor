@@ -117,9 +117,13 @@ get_sources(){
         echo "Sources will not be downloaded"
         return 0
     fi
+    IS_RELEASE_BRANCH=$(echo ${VERSION} | grep -c release)
+    if [ ${IS_RELEASE_BRANCH} != 0 ]; then
+        VERSION=$(echo $VERSION | awk -F'-' '{print $2}')
+    fi
     PRODUCT=percona-pg-stat-monitor${PG_RELEASE}
     PRODUCT_FULL=${PRODUCT}-${VERSION}
-
+    
     echo "PRODUCT=${PRODUCT}" > pg-stat-monitor.properties
     echo "PRODUCT_FULL=${PRODUCT_FULL}" >> pg-stat-monitor.properties
     echo "VERSION=${VERSION}" >> pg-stat-monitor.properties
