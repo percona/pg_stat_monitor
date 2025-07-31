@@ -209,9 +209,6 @@ install_deps() {
     then
         yum -y install git wget
         yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-        wget https://raw.githubusercontent.com/percona/percona-repositories/release-1.0-28/scripts/percona-release.sh
-        mv percona-release.sh /usr/bin/percona-release
-        chmod 777 /usr/bin/percona-release
         percona-release enable ${PPG_REPO_NAME} testing
 
         if [ x"$RHEL" = x8 ];
@@ -251,6 +248,7 @@ install_deps() {
     else
         apt-get update
         DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg git wget curl
+		export DEBIAN=$(lsb_release -sc)
 
         wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
         dpkg -i percona-release_latest.generic_all.deb
@@ -267,14 +265,16 @@ install_deps() {
 
         apt-get update
 
-        if [[ "${OS_NAME}" != "focal" ]]; then
-            LLVM_EXISTS=$(grep -c "apt.llvm.org" /etc/apt/sources.list)
-            if [ "${LLVM_EXISTS}" == 0 ]; then
-                wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
-                echo "deb http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
-                echo "deb-src http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
-                apt-get update
-            fi
+        if [[ "${DEBIAN}" != "focal" ]]; then
+            #LLVM_EXISTS=$(grep -c "apt.llvm.org" /etc/apt/sources.list)
+            #if [ "${LLVM_EXISTS}" == 0 ]; then
+                #wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
+                #echo "deb http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
+                #echo "deb-src http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
+                #apt-get update
+            #fi
+			wget http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7_7.0.1-12_amd64.deb http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/libllvm7_7.0.1-12_amd64.deb http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7-runtime_7.0.1-12_amd64.deb
+            apt install ./libllvm7_7.0.1-12_amd64.deb ./llvm-7_7.0.1-12_amd64.deb ./llvm-7-runtime_7.0.1-12_amd64.deb
         fi
 
         PKGLIST+=" debconf debhelper clang devscripts dh-exec git wget libkrb5-dev libssl-dev"
