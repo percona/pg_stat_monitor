@@ -36,7 +36,7 @@ typedef enum pgsmVersion
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION                   "2.2.0"
+#define BUILD_VERSION                   "2.3.0"
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
@@ -76,7 +76,7 @@ void		_PG_init(void);
 static int	nesting_level = 0;
 volatile bool __pgsm_do_not_capture_error = false;
 
-#if PG_VERSION_NUM >= 130000 && PG_VERSION_NUM < 170000
+#if PG_VERSION_NUM < 170000
 /* Before planner nesting level was conunted separately */
 static int	plan_nested_level = 0;
 #endif
@@ -126,9 +126,7 @@ static void request_additional_shared_resources(void);
 static void pgsm_shmem_request(void);
 static shmem_request_hook_type prev_shmem_request_hook = NULL;
 #endif
-#if PG_VERSION_NUM >= 130000
 static planner_hook_type planner_hook_next = NULL;
-#endif
 static post_parse_analyze_hook_type prev_post_parse_analyze_hook = NULL;
 static ExecutorStart_hook_type prev_ExecutorStart = NULL;
 static ExecutorRun_hook_type prev_ExecutorRun = NULL;
@@ -179,21 +177,13 @@ DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 			 ParamListInfo params, QueryEnvironment *queryEnv,
 			 DestReceiver *dest,
 			 QueryCompletion *qc);
-#elif PG_VERSION_NUM >= 130000
+#else
 DECLARE_HOOK(PlannedStmt *pgsm_planner_hook, Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams);
 DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryString,
 			 ProcessUtilityContext context,
 			 ParamListInfo params, QueryEnvironment *queryEnv,
 			 DestReceiver *dest,
 			 QueryCompletion *qc);
-#else
-static void BufferUsageAccumDiff(BufferUsage *bufusage, BufferUsage *pgBufferUsage, BufferUsage *bufusage_start);
-
-DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryString,
-			 ProcessUtilityContext context, ParamListInfo params,
-			 QueryEnvironment *queryEnv,
-			 DestReceiver *dest,
-			 char *completionTag);
 #endif
 static uint64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
@@ -329,10 +319,8 @@ _PG_init(void)
 	ExecutorEnd_hook = HOOK(pgsm_ExecutorEnd);
 	prev_ProcessUtility = ProcessUtility_hook;
 	ProcessUtility_hook = HOOK(pgsm_ProcessUtility);
-#if PG_VERSION_NUM >= 130000
 	planner_hook_next = planner_hook;
 	planner_hook = HOOK(pgsm_planner_hook);
-#endif
 	prev_emit_log_hook = emit_log_hook;
 	emit_log_hook = HOOK(pgsm_emit_log_hook);
 	prev_ExecutorCheckPerms_hook = ExecutorCheckPerms_hook;
@@ -761,11 +749,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 						  queryDesc->totaltime->total * 1000.0, /* exec_total_time */
 						  queryDesc->estate->es_processed,	/* rows */
 						  &queryDesc->totaltime->bufusage,	/* bufusage */
-#if PG_VERSION_NUM >= 130000
 						  &queryDesc->totaltime->walusage,	/* walusage */
-#else
-						  NULL,
-#endif
 #if PG_VERSION_NUM >= 150000
 						  queryDesc->estate->es_jit ? &queryDesc->estate->es_jit->instr : NULL, /* jitusage */
 #else
@@ -847,7 +831,6 @@ pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort)
 	return true;
 }
 
-#if PG_VERSION_NUM >= 130000
 static PlannedStmt *
 pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams)
 {
@@ -994,7 +977,6 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	}
 	return result;
 }
-#endif
 
 /*
  * ProcessUtility hook
@@ -1008,21 +990,13 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 					DestReceiver *dest,
 					QueryCompletion *qc)
 
-#elif PG_VERSION_NUM >= 130000
+#else
 static void
 pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 					ProcessUtilityContext context,
 					ParamListInfo params, QueryEnvironment *queryEnv,
 					DestReceiver *dest,
 					QueryCompletion *qc)
-
-#else
-static void
-pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
-					ProcessUtilityContext context, ParamListInfo params,
-					QueryEnvironment *queryEnv,
-					DestReceiver *dest,
-					char *completionTag)
 #endif
 {
 	Node	   *parsetree = pstmt->utilityStmt;
@@ -1079,10 +1053,8 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		SysInfo		sys_info;
 		BufferUsage bufusage;
 		BufferUsage bufusage_start = pgBufferUsage;
-#if PG_VERSION_NUM >= 130000
 		WalUsage	walusage;
 		WalUsage	walusage_start = pgWalUsage;
-#endif
 
 		if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
 			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
@@ -1105,7 +1077,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										context, params, queryEnv,
 										dest,
 										qc);
-#elif PG_VERSION_NUM >= 130000
+#else
 			if (prev_ProcessUtility)
 				prev_ProcessUtility(pstmt, queryString,
 									context, params, queryEnv,
@@ -1116,17 +1088,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										context, params, queryEnv,
 										dest,
 										qc);
-#else
-			if (prev_ProcessUtility)
-				prev_ProcessUtility(pstmt, queryString,
-									context, params, queryEnv,
-									dest,
-									completionTag);
-			else
-				standard_ProcessUtility(pstmt, queryString,
-										context, params, queryEnv,
-										dest,
-										completionTag);
 #endif
 			nesting_level--;
 		}
@@ -1152,7 +1113,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		INSTR_TIME_SET_CURRENT(duration);
 		INSTR_TIME_SUBTRACT(duration, start);
 
-#if PG_VERSION_NUM >= 130000
 #if PG_VERSION_NUM >= 140000
 		rows = (qc && (qc->commandTag == CMDTAG_COPY ||
 					   qc->commandTag == CMDTAG_FETCH ||
@@ -1166,13 +1126,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		/* calc differences of WAL counters. */
 		memset(&walusage, 0, sizeof(WalUsage));
 		WalUsageAccumDiff(&walusage, &pgWalUsage, &walusage_start);
-#else
-		/* parse command tag to retrieve the number of affected rows. */
-		if (completionTag && strncmp(completionTag, "COPY ", 5) == 0)
-			rows = pg_strtouint64(completionTag + 5, NULL, 10);
-		else
-			rows = 0;
-#endif
 
 		/* calc differences of buffer counters. */
 		memset(&bufusage, 0, sizeof(BufferUsage));
@@ -1205,11 +1158,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 						  INSTR_TIME_GET_MILLISEC(duration),	/* exec_total_time */
 						  rows, /* rows */
 						  &bufusage,	/* bufusage */
-#if PG_VERSION_NUM >= 130000
 						  &walusage,	/* walusage */
-#else
-						  NULL,
-#endif
 						  NULL, /* jitusage */
 						  false,	/* reset */
 						  PGSM_EXEC);	/* kind */
@@ -1258,7 +1207,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										context, params, queryEnv,
 										dest,
 										qc);
-#elif PG_VERSION_NUM >= 130000
+#else
 			if (prev_ProcessUtility)
 				prev_ProcessUtility(pstmt, queryString,
 									context, params, queryEnv,
@@ -1269,17 +1218,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										context, params, queryEnv,
 										dest,
 										qc);
-#else
-			if (prev_ProcessUtility)
-				prev_ProcessUtility(pstmt, queryString,
-									context, params, queryEnv,
-									dest,
-									completionTag);
-			else
-				standard_ProcessUtility(pstmt, queryString,
-										context, params, queryEnv,
-										dest,
-										completionTag);
 #endif
 #if PG_VERSION_NUM >= 170000
 			if (bump_level)
@@ -1295,28 +1233,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 #endif
 	}
 }
-
-#if PG_VERSION_NUM < 130000
-static void
-BufferUsageAccumDiff(BufferUsage *bufusage, BufferUsage *pgBufferUsage, BufferUsage *bufusage_start)
-{
-	/* calc differences of buffer counters. */
-	bufusage->shared_blks_hit = pgBufferUsage->shared_blks_hit - bufusage_start->shared_blks_hit;
-	bufusage->shared_blks_read = pgBufferUsage->shared_blks_read - bufusage_start->shared_blks_read;
-	bufusage->shared_blks_dirtied = pgBufferUsage->shared_blks_dirtied - bufusage_start->shared_blks_dirtied;
-	bufusage->shared_blks_written = pgBufferUsage->shared_blks_written - bufusage_start->shared_blks_written;
-	bufusage->local_blks_hit = pgBufferUsage->local_blks_hit - bufusage_start->local_blks_hit;
-	bufusage->local_blks_read = pgBufferUsage->local_blks_read - bufusage_start->local_blks_read;
-	bufusage->local_blks_dirtied = pgBufferUsage->local_blks_dirtied - bufusage_start->local_blks_dirtied;
-	bufusage->local_blks_written = pgBufferUsage->local_blks_written - bufusage_start->local_blks_written;
-	bufusage->temp_blks_read = pgBufferUsage->temp_blks_read - bufusage_start->temp_blks_read;
-	bufusage->temp_blks_written = pgBufferUsage->temp_blks_written - bufusage_start->temp_blks_written;
-	bufusage->blk_read_time = pgBufferUsage->blk_read_time;
-	INSTR_TIME_SUBTRACT(bufusage->blk_read_time, bufusage_start->blk_read_time);
-	bufusage->blk_write_time = pgBufferUsage->blk_write_time;
-	INSTR_TIME_SUBTRACT(bufusage->blk_write_time, bufusage_start->blk_write_time);
-}
-#endif
 
 /*
  * Given an arbitrarily long query string, produce a hash for the purposes of
@@ -2995,7 +2911,6 @@ JumbleExpr(JumbleState *jstate, Node *node)
 				JumbleExpr(jstate, (Node *) expr->aggfilter);
 			}
 			break;
-#if PG_VERSION_NUM >= 120000
 		case T_SubscriptingRef:
 			{
 				SubscriptingRef *sbsref = (SubscriptingRef *) node;
@@ -3006,18 +2921,6 @@ JumbleExpr(JumbleState *jstate, Node *node)
 				JumbleExpr(jstate, (Node *) sbsref->refassgnexpr);
 			}
 			break;
-#else
-		case T_ArrayRef:
-			{
-				ArrayRef   *aref = (ArrayRef *) node;
-
-				JumbleExpr(jstate, (Node *) aref->refupperindexpr);
-				JumbleExpr(jstate, (Node *) aref->reflowerindexpr);
-				JumbleExpr(jstate, (Node *) aref->refexpr);
-				JumbleExpr(jstate, (Node *) aref->refassgnexpr);
-			}
-			break;
-#endif
 		case T_FuncExpr:
 			{
 				FuncExpr   *expr = (FuncExpr *) node;
@@ -3618,13 +3521,9 @@ fill_in_constant_lengths(JumbleState *jstate, const char *query,
 	/* initialize the flex scanner --- should match raw_parser() */
 	yyscanner = scanner_init(query,
 							 &yyextra,
-#if PG_VERSION_NUM >= 120000
 							 &ScanKeywords,
 							 ScanKeywordTokens);
-#else
-							 ScanKeywords,
-							 NumScanKeywords);
-#endif
+
 	/* we don't want to re-emit any escape string warnings */
 	yyextra.escape_string_warning = false;
 
