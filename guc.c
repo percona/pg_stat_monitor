@@ -275,7 +275,6 @@ init_guc(void)
 							 NULL,	/* assign_hook */
 							 NULL	/* show_hook */
 		);
-#if PG_VERSION_NUM >= 130000
 	DefineCustomBoolVariable("pg_stat_monitor.pgsm_track_planning", /* name */
 							 "Selects whether planning statistics are tracked.",	/* short_desc */
 							 NULL,	/* long_desc */
@@ -287,7 +286,6 @@ init_guc(void)
 							 NULL,	/* assign_hook */
 							 NULL	/* show_hook */
 		);
-#endif
 
 }
 
