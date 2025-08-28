@@ -102,12 +102,7 @@
 #define MIN_QUERY_LEN						10
 #define SQLCODE_LEN                         20
 #define TOTAL_RELS_LENGTH					(REL_LST * REL_LEN)
-
-#if PG_VERSION_NUM >= 130000
 #define	MAX_SETTINGS                        15
-#else
-#define MAX_SETTINGS                        14
-#endif
 
 /* Update this if need a enum GUC with more options. */
 #define MAX_ENUM_OPTIONS 6
@@ -142,17 +137,6 @@
 #define	PGSM_HASH_TABLE_HANDLE	HTAB*
 #define	PGSM_HASH_SEQ_STATUS	HASH_SEQ_STATUS
 #endif
-
-
-#if PG_VERSION_NUM < 130000
-typedef struct WalUsage
-{
-	long		wal_records;	/* # of WAL records produced */
-	long		wal_fpi;		/* # of WAL full page images produced */
-	uint64		wal_bytes;		/* size of WAL records produced */
-} WalUsage;
-#endif
-
 
 typedef enum pgsmStoreKind
 {
