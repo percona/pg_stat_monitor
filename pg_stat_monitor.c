@@ -166,7 +166,11 @@ DECLARE_HOOK(void pgsm_post_parse_analyze, ParseState *pstate, Query *query, Jum
 #endif
 
 DECLARE_HOOK(void pgsm_ExecutorStart, QueryDesc *queryDesc, int eflags);
+#if PG_VERSION_NUM < 180000
 DECLARE_HOOK(void pgsm_ExecutorRun, QueryDesc *queryDesc, ScanDirection direction, uint64 count, bool execute_once);
+#else
+DECLARE_HOOK(void pgsm_ExecutorRun, QueryDesc *queryDesc, ScanDirection direction, uint64 count);
+#endif
 DECLARE_HOOK(void pgsm_ExecutorFinish, QueryDesc *queryDesc);
 DECLARE_HOOK(void pgsm_ExecutorEnd, QueryDesc *queryDesc);
 #if PG_VERSION_NUM < 160000
@@ -587,8 +591,12 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
  * ExecutorRun hook: all we need do is track nesting depth
  */
 static void
+#if PG_VERSION_NUM < 180000
 pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 				 bool execute_once)
+#else
+pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count)
+#endif
 {
 	if (nesting_level >= 0 && nesting_level < max_stack_depth)
 	{
@@ -600,9 +608,21 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 	PG_TRY();
 	{
 		if (prev_ExecutorRun)
+		{
+#if PG_VERSION_NUM < 180000
 			prev_ExecutorRun(queryDesc, direction, count, execute_once);
+#else
+			prev_ExecutorRun(queryDesc, direction, count);
+#endif
+		}
 		else
+		{
+#if PG_VERSION_NUM < 180000
 			standard_ExecutorRun(queryDesc, direction, count, execute_once);
+#else
+			standard_ExecutorRun(queryDesc, direction, count);
+#endif
+		}
 		nesting_level--;
 		if (nesting_level >= 0 && nesting_level < max_stack_depth)
 		{
