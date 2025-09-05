@@ -31,8 +31,8 @@ jobs:
             zlib1g-dev libssl-dev libpam0g-dev bison flex \
             libipc-run-perl -y docbook-xsl docbook-xsl libxml2 libxml2-utils \
             libxml2-dev libxslt-dev xsltproc libkrb5-dev libldap2-dev \
-            libsystemd-dev gettext tcl-dev libperl-dev pkg-config clang-11 \
-            llvm-11 llvm-11-dev libselinux1-dev python3-dev \
+            libsystemd-dev gettext tcl-dev libperl-dev pkg-config clang-14 \
+            llvm-14 llvm-14-dev libselinux1-dev python3-dev \
             uuid-dev liblz4-dev
           sudo rm -rf /var/lib/postgresql /var/log/postgresql /etc/postgresql \
            /usr/lib/postgresql /usr/include/postgresql /usr/share/postgresql \
@@ -64,7 +64,7 @@ jobs:
             '--includedir=/usr/include/postgresql' '--enable-dtrace' \
             '--enable-nls' '--enable-thread-safety' '--disable-rpath' \
             '--with-system-tzdata=/usr/share/zoneinfo' '--with-llvm' \
-            'LLVM_CONFIG=/usr/bin/llvm-config-11' 'CLANG=/usr/bin/clang-11' \
+            'LLVM_CONFIG=/usr/bin/llvm-config-14' 'CLANG=/usr/bin/clang-14' \
             '--with-systemd' '--with-selinux' 'MKDIR_P=/bin/mkdir -p' \
             'PROVE=/usr/bin/prove' 'TAR=/bin/tar' 'XSLTPROC=xsltproc --nonet' \
             'LDFLAGS=-Wl,-Bsymbolic-functions -Wl,-z,relro -Wl,-z,now' \
