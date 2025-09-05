@@ -21,6 +21,12 @@
 #include "utils/guc.h"
 #include "pgstat.h"
 #include "commands/dbcommands.h"
+
+#if PG_VERSION_NUM >= 180000
+#include "commands/explain_state.h"
+#include "commands/explain_format.h"
+#endif
+
 #include "commands/explain.h"
 #include "pg_stat_monitor.h"
 
