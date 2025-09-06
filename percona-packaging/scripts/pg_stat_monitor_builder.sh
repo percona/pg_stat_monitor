@@ -265,13 +265,15 @@ install_deps() {
         apt-get update
 
         if [[ "${OS_NAME}" != "focal" ]]; then
-            LLVM_EXISTS=$(grep -c "apt.llvm.org" /etc/apt/sources.list)
-            if [ "${LLVM_EXISTS}" == 0 ]; then
-                wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
-                echo "deb http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
-                echo "deb-src http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
-                apt-get update
-            fi
+            #LLVM_EXISTS=$(grep -c "apt.llvm.org" /etc/apt/sources.list)
+            #if [ "${LLVM_EXISTS}" == 0 ]; then
+                #wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
+                #echo "deb http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
+                #echo "deb-src http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
+                #apt-get update
+            #fi
+			wget http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7_7.0.1-12_amd64.deb http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/libllvm7_7.0.1-12_amd64.deb http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7-runtime_7.0.1-12_amd64.deb
+            apt install ./libllvm7_7.0.1-12_amd64.deb ./llvm-7_7.0.1-12_amd64.deb ./llvm-7-runtime_7.0.1-12_amd64.deb
         fi
 
         PKGLIST+=" debconf debhelper clang devscripts dh-exec git wget libkrb5-dev libssl-dev"
