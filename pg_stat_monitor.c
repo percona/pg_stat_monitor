@@ -97,7 +97,7 @@ static int	hist_bucket_count_total;
 static uint32 pgsm_client_ip = PGSM_INVALID_IP_MASK;
 
 /* The array to store outer layer query id*/
-uint64	   *nested_queryids;
+int64	   *nested_queryids;
 char	  **nested_query_txts;
 List	   *lentries = NIL;
 
@@ -195,13 +195,13 @@ DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 			 DestReceiver *dest,
 			 QueryCompletion *qc);
 #endif
-static uint64 pgsm_hash_string(const char *str, int len);
+static int64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
 
-static pgsmEntry *pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info);
+static pgsmEntry *pgsm_create_hash_entry(uint64 bucket_id, int64 queryid, PlanInfo *plan_info);
 static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
-static pgsmEntry *pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
-static uint64 get_pgsm_query_id_hash(const char *norm_query, int len);
+static pgsmEntry *pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
+static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
 static void pgsm_store_error(const char *query, ErrorData *edata);
@@ -248,7 +248,7 @@ static void RecordConstLocation(JumbleState *jstate, int location);
  * relevant part of the string.
  */
 static const char *CleanQuerytext(const char *query, int *location, int *len);
-static uint64 get_query_id(JumbleState *jstate, Query *query);
+static int64 get_query_id(JumbleState *jstate, Query *query);
 #endif
 
 static char *generate_normalized_query(JumbleState *jstate, const char *query,
@@ -336,7 +336,7 @@ _PG_init(void)
 	prev_ExecutorCheckPerms_hook = ExecutorCheckPerms_hook;
 	ExecutorCheckPerms_hook = HOOK(pgsm_ExecutorCheckPerms);
 
-	nested_queryids = (uint64 *) malloc(sizeof(uint64) * max_stack_depth);
+	nested_queryids = (int64 *) malloc(sizeof(int64) * max_stack_depth);
 	nested_query_txts = (char **) malloc(sizeof(char *) * max_stack_depth);
 
 	system_init = true;
@@ -431,7 +431,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	if (query->utilityStmt)
 	{
 		if (pgsm_track_utility && IsA(query->utilityStmt, ExecuteStmt))
-			query->queryId = UINT64CONST(0);
+			query->queryId = INT64CONST(0);
 
 		return;
 	}
@@ -448,8 +448,8 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	 * If we are unlucky enough to get a hash of zero, use 1 instead, to
 	 * prevent confusion with the utility-statement case.
 	 */
-	if (query->queryId == UINT64CONST(0))
-		query->queryId = UINT64CONST(1);
+	if (query->queryId == INT64CONST(0))
+		query->queryId = INT64CONST(1);
 
 	/*
 	 * Let's save the normalized query so that we can save the data without in
@@ -564,7 +564,7 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 * utility statements.
 	 */
 	if (pgsm_enabled(nesting_level) &&
-		queryDesc->plannedstmt->queryId != UINT64CONST(0))
+		queryDesc->plannedstmt->queryId != INT64CONST(0))
 	{
 		/*
 		 * Set up to track total elapsed time in ExecutorRun.  Make sure the
@@ -626,7 +626,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count)
 		nesting_level--;
 		if (nesting_level >= 0 && nesting_level < max_stack_depth)
 		{
-			nested_queryids[nesting_level] = UINT64CONST(0);
+			nested_queryids[nesting_level] = INT64CONST(0);
 			if (nested_query_txts[nesting_level])
 				free(nested_query_txts[nesting_level]);
 			nested_query_txts[nesting_level] = NULL;
@@ -637,7 +637,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count)
 		nesting_level--;
 		if (nesting_level >= 0 && nesting_level < max_stack_depth)
 		{
-			nested_queryids[nesting_level] = UINT64CONST(0);
+			nested_queryids[nesting_level] = INT64CONST(0);
 			if (nested_query_txts[nesting_level])
 				free(nested_query_txts[nesting_level]);
 			nested_query_txts[nesting_level] = NULL;
@@ -698,7 +698,7 @@ pgsm_explain(QueryDesc *queryDesc)
 static void
 pgsm_ExecutorEnd(QueryDesc *queryDesc)
 {
-	uint64		queryId = queryDesc->plannedstmt->queryId;
+	int64		queryId = queryDesc->plannedstmt->queryId;
 	SysInfo		sys_info;
 	PlanInfo	plan_info;
 	PlanInfo   *plan_ptr = NULL;
@@ -733,12 +733,12 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		MemoryContextSwitchTo(oldctx);
 	}
 
-	if (queryId != UINT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
+	if (queryId != INT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
 	{
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true, queryDesc->operation);
 		if (!entry)
 		{
-			elog(DEBUG2, "[pg_stat_monitor] pgsm_ExecutorEnd: Failed to find entry for [%lu] %s.", queryId, queryDesc->sourceText);
+			elog(DEBUG2, "[pg_stat_monitor] pgsm_ExecutorEnd: Failed to find entry for [%lld] %s.", queryId, queryDesc->sourceText);
 			return;
 		}
 
@@ -861,7 +861,7 @@ static PlannedStmt *
 pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams)
 {
 	PlannedStmt *result;
-
+	int64		queryId = parse->queryId;
 
 	/*
 	 * We can't process the query if no query_string is provided, as
@@ -883,7 +883,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 	enabled = pgsm_enabled(plan_nested_level + nesting_level);
 #endif
 
-	if (enabled && pgsm_track_planning && query_string && parse->queryId != UINT64CONST(0))
+	if (enabled && pgsm_track_planning && query_string && queryId != INT64CONST(0))
 	{
 		pgsmEntry  *entry = NULL;
 		instr_time	start;
@@ -904,7 +904,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		INSTR_TIME_SET_CURRENT(start);
 
 		if (MemoryContextIsValid(MessageContext))
-			entry = pgsm_get_entry_for_query(parse->queryId, NULL, query_string, strlen(query_string), true, parse->commandType);
+			entry = pgsm_get_entry_for_query(queryId, NULL, query_string, strlen(query_string), true, parse->commandType);
 
 #if PG_VERSION_NUM >= 170000
 		nesting_level++;
@@ -1026,7 +1026,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 #endif
 {
 	Node	   *parsetree = pstmt->utilityStmt;
-	uint64		queryId = 0;
+	int64		queryId = 0;
 	bool		enabled = pgsm_track_utility && pgsm_enabled(nesting_level);
 
 #if PG_VERSION_NUM < 140000
@@ -1046,7 +1046,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * level.
 	 */
 	if (enabled)
-		pstmt->queryId = UINT64CONST(0);
+		pstmt->queryId = INT64CONST(0);
 #endif
 
 	/*
@@ -1265,11 +1265,10 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
  * identifying the query, without normalizing constants.  Used when hashing
  * utility statements.
  */
-static uint64
+static int64
 pgsm_hash_string(const char *str, int len)
 {
-	return DatumGetUInt64(hash_any_extended((const unsigned char *) str,
-											len, 0));
+	return DatumGetInt64(hash_any_extended((const unsigned char *) str, len, 0));
 }
 
 static PgBackendStatus *
@@ -1636,7 +1635,7 @@ static void
 pgsm_store_error(const char *query, ErrorData *edata)
 {
 	pgsmEntry  *entry;
-	uint64		queryid = 0;
+	int64		queryid = 0;
 	int			len = strlen(query);
 
 	if (!query || len == 0)
@@ -1670,7 +1669,7 @@ pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len)
 }
 
 static pgsmEntry *
-pgsm_get_entry_for_query(uint64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type)
+pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type)
 {
 	pgsmEntry  *entry = NULL;
 	ListCell   *lc = NULL;
@@ -1729,7 +1728,7 @@ pgsm_cleanup_callback(void *arg)
  * The bucket_id may not be known at this stage. So pass any value that you may wish.
  */
 static pgsmEntry *
-pgsm_create_hash_entry(uint64 bucket_id, uint64 queryid, PlanInfo *plan_info)
+pgsm_create_hash_entry(uint64 bucket_id, int64 queryid, PlanInfo *plan_info)
 {
 	pgsmEntry  *entry;
 	int			sec_ctx;
@@ -1898,7 +1897,7 @@ pgsm_store(pgsmEntry *entry)
 	}
 	else
 	{
-		entry->key.parentid = UINT64CONST(0);
+		entry->key.parentid = INT64CONST(0);
 	}
 
 #if PG_VERSION_NUM >= 170000
@@ -2189,13 +2188,13 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		Counters	tmp;
 		pgsmHashKey tmpkey;
 		double		stddev;
-		uint64		queryid = entry->key.queryid;
+		int64		queryid = entry->key.queryid;
 		int64		bucketid = entry->key.bucket_id;
 		Oid			dbid = entry->key.dbid;
 		Oid			userid = entry->key.userid;
-		uint64		ip = (uint64) entry->key.ip;
-		uint64		planid = entry->key.planid;
-		uint64		pgsm_query_id = entry->pgsm_query_id;
+		uint32		ip = entry->key.ip;
+		int64		planid = entry->key.planid;
+		int64		pgsm_query_id = entry->pgsm_query_id;
 		dsa_area   *query_dsa_area;
 		char	   *query_ptr;
 		char	   *query_txt = NULL;
@@ -2241,7 +2240,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		}
 
 		/* read the parent query text if any */
-		if (tmpkey.parentid != UINT64CONST(0))
+		if (tmpkey.parentid != INT64CONST(0))
 		{
 			if (DsaPointerIsValid(tmp.info.parent_query))
 			{
@@ -2277,12 +2276,12 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			nulls[i++] = true;
 
 		/* queryid at column number 6 */
-		values[i++] = UInt64GetDatum(queryid);
+		values[i++] = Int64GetDatum(queryid);
 
 		/* planid at column number 7 */
 		if (planid)
 		{
-			values[i++] = UInt64GetDatum(planid);
+			values[i++] = Int64GetDatum(planid);
 		}
 		else
 		{
@@ -2322,14 +2321,14 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		/* pgsm_query_id at column number 10 */
 		if (pgsm_query_id)
-			values[i++] = UInt64GetDatum(pgsm_query_id);
+			values[i++] = Int64GetDatum(pgsm_query_id);
 		else
 			nulls[i++] = true;
 
 		/* parentid at column number 11 */
-		if (tmpkey.parentid != UINT64CONST(0))
+		if (tmpkey.parentid != INT64CONST(0))
 		{
-			values[i++] = UInt64GetDatum(tmpkey.parentid);
+			values[i++] = Int64GetDatum(tmpkey.parentid);
 			values[i++] = CStringGetTextDatum(parent_query_txt);
 		}
 		else
@@ -2630,13 +2629,13 @@ get_next_wbucket(pgsmSharedState *pgsm)
  * newline, tab, or any other type. Trailing and leading spaces
  * are also removed before calculating the hash.
  */
-uint64
+int64
 get_pgsm_query_id_hash(const char *norm_query, int norm_len)
 {
 	char	   *query;
 	char	   *q_iter;
 	char	   *norm_q_iter = (char *) norm_query;
-	uint64		pgsm_query_id = 0;
+	int64		pgsm_query_id = 0;
 
 	if (!pgsm_enable_pgsm_query_id)
 		return 0;
@@ -3964,10 +3963,10 @@ extract_query_comments(const char *query, char *comments, size_t max_len)
 }
 
 #if PG_VERSION_NUM < 140000
-static uint64
+static int64
 get_query_id(JumbleState *jstate, Query *query)
 {
-	uint64		queryid;
+	int64		queryid;
 
 	/* Set up workspace for query jumbling */
 	jstate->jumble = (unsigned char *) palloc(JUMBLE_SIZE);
