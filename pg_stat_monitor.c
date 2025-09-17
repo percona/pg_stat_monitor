@@ -37,7 +37,8 @@ typedef enum pgsmVersion
 {
 	PGSM_V1_0 = 0,
 	PGSM_V2_0,
-	PGSM_V2_1
+	PGSM_V2_1,
+	PGSM_V2_3,
 } pgsmVersion;
 
 PG_MODULE_MAGIC;
@@ -48,7 +49,8 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
 #define PG_STAT_MONITOR_COLS_V2_1    70
-#define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_1	/* maximum of above */
+#define PG_STAT_MONITOR_COLS_V2_3    71
+#define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_3	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
 
@@ -150,6 +152,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_reset);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_1_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_1);
+PG_FUNCTION_INFO_V1(pg_stat_monitor_2_3);
 PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(get_histogram_timings);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
@@ -1584,6 +1587,9 @@ pgsm_update_entry(pgsmEntry *entry,
 		entry->counters.walusage.wal_records += walusage->wal_records;
 		entry->counters.walusage.wal_fpi += walusage->wal_fpi;
 		entry->counters.walusage.wal_bytes += walusage->wal_bytes;
+#if PG_VERSION_NUM >= 180000
+		entry->counters.walusage.wal_buffers_full += walusage->wal_buffers_full;
+#endif
 	}
 	if (jitusage)
 	{
@@ -1877,6 +1883,10 @@ pgsm_store(pgsmEntry *entry)
 	walusage.wal_fpi = entry->counters.walusage.wal_fpi;
 	walusage.wal_bytes = entry->counters.walusage.wal_bytes;
 
+#if PG_VERSION_NUM >= 180000
+	walusage.wal_buffers_full = entry->counters.walusage.wal_buffers_full;
+#endif
+
 	/* jit */
 	jitusage.created_functions = entry->counters.jitinfo.jit_functions;
 	memcpy(&jitusage.generation_counter, &entry->counters.jitinfo.instr_generation_counter, sizeof(instr_time));
@@ -2063,6 +2073,13 @@ pg_stat_monitor_2_1(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
+Datum
+pg_stat_monitor_2_3(PG_FUNCTION_ARGS)
+{
+	pg_stat_monitor_internal(fcinfo, PGSM_V2_3, true);
+	return (Datum) 0;
+}
+
 /*
   * Legacy entry point for pg_stat_monitor() API versions 1.0
   */
@@ -2115,6 +2132,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			break;
 		case PGSM_V2_1:
 			expected_columns = PG_STAT_MONITOR_COLS_V2_1;
+			break;
+		case PGSM_V2_3:
+			expected_columns = PG_STAT_MONITOR_COLS_V2_3;
 			break;
 		default:
 			ereport(ERROR,
@@ -2499,13 +2519,19 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			/* wal_bytes at column number 54 */
 			values[i++] = wal_bytes;
 
-			/* application_name at column number 55 */
+			if (api_version >= PGSM_V2_3)
+			{
+				/* wal_buffers_full at column number 55 */
+				values[i++] = Int64GetDatumFast(tmp.walusage.wal_buffers_full);
+			}
+
+			/* application_name at column number 56 */
 			if (strlen(tmp.info.comments) > 0)
 				values[i++] = CStringGetTextDatum(tmp.info.comments);
 			else
 				nulls[i++] = true;
 
-			/* blocks are from column number 56 - 63 */
+			/* blocks are from column number 57 - 64 */
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
@@ -2516,7 +2542,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
 			if (api_version >= PGSM_V2_1)
 			{
-				/* at column number 64 */
+				/* at column number 65 */
 				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_deform_count);
 				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_deform_time);
 			}
@@ -2524,15 +2550,15 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		if (api_version >= PGSM_V2_1)
 		{
-			/* at column number 66 */
+			/* at column number 67 */
 			values[i++] = TimestampTzGetDatum(entry->stats_since);
 			values[i++] = TimestampTzGetDatum(entry->minmax_stats_since);
 		}
 
-		/* toplevel at column number 68 */
+		/* toplevel at column number 69 */
 		values[i++] = BoolGetDatum(toplevel);
 
-		/* bucket_done at column number 69 */
+		/* bucket_done at column number 70 */
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgsm->current_wbucket) != bucketid);
 
 		/* clean up and return the tuplestore */
