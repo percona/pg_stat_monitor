@@ -36,7 +36,8 @@ my %pg_versions_pgsm_columns = ( 18 => "application_name,".
    "shared_blks_hit,shared_blks_read,shared_blks_written,sqlcode,stats_since," .
    "stddev_exec_time,stddev_plan_time,temp_blk_read_time,temp_blk_write_time," .
    "temp_blks_read,temp_blks_written,top_query,top_queryid,toplevel," .
-   "total_exec_time,total_plan_time,userid,username,wal_bytes,wal_fpi,wal_records",
+   "total_exec_time,total_plan_time,userid,username,wal_buffers_full,wal_bytes," .
+   "wal_fpi,wal_records",
    17 => "application_name,".
    "bucket,bucket_done,bucket_start_time,calls," .
    "client_ip,cmd_type,cmd_type_text,comments,cpu_sys_time,cpu_user_time," .

@@ -93,10 +93,10 @@ PGSM::append_to_debug_file($stdout);
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT bucket, bucket_start_time, queryid, substr(query,0,30) AS query, calls, rows, total_exec_time, min_exec_time, max_exec_time, mean_exec_time, stddev_exec_time, ROUND(${col_shared_blk_read_time}::numeric,4) AS ${col_shared_blk_read_time}, ROUND(${col_shared_blk_write_time}::numeric,4) AS ${col_shared_blk_write_time}, cpu_user_time, cpu_sys_time FROM pg_stat_monitor WHERE query LIKE '%bench%' ORDER BY query,calls DESC;", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_debug_file($stdout);
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT substr(query,0,30) AS query,calls,rows,wal_records,wal_fpi,wal_bytes FROM pg_stat_statements WHERE query LIKE \'%bench%\' ORDER BY query,calls;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT substr(query,0,30) AS query,calls,rows,wal_records,wal_fpi,wal_bytes,wal_buffers_full FROM pg_stat_statements WHERE query LIKE \'%bench%\' ORDER BY query,calls;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_debug_file($stdout);
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT bucket, bucket_start_time, substr(query,0,30) AS query,calls, rows, wal_records,wal_fpi,wal_bytes, cmd_type_text FROM pg_stat_monitor WHERE query LIKE \'%bench%\' ORDER BY query,calls;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT bucket, bucket_start_time, substr(query,0,30) AS query,calls, rows, wal_records,wal_fpi,wal_bytes,wal_buffers_full, cmd_type_text FROM pg_stat_monitor WHERE query LIKE \'%bench%\' ORDER BY query,calls;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_debug_file($stdout);
 
 # Compare values for query 'DELETE FROM pgbench_accounts WHERE $1 = $2'
@@ -139,6 +139,13 @@ is($stdout,'t',"Compare: wal_fpi is equal.");
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_bytes) = SUM(PGSS.wal_bytes) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Compare: wal_bytes are equal.");
+
+if ($PGSM::PG_MAJOR_VERSION >= 18)
+{
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_buffers_full) = SUM(PGSS.wal_buffers_full) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: wal_buffers_full are equal.");
+}
 
 # Compare values for query 'INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)' 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.calls) = SUM(PGSS.calls) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
@@ -189,6 +196,13 @@ is($stdout,'t',"Compare: wal_fpi is equal.");
 trim($stdout);
 is($stdout,'t',"Compare: wal_bytes are equal.");
 
+if ($PGSM::PG_MAJOR_VERSION >= 18)
+{
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_buffers_full) = SUM(PGSS.wal_buffers_full) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: wal_buffers_full are equal.");
+}
+
 # Compare values for query 'SELECT abalance FROM pgbench_accounts WHERE aid = $1' 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.calls) = SUM(PGSS.calls) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
@@ -238,6 +252,13 @@ is($stdout,'t',"Compare: wal_fpi is equal.");
 trim($stdout);
 is($stdout,'t',"Compare: wal_bytes are equal.");
 
+if ($PGSM::PG_MAJOR_VERSION >= 18)
+{
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_buffers_full) = SUM(PGSS.wal_buffers_full) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: wal_buffers_full are equal.");
+}
+
 # Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.calls) = SUM(PGSS.calls) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
@@ -282,6 +303,13 @@ is($stdout,'t',"Compare: wal_fpi is equal.");
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_bytes) = SUM(PGSS.wal_bytes) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Compare: wal_bytes are equal.");
+
+if ($PGSM::PG_MAJOR_VERSION >= 18)
+{
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_buffers_full) = SUM(PGSS.wal_buffers_full) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: wal_buffers_full are equal.");
+}
 
 # DROP EXTENSION
 $stdout = $node->safe_psql('postgres', 'DROP EXTENSION pg_stat_monitor;', extra_params => ['-a']);

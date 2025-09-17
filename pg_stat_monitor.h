@@ -308,6 +308,7 @@ typedef struct Wal_Usage
 	int64		wal_records;	/* # of WAL records generated */
 	int64		wal_fpi;		/* # of WAL full page images generated */
 	uint64		wal_bytes;		/* total amount of WAL bytes generated */
+	int64		wal_buffers_full;	/* # of times the WAL buffers became full */
 } Wal_Usage;
 
 typedef struct Counters
