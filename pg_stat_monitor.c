@@ -2300,7 +2300,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		else
 			nulls[i++] = true;
 
-		/* parentid at column number 9 */
+		/* parentid at column number 11 */
 		if (tmpkey.parentid != UINT64CONST(0))
 		{
 			values[i++] = UInt64GetDatum(tmpkey.parentid);
@@ -2312,7 +2312,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			nulls[i++] = true;
 		}
 
-		/* application_name at column number 15 */
+		/* application_name at column number 13 */
 		if (strlen(tmp.info.application_name) > 0)
 			values[i++] = CStringGetTextDatum(tmp.info.application_name);
 		else
@@ -2445,8 +2445,11 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Int64GetDatumFast(tmp.blocks.temp_blks_written);
 		values[i++] = Float8GetDatumFast(tmp.blocks.shared_blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.shared_blk_write_time);
-		values[i++] = Float8GetDatumFast(tmp.blocks.local_blk_read_time);
-		values[i++] = Float8GetDatumFast(tmp.blocks.local_blk_write_time);
+		if (api_version >= PGSM_V2_1)
+		{
+			values[i++] = Float8GetDatumFast(tmp.blocks.local_blk_read_time);
+			values[i++] = Float8GetDatumFast(tmp.blocks.local_blk_write_time);
+		}
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_read_time);
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
 
@@ -2493,18 +2496,25 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_optimization_time);
 			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
 			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
-			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_deform_count);
-			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_deform_time);
+			if (api_version >= PGSM_V2_1)
+			{
+				/* at column number 64 */
+				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_deform_count);
+				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_deform_time);
+			}
 		}
 
-		/* at column number 64 */
-		values[i++] = TimestampTzGetDatum(entry->stats_since);
-		values[i++] = TimestampTzGetDatum(entry->minmax_stats_since);
+		if (api_version >= PGSM_V2_1)
+		{
+			/* at column number 66 */
+			values[i++] = TimestampTzGetDatum(entry->stats_since);
+			values[i++] = TimestampTzGetDatum(entry->minmax_stats_since);
+		}
 
-		/* toplevel at column number 66 */
+		/* toplevel at column number 68 */
 		values[i++] = BoolGetDatum(toplevel);
 
-		/* bucket_done at column number 67 */
+		/* bucket_done at column number 69 */
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgsm->current_wbucket) != bucketid);
 
 		/* clean up and return the tuplestore */
