@@ -87,10 +87,13 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT jit_deform_count        int8,
     OUT jit_deform_time         float8,
 
-    OUT stats_since          timestamp with time zone, -- 67
+    OUT parallel_workers_to_launch  int, -- 67
+    OUT parallel_workers_launched   int,
+
+    OUT stats_since          timestamp with time zone, -- 69
     OUT minmax_stats_since   timestamp with time zone,
 
-    OUT toplevel            BOOLEAN, -- 69
+    OUT toplevel            BOOLEAN, -- 71
     OUT bucket_done         BOOLEAN
 )
 RETURNS SETOF record
@@ -174,6 +177,9 @@ CREATE VIEW pg_stat_monitor AS SELECT
     jit_emission_time,
     jit_deform_count,
     jit_deform_time,
+
+    parallel_workers_to_launch,
+    parallel_workers_launched,
 
     stats_since,
     minmax_stats_since

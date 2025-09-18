@@ -49,7 +49,7 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V1_0    52
 #define PG_STAT_MONITOR_COLS_V2_0    64
 #define PG_STAT_MONITOR_COLS_V2_1    70
-#define PG_STAT_MONITOR_COLS_V2_3    71
+#define PG_STAT_MONITOR_COLS_V2_3    73
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_3	/* maximum of above */
 
 #define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
@@ -230,6 +230,8 @@ static void pgsm_update_entry(pgsmEntry *entry,
 							  BufferUsage *bufusage,
 							  WalUsage *walusage,
 							  const struct JitInstrumentation *jitusage,
+							  int parallel_workers_to_launch,
+							  int parallel_workers_launched,
 							  bool reset,
 							  pgsmStoreKind kind);
 static void pgsm_store(pgsmEntry *entry);
@@ -784,6 +786,13 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 #else
 						  NULL,
 #endif
+#if PG_VERSION_NUM >= 180000
+						  queryDesc->estate->es_parallel_workers_to_launch, /* parallel_workers_to_launch */
+						  queryDesc->estate->es_parallel_workers_launched,	/* parallel_workers_launched */
+#else
+						  0,	/* parallel_workers_to_launch */
+						  0,	/* parallel_workers_launched */
+#endif
 						  false,	/* reset */
 						  PGSM_EXEC);	/* kind */
 
@@ -964,6 +973,8 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 							  &bufusage,	/* bufusage */
 							  &walusage,	/* walusage */
 							  NULL, /* jitusage */
+							  0,	/* parallel_workers_to_launch */
+							  0,	/* parallel_workers_launched */
 							  false,	/* reset */
 							  PGSM_PLAN);	/* kind */
 	}
@@ -1189,6 +1200,8 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 						  &bufusage,	/* bufusage */
 						  &walusage,	/* walusage */
 						  NULL, /* jitusage */
+						  0,	/* parallel_workers_to_launch */
+						  0,	/* parallel_workers_launched */
 						  false,	/* reset */
 						  PGSM_EXEC);	/* kind */
 
@@ -1373,6 +1386,8 @@ pgsm_update_entry(pgsmEntry *entry,
 				  BufferUsage *bufusage,
 				  WalUsage *walusage,
 				  const struct JitInstrumentation *jitusage,
+				  int parallel_workers_to_launch,
+				  int parallel_workers_launched,
 				  bool reset,
 				  pgsmStoreKind kind)
 {
@@ -1627,6 +1642,10 @@ pgsm_update_entry(pgsmEntry *entry,
 #endif
 		}
 	}
+
+	/* parallel worker counters */
+	entry->counters.parallel_workers_to_launch += parallel_workers_to_launch;
+	entry->counters.parallel_workers_launched += parallel_workers_launched;
 
 	if (kind == PGSM_STORE)
 		SpinLockRelease(&entry->mutex);
@@ -2018,6 +2037,8 @@ pgsm_store(pgsmEntry *entry)
 					  &bufusage,	/* bufusage */
 					  &walusage,	/* walusage */
 					  &jitusage,	/* jitusage */
+					  entry->counters.parallel_workers_to_launch,	/* parallel_workers_to_launch */
+					  entry->counters.parallel_workers_launched,	/* parallel_workers_launched */
 					  reset,	/* reset */
 					  PGSM_STORE);
 
@@ -2548,17 +2569,24 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			}
 		}
 
-		if (api_version >= PGSM_V2_1)
+		if (api_version >= PGSM_V2_3)
 		{
 			/* at column number 67 */
+			values[i++] = Int64GetDatumFast(tmp.parallel_workers_to_launch);
+			values[i++] = Int64GetDatumFast(tmp.parallel_workers_launched);
+		}
+
+		if (api_version >= PGSM_V2_1)
+		{
+			/* at column number 69 */
 			values[i++] = TimestampTzGetDatum(entry->stats_since);
 			values[i++] = TimestampTzGetDatum(entry->minmax_stats_since);
 		}
 
-		/* toplevel at column number 69 */
+		/* toplevel at column number 71 */
 		values[i++] = BoolGetDatum(toplevel);
 
-		/* bucket_done at column number 70 */
+		/* bucket_done at column number 72 */
 		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgsm->current_wbucket) != bucketid);
 
 		/* clean up and return the tuplestore */
