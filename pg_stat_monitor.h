@@ -184,7 +184,7 @@ typedef struct CallTime
 
 typedef struct PlanInfo
 {
-	uint64		planid;			/* plan identifier */
+	int64		planid;			/* plan identifier */
 	char		plan_text[PLAN_TEXT_LEN];	/* plan text */
 	size_t		plan_len;		/* strlen(plan_text) */
 } PlanInfo;
@@ -192,14 +192,14 @@ typedef struct PlanInfo
 typedef struct pgsmHashKey
 {
 	uint64		bucket_id;		/* bucket number */
-	uint64		queryid;		/* query identifier */
-	uint64		planid;			/* plan identifier */
-	uint64		appid;			/* hash of application name */
+	int64		queryid;		/* query identifier */
+	int64		planid;			/* plan identifier */
+	int64		appid;			/* hash of application name */
 	Oid			userid;			/* user OID */
 	Oid			dbid;			/* database OID */
 	uint32		ip;				/* client ip address */
 	bool		toplevel;		/* query executed at top level */
-	uint64		parentid;		/* parent queryid of current query */
+	int64		parentid;		/* parent queryId of current query */
 } pgsmHashKey;
 
 typedef struct QueryInfo
@@ -308,6 +308,7 @@ typedef struct Wal_Usage
 	int64		wal_records;	/* # of WAL records generated */
 	int64		wal_fpi;		/* # of WAL full page images generated */
 	uint64		wal_bytes;		/* total amount of WAL bytes generated */
+	int64		wal_buffers_full;	/* # of times the WAL buffers became full */
 } Wal_Usage;
 
 typedef struct Counters
@@ -327,6 +328,10 @@ typedef struct Counters
 	Wal_Usage	walusage;
 	int			resp_calls[MAX_RESPONSE_BUCKET];	/* execution time's in
 													 * msec */
+	int64		parallel_workers_to_launch; /* # of parallel workers planned
+											 * to be launched */
+	int64		parallel_workers_launched;	/* # of parallel workers actually
+											 * launched */
 } Counters;
 
 /* Some global structure to get the cpu usage, really don't like the idea of global variable */
@@ -337,7 +342,7 @@ typedef struct Counters
 typedef struct pgsmEntry
 {
 	pgsmHashKey key;			/* hash key of entry - MUST BE FIRST */
-	uint64		pgsm_query_id;	/* pgsm generate normalized query hash */
+	int64		pgsm_query_id;	/* pgsm generate normalized query hash */
 	char		datname[NAMEDATALEN];	/* database name */
 	char		username[NAMEDATALEN];	/* user name */
 	Counters	counters;		/* the statistics for this query */
