@@ -1,0 +1,6 @@
+--
+-- Tests for parallel statistics
+--
+SELECT setting::integer < 180000 AS skip_test FROM pg_settings where name = 'server_version_num'  \gset
+\if :skip_test
+\quit

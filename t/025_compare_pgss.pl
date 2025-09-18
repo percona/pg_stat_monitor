@@ -145,6 +145,14 @@ if ($PGSM::PG_MAJOR_VERSION >= 18)
     ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_buffers_full) = SUM(PGSS.wal_buffers_full) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
     trim($stdout);
     is($stdout,'t',"Compare: wal_buffers_full are equal.");
+
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.parallel_workers_to_launch) = SUM(PGSS.parallel_workers_to_launch) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: parallel_workers_to_launch are equal.");
+
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.parallel_workers_launched) = SUM(PGSS.parallel_workers_launched) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: parallel_workers_launched are equal.");
 }
 
 # Compare values for query 'INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)' 
@@ -201,6 +209,14 @@ if ($PGSM::PG_MAJOR_VERSION >= 18)
     ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_buffers_full) = SUM(PGSS.wal_buffers_full) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
     trim($stdout);
     is($stdout,'t',"Compare: wal_buffers_full are equal.");
+
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.parallel_workers_to_launch) = SUM(PGSS.parallel_workers_to_launch) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: parallel_workers_to_launch are equal.");
+
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.parallel_workers_launched) = SUM(PGSS.parallel_workers_launched) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: parallel_workers_launched are equal.");
 }
 
 # Compare values for query 'SELECT abalance FROM pgbench_accounts WHERE aid = $1' 
@@ -257,6 +273,14 @@ if ($PGSM::PG_MAJOR_VERSION >= 18)
     ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_buffers_full) = SUM(PGSS.wal_buffers_full) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
     trim($stdout);
     is($stdout,'t',"Compare: wal_buffers_full are equal.");
+
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.parallel_workers_to_launch) = SUM(PGSS.parallel_workers_to_launch) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: parallel_workers_to_launch are equal.");
+
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.parallel_workers_launched) = SUM(PGSS.parallel_workers_launched) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: parallel_workers_launched are equal.");
 }
 
 # Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2'
@@ -309,6 +333,14 @@ if ($PGSM::PG_MAJOR_VERSION >= 18)
     ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.wal_buffers_full) = SUM(PGSS.wal_buffers_full) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
     trim($stdout);
     is($stdout,'t',"Compare: wal_buffers_full are equal.");
+
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.parallel_workers_to_launch) = SUM(PGSS.parallel_workers_to_launch) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: parallel_workers_to_launch are equal.");
+
+    ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.parallel_workers_launched) = SUM(PGSS.parallel_workers_launched) FROM pg_stat_monitor AS PGSM INNER JOIN pg_stat_statements AS PGSS ON PGSS.query = PGSM.query WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+    trim($stdout);
+    is($stdout,'t',"Compare: parallel_workers_launched are equal.");
 }
 
 # DROP EXTENSION
