@@ -41,6 +41,7 @@ tests += {
       'guc',
       'histogram',
       'level_tracking'
+      'parallel',
       'pgsqm_query_id',
       'relations',
       'rows',
