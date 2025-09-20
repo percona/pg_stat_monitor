@@ -55,8 +55,8 @@ init_guc(void)
 							"Sets the maximum size of shared memory in (MB) used for statement's metadata tracked by pg_stat_monitor.", /* short_desc */
 							NULL,	/* long_desc */
 							&pgsm_max,	/* value address */
-							256,	/* boot value */
-							10, /* min value */
+							2,	/* boot value - reduced from 256MB to 2MB for low-memory fork */
+							1, /* min value - reduced from 10 to allow lower memory usage */
 							10240,	/* max value */
 							PGC_POSTMASTER, /* context */
 							GUC_UNIT_MB,	/* flags */
@@ -69,7 +69,7 @@ init_guc(void)
 							"Sets the maximum length of query.",	/* short_desc */
 							NULL,	/* long_desc */
 							&pgsm_query_max_len,	/* value address */
-							2048,	/* boot value */
+							1536,	/* boot value - reduced from 2048 to match export limit */
 							1024,	/* min value */
 							INT_MAX,	/* max value */
 							PGC_POSTMASTER, /* context */
@@ -83,7 +83,7 @@ init_guc(void)
 							"Sets the maximum number of buckets.",	/* short_desc */
 							NULL,	/* long_desc */
 							&pgsm_max_buckets,	/* value address */
-							10, /* boot value */
+							2, /* boot value - reduced from 10 to 2 for low-memory fork */
 							1,	/* min value */
 							20000,	/* max value */
 							PGC_POSTMASTER, /* context */
@@ -153,7 +153,7 @@ init_guc(void)
 							"Sets the maximum size of shared memory in (MB) used for query tracked by pg_stat_monitor.",	/* short_desc */
 							NULL,	/* long_desc */
 							&pgsm_query_shared_buffer,	/* value address */
-							20, /* boot value */
+							1, /* boot value - reduced from 20MB to 1MB for low-memory fork */
 							1,	/* min value */
 							10000,	/* max value */
 							PGC_POSTMASTER, /* context */
