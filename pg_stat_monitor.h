@@ -503,3 +503,6 @@ void		pgsm_hash_seq_init(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_
 void	   *pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS * hstat);
 void		pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat);
 void		pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key);
+
+/* Table export functions */
+bool		pgsm_export_bucket_to_table(uint64 bucket_id);
