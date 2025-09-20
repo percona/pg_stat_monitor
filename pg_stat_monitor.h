@@ -490,6 +490,7 @@ extern bool pgsm_track_utility;
 extern bool pgsm_track_application_names;
 extern bool pgsm_enable_pgsm_query_id;
 extern int	pgsm_track;
+extern bool pgsm_enable_json_log;
 
 #define DECLARE_HOOK(hook, ...) \
         static hook(__VA_ARGS__);
@@ -504,5 +505,3 @@ void	   *pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS * hstat);
 void		pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat);
 void		pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key);
 
-/* Table export functions */
-bool		pgsm_export_bucket_to_table(uint64 bucket_id);

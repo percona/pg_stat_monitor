@@ -36,6 +36,7 @@ bool		pgsm_track_utility;
 bool		pgsm_track_application_names;
 bool		pgsm_enable_pgsm_query_id;
 int			pgsm_track;
+bool		pgsm_enable_json_log;
 static int	pgsm_overflow_target;	/* Not used since 2.0 */
 
 /* Check hooks to ensure histogram_min < histogram_max */
@@ -281,6 +282,18 @@ init_guc(void)
 							 &pgsm_track_planning,	/* value address */
 							 false, /* boot value */
 							 PGC_USERSET,	/* context */
+							 0, /* flags */
+							 NULL,	/* check_hook */
+							 NULL,	/* assign_hook */
+							 NULL	/* show_hook */
+		);
+
+	DefineCustomBoolVariable("pg_stat_monitor.pgsm_enable_json_log", /* name */
+							 "Enable/Disable JSON logging of query statistics.",	/* short_desc */
+							 NULL,	/* long_desc */
+							 &pgsm_enable_json_log,	/* value address */
+							 false, /* boot value */
+							 PGC_SUSET,	/* context */
 							 0, /* flags */
 							 NULL,	/* check_hook */
 							 NULL,	/* assign_hook */
