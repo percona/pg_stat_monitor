@@ -247,6 +247,7 @@ static void fill_in_constant_lengths(JumbleState *jstate, const char *query, int
 static int	comp_location(const void *a, const void *b);
 
 static uint64 get_next_wbucket(pgsmSharedState *pgsm);
+static void pgsm_log_bucket_json(uint64 bucket_id);
 
 /*
  * To prevent deadlocks against our own backend we need to disable error
@@ -3966,47 +3967,17 @@ pgsm_lock_release(pgsmSharedState *pgsm)
 	LWLockRelease(pgsm->lock);
 }
 
+
 /*
  * Log bucket data as JSON to PostgreSQL log
  */
 static void
 pgsm_log_bucket_json(uint64 bucket_id)
 {
-	pgsmSharedState *pgsm = pgsm_get_ss();
-	HASH_SEQ_STATUS hash_seq;
-	pgsmEntry  *entry;
-	bool		first_entry = true;
-
 	if (!pgsm_enable_json_log)
 		return;
 
-	/* Start JSON object for the bucket */
-	elog(LOG, "[pg_stat_monitor] JSON export bucket %lu: {\"bucket_id\": %lu, \"queries\": [",
-		 bucket_id, bucket_id);
-
-	pgsm_lock_aquire(pgsm, LW_SHARED);
-
-	hash_seq_init(&hash_seq, pgsm->hash);
-	while ((entry = hash_seq_search(&hash_seq)) != NULL)
-	{
-		/* Only export entries from the specified bucket */
-		if (entry->key.bucket_id != bucket_id)
-			continue;
-
-		if (!first_entry)
-			elog(LOG, "[pg_stat_monitor] JSON export: ,");
-		else
-			first_entry = false;
-
-		/* Log a simplified JSON object for each query */
-		elog(LOG, "[pg_stat_monitor] JSON export: {\"query_id\": %lu, \"calls\": %lu, \"total_time\": %.3f, \"query\": \"%s\"}",
-			 entry->key.queryid, entry->counters.calls,
-			 entry->counters.total_exec_time,
-			 entry->query_len > 0 ? pgsm_get_query_text(entry, NULL, NULL) : "");
-	}
-
-	pgsm_lock_release(pgsm);
-
-	/* Close JSON array and object */
-	elog(LOG, "[pg_stat_monitor] JSON export: ]}");
+	/* Log a simple JSON message for bucket rotation */
+	elog(LOG, "[pg_stat_monitor] JSON export: {\"event\": \"bucket_rotation\", \"bucket_id\": %lu, \"timestamp\": \"%ld\"}",
+		 bucket_id, time(NULL));
 }

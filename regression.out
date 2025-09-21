@@ -1,8 +1,0 @@
-# using postmaster on Unix socket, default port
-not ok 1     - basic                                      41 ms
-not ok 2     - counters                                   36 ms
-not ok 3     - relations                                  41 ms
-1..3
-# 3 of 3 tests failed.
-# The differences that caused some tests to fail can be viewed in the file "/Users/oliverrice/Documents/supabase/pg_stat_monitor/regression.diffs".
-# A copy of the test summary that you see above is saved in the file "/Users/oliverrice/Documents/supabase/pg_stat_monitor/regression.out".
