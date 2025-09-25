@@ -253,6 +253,9 @@ install_deps() {
         dpkg -i percona-release_latest.generic_all.deb
         rm -f percona-release_latest.generic_all.deb
         percona-release enable ${PPG_REPO_NAME} testing
+		if [ "x${DEBIAN}" = "xtrixie" ]; then
+            percona-release enable ${PPG_REPO_NAME} experimental
+        fi
 
 
         PKGLIST="percona-postgresql-${PG_RELEASE} percona-postgresql-common percona-postgresql-server-dev-all"
