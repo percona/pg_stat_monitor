@@ -44,6 +44,7 @@ tests += {
       'pgsqm_query_id',
       'relations',
       'rows',
+      'squashing',
       'state',
       'tags',
       'top_query',

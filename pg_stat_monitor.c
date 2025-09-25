@@ -3431,13 +3431,15 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 {
 	char	   *norm_query;
 	int			query_len = *query_len_p;
-	int			i,
-				norm_query_buflen,	/* Space allowed for norm_query */
+	int			norm_query_buflen,	/* Space allowed for norm_query */
 				len_to_wrt,		/* Length (in bytes) to write */
 				quer_loc = 0,	/* Source query byte location */
 				n_quer_loc = 0, /* Normalized query byte location */
 				last_off = 0,	/* Offset from start for previous tok */
 				last_tok_len = 0;	/* Length (in bytes) of that tok */
+#if PG_VERSION_NUM >= 180000
+	int			num_constants_replaced = 0;
+#endif
 
 	/*
 	 * Get constants' lengths (core system only gives us locations).  Note
@@ -3457,10 +3459,23 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 	/* Allocate result buffer */
 	norm_query = palloc(norm_query_buflen + 1);
 
-	for (i = 0; i < jstate->clocations_count; i++)
+	for (int i = 0; i < jstate->clocations_count; i++)
 	{
 		int			off,		/* Offset from start for cur tok */
 					tok_len;	/* Length (in bytes) of that tok */
+
+#if PG_VERSION_NUM >= 180000
+
+		/*
+		 * If we have an external param at this location, but no lists are
+		 * being squashed across the query, then we skip here; this will make
+		 * us print the characters found in the original query that represent
+		 * the parameter in the next iteration (or after the loop is done),
+		 * which is a bit odd but seems to work okay in most cases.
+		 */
+		if (jstate->clocations[i].extern_param && !jstate->has_squashed_lists)
+			continue;
+#endif
 
 		off = jstate->clocations[i].location;
 		/* Adjust recorded location if we're dealing with partial string */
@@ -3479,10 +3494,24 @@ generate_normalized_query(JumbleState *jstate, const char *query,
 		memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
 		n_quer_loc += len_to_wrt;
 
+#if PG_VERSION_NUM >= 180000
+
+		/*
+		 * And insert a param symbol in place of the constant token; and, if
+		 * we have a squashable list, insert a placeholder comment starting
+		 * from the list's second value.
+		 */
+		n_quer_loc += sprintf(norm_query + n_quer_loc, "$%d%s",
+							  num_constants_replaced + 1 + jstate->highest_extern_param_id,
+							  jstate->clocations[i].squashed ? " /*, ... */" : "");
+		num_constants_replaced++;
+#else
 		/* And insert a param symbol in place of the constant token */
 		n_quer_loc += sprintf(norm_query + n_quer_loc, "$%d",
 							  i + 1 + jstate->highest_extern_param_id);
+#endif
 
+		/* move forward */
 		quer_loc = off + tok_len;
 		last_off = off;
 		last_tok_len = tok_len;
@@ -3572,6 +3601,11 @@ fill_in_constant_lengths(JumbleState *jstate, const char *query,
 		loc -= query_loc;
 
 		Assert(loc >= 0);
+
+#if PG_VERSION_NUM >= 180000
+		if (locs[i].squashed)
+			continue;			/* squashable list, ignore */
+#endif
 
 		if (loc <= last_loc)
 			continue;			/* Duplicate constant, ignore */
