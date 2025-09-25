@@ -28,6 +28,7 @@ REGRESS = basic \
 	cmd_type \
 	error \
 	rows \
+	squashing \
 	tags \
 	user \
 	level_tracking \
