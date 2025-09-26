@@ -152,9 +152,9 @@ typedef enum pgsmStoreKind
 	PGSM_EXEC,
 	PGSM_STORE,
 	PGSM_ERROR,
-
-	PGSM_NUMKIND				/* Must be last value of this enum */
 } pgsmStoreKind;
+
+#define PGSM_NUMKIND	(PGSM_ERROR + 1)
 
 /* the assumption of query max nested level */
 #define DEFAULT_MAX_NESTED_LEVEL	10
