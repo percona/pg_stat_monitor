@@ -25,7 +25,6 @@
       - [Installing from Percona repositories](#installing-from-percona-repositories)
       - [Installing from PostgreSQL `yum` repositories](#installing-from-postgresql-yum-repositories)
       - [Installing from PGXN](#installing-from-pgxn)
-      - [Installing from Trunk](#installing-from-trunk)
       - [Installing from sources](#building-from-source)
     - [Configuration](#configuration)
     - [Setup](#setup)
@@ -109,7 +108,6 @@ You can install `pg_stat_monitor` from the following sources:
 * [Percona repositories](#installing-from-percona-repositories)
 * [PostgreSQL PGDG yum repositories](#installing-from-postgresql-yum-repositories)
 * [PGXN](#installing-from-pgxn)
-* [Trunk](#installing-from-trunk)
 * [source code](#building-from-source)
 
 
@@ -157,16 +155,6 @@ Use the following command:
 
 ```
 pgxn install pg_stat_monitor
-```
-
-#### Installing from Trunk
-
-You can install `pg_stat_monitor` from [Trunk (A PostgreSQL Extensions Registry)](https://pgt.dev/) using the [Trunk CLI](https://github.com/tembo-io/trunk?tab=readme-ov-file#installation).
-
-Use the following command:
-
-```
-trunk install pg_stat_monitor
 ```
 
 ### Configuration
