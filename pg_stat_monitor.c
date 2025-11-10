@@ -203,6 +203,7 @@ char	   *unpack_sql_state(int sql_state);
 
 static pgsmEntry *pgsm_create_hash_entry(uint64 bucket_id, int64 queryid, PlanInfo *plan_info);
 static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
+static void pgsm_delete_entry(uint64 queryid);
 static pgsmEntry *pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
@@ -804,6 +805,8 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	else
 		standard_ExecutorEnd(queryDesc);
 
+	pgsm_delete_entry(queryDesc->plannedstmt->queryId);
+
 	num_relations = 0;
 }
 
@@ -1274,6 +1277,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		PG_END_TRY();
 #endif
 	}
+	pgsm_delete_entry(pstmt->queryId);
 }
 
 /*
@@ -1686,6 +1690,43 @@ pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len)
 	entry->query_text.query_pointer = pnstrdup(query_text, query_len);
 	lentries = lappend(lentries, entry);
 	MemoryContextSwitchTo(oldctx);
+}
+
+static void
+pgsm_delete_entry(uint64 queryid)
+{
+	pgsmEntry  *entry = NULL;
+	ListCell   *lc = NULL;
+
+	if (lentries == NIL)
+		return;
+
+	entry = (pgsmEntry *) llast(lentries);
+	if (entry->key.queryid == queryid)
+	{
+		pfree(entry->query_text.query_pointer);
+		entry->query_text.query_pointer = NULL;
+		lentries = list_delete_last(lentries);
+		return;
+	}
+
+	/*
+	 * The rest of the code is just paranoia. In theory this list is a stack,
+	 * and we always want to remove the last item. Similarly, in the getter
+	 * method we are always looking for the last item.
+	 */
+
+	foreach(lc, lentries)
+	{
+		entry = lfirst(lc);
+		if (entry->key.queryid == queryid)
+		{
+			pfree(entry->query_text.query_pointer);
+			entry->query_text.query_pointer = NULL;
+			lentries = list_delete_cell(lentries, lc);
+			return;
+		}
+	}
 }
 
 static pgsmEntry *
