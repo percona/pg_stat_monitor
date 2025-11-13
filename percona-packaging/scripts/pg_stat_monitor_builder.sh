@@ -255,28 +255,19 @@ install_deps() {
         rm -f percona-release_latest.generic_all.deb
         percona-release enable ${PPG_REPO_NAME} testing
 
-
         PKGLIST="percona-postgresql-${PG_RELEASE} percona-postgresql-common percona-postgresql-server-dev-all"
-
-        # ---- using a community version of postgresql
-        #wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-        #echo "deb http://apt.postgresql.org/pub/repos/apt/ ${PG_RELEASE}"-pgdg main | sudo tee  /etc/apt/sources.list.d/pgdg.list
-        #PKGLIST="postgresql-${PG_RELEASE} postgresql-common postgresql-server-dev-all"
-
         apt-get update
 
-        if [[ "${DEBIAN}" != "focal" ]]; then
-            #LLVM_EXISTS=$(grep -c "apt.llvm.org" /etc/apt/sources.list)
-            #if [ "${LLVM_EXISTS}" == 0 ]; then
-                #wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
-                #echo "deb http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
-                #echo "deb-src http://apt.llvm.org/${OS_NAME}/ llvm-toolchain-${OS_NAME}-7 main" >> /etc/apt/sources.list
-                #apt-get update
-            #fi
+		if [[ "x${DEBIAN}" == "xbullseye" ]]; then
+    		DEBIAN_FRONTEND=noninteractive apt-get -y install software-properties-common
+    		wget https://apt.llvm.org/llvm.sh
+    		chmod +x llvm.sh
+    		./llvm.sh 14 bullseye
+		else
 			wget http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7_7.0.1-12_amd64.deb http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/libllvm7_7.0.1-12_amd64.deb http://mirrors.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7-runtime_7.0.1-12_amd64.deb
-            apt install ./libllvm7_7.0.1-12_amd64.deb ./llvm-7_7.0.1-12_amd64.deb ./llvm-7-runtime_7.0.1-12_amd64.deb
-        fi
-
+        	apt install ./libllvm7_7.0.1-12_amd64.deb ./llvm-7_7.0.1-12_amd64.deb ./llvm-7-runtime_7.0.1-12_amd64.deb
+		fi
+        
         PKGLIST+=" debconf debhelper clang devscripts dh-exec git wget libkrb5-dev libssl-dev"
         PKGLIST+=" build-essential debconf debhelper devscripts dh-exec git wget libxml-checker-perl"
         PKGLIST+=" libxml-libxml-perl libio-socket-ssl-perl libperl-dev libssl-dev libxml2-dev txt2man zlib1g-dev libpq-dev"
