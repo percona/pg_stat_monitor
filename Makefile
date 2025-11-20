@@ -7,7 +7,7 @@ EXTENSION = pg_stat_monitor
 DATA = pg_stat_monitor--2.0.sql pg_stat_monitor--1.0--2.0.sql pg_stat_monitor--2.0--2.1.sql pg_stat_monitor--2.1--2.2.sql pg_stat_monitor--2.2--2.3.sql
 
 PGFILEDESC = "pg_stat_monitor - execution statistics of SQL statements"
-
+PG_CFLAGS += -O0 -g
 LDFLAGS_SL += $(filter -lm, $(LIBS)) 
 
 TAP_TESTS = 1
