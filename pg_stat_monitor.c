@@ -283,7 +283,7 @@ static void pgsm_lock_release(pgsmSharedState *pgsm);
 void
 _PG_init(void)
 {
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 	elog(DEBUG2, "[pg_stat_monitor] pg_stat_monitor: %s().", __FUNCTION__);
 
 	/*
@@ -297,29 +297,29 @@ _PG_init(void)
 	if (!process_shared_preload_libraries_in_progress)
 		return;
 
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 	/* Inilize the GUC variables */
 	init_guc();
 
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 	set_histogram_bucket_timings();
 
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 #if PG_VERSION_NUM >= 140000
 
 	/*
 	 * Inform the postmaster that we want to enable query_id calculation if
 	 * compute_query_id is set to auto.
 	 */
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 	EnableQueryId();
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 #endif
 
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 	EmitWarningsOnPlaceholders("pg_stat_monitor");
 
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 	/*
 	 * Install hooks.
 	 */
@@ -350,7 +350,7 @@ _PG_init(void)
 	prev_ExecutorCheckPerms_hook = ExecutorCheckPerms_hook;
 	ExecutorCheckPerms_hook = HOOK(pgsm_ExecutorCheckPerms);
 
-	printf("pg_stat_monitor _PG_init: %s().\n", __LINE__);
+	printf("pg_stat_monitor _PG_init: %d().\n", __LINE__);
 	nested_queryids = (int64 *) malloc(sizeof(int64) * max_stack_depth);
 	nested_query_txts = (char **) malloc(sizeof(char *) * max_stack_depth);
 
@@ -366,19 +366,19 @@ _PG_init(void)
 void
 pgsm_shmem_startup(void)
 {
-	printf("pg_stat_monitor pgsm_shmem_startup: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_shmem_startup: %d().\n", __LINE__);
 	if (prev_shmem_startup_hook)
 		prev_shmem_startup_hook();
 
-	printf("pg_stat_monitor pgsm_shmem_startup: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_shmem_startup: %d().\n", __LINE__);
 	pgsm_startup();
-	printf("pg_stat_monitor pgsm_shmem_startup: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_shmem_startup: %d().\n", __LINE__);
 }
 
 static void
 request_additional_shared_resources(void)
 {
-	printf("pg_stat_monitor request_additional_shared_resources: %s().\n", __LINE__);
+	printf("pg_stat_monitor request_additional_shared_resources: %d().\n", __LINE__);
 	/*
 	 * Request additional shared resources.  (These are no-ops if we're not in
 	 * the postmaster process.)  We'll allocate or attach to the shared
@@ -405,19 +405,19 @@ pg_stat_monitor_version(PG_FUNCTION_ARGS)
 static void
 pgsm_shmem_request(void)
 {
-	printf("pg_stat_monitor pgsm_shmem_request: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_shmem_request: %d().\n", __LINE__);
 	if (prev_shmem_request_hook)
 		prev_shmem_request_hook();
-	printf("pg_stat_monitor pgsm_shmem_request: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_shmem_request: %d().\n", __LINE__);
 	request_additional_shared_resources();
-	printf("pg_stat_monitor pgsm_shmem_request: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_shmem_request: %d().\n", __LINE__);
 }
 #endif
 
 static void
 pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *jstate)
 {
-	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %d().\n", __LINE__);
 	pgsmEntry  *entry;
 	const char *query_text;
 	char	   *norm_query = NULL;
@@ -426,11 +426,11 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	int			query_len;
 
 	/* Safety check... */
-	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %d().\n", __LINE__);
 	if (!IsSystemInitialized())
 		return;
 
-	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %d().\n", __LINE__);
 	if (callback_setup == false)
 	{
 		/*
@@ -444,11 +444,11 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 		}
 	}
 
-	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %d().\n", __LINE__);
 	if (!pgsm_enabled(nesting_level))
 		return;
 
-	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_post_parse_analyze_internal: %d().\n", __LINE__);
 	/*
 	 * If it's EXECUTE, clear the queryId so that stats will accumulate for
 	 * the underlying PREPARE.  But don't do this if we're not tracking
@@ -630,7 +630,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count)
 		nested_queryids[nesting_level] = queryDesc->plannedstmt->queryId;
 		nested_query_txts[nesting_level] = strdup(queryDesc->sourceText);
 	}
-	printf("pg_stat_monitor pgsm_ExecutorRun: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ExecutorRun: %d().\n", __LINE__);
 	nesting_level++;
 	PG_TRY();
 	{
@@ -672,7 +672,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count)
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
-	printf("pg_stat_monitor pgsm_ExecutorRun: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ExecutorRun: %d().\n", __LINE__);
 }
 
 /*
@@ -682,7 +682,7 @@ static void
 pgsm_ExecutorFinish(QueryDesc *queryDesc)
 {
 	nesting_level++;
-	printf("pg_stat_monitor pgsm_ExecutorFinish: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ExecutorFinish: %d().\n", __LINE__);
 	PG_TRY();
 	{
 		if (prev_ExecutorFinish)
@@ -732,7 +732,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	PlanInfo   *plan_ptr = NULL;
 	pgsmEntry  *entry = NULL;
 
-	printf("pg_stat_monitor pgsm_ExecutorEnd: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ExecutorEnd: %d().\n", __LINE__);
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
 	{
@@ -762,7 +762,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		MemoryContextSwitchTo(oldctx);
 	}
 
-	printf("pg_stat_monitor pgsm_ExecutorEnd: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ExecutorEnd: %d().\n", __LINE__);
 	if (queryId != INT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
 	{
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true, queryDesc->operation);
@@ -824,14 +824,14 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		pgsm_store(entry);
 	}
 
-	printf("pg_stat_monitor pgsm_ExecutorEnd: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ExecutorEnd: %d().\n", __LINE__);
 	if (prev_ExecutorEnd)
 		prev_ExecutorEnd(queryDesc);
 	else
 		standard_ExecutorEnd(queryDesc);
 
 	pgsm_delete_entry(queryDesc->plannedstmt->queryId);
-	printf("pg_stat_monitor pgsm_ExecutorEnd: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ExecutorEnd: %d().\n", __LINE__);
 	num_relations = 0;
 }
 
@@ -1071,7 +1071,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	int64		queryId = 0;
 	bool		enabled = pgsm_track_utility && pgsm_enabled(nesting_level);
 
-	printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 #if PG_VERSION_NUM < 140000
 	int			len = strlen(queryString);
 
@@ -1079,7 +1079,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 #else
 	queryId = pstmt->queryId;
 
-	printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 	/*
 	 * Force utility statements to get queryId zero.  We do this even in cases
 	 * where the statement contains an optimizable statement for which a
@@ -1093,7 +1093,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		pstmt->queryId = INT64CONST(0);
 #endif
 
-	printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 	/*
 	 * If it's an EXECUTE statement, we don't track it and don't increment the
 	 * nesting level.  This allows the cycles to be charged to the underlying
@@ -1133,7 +1133,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		INSTR_TIME_SET_CURRENT(start);
 		nesting_level++;
 
-		printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+		printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 		PG_TRY();
 		{
 #if PG_VERSION_NUM >= 140000
@@ -1166,17 +1166,17 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		PG_CATCH();
 		{
 			nesting_level--;
-			printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+			printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 			PG_RE_THROW();
 		}
 
-		printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+		printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 		sys_info.utime = 0;
 		sys_info.stime = 0;
 
 		PG_END_TRY();
 
-		printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+		printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 		if (getrusage(RUSAGE_SELF, &rusage_end) != 0)
 			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
 		else
@@ -1185,7 +1185,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 			sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
 		}
 
-		printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+		printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 		INSTR_TIME_SET_CURRENT(duration);
 		INSTR_TIME_SUBTRACT(duration, start);
 
@@ -1203,12 +1203,12 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		memset(&walusage, 0, sizeof(WalUsage));
 		WalUsageAccumDiff(&walusage, &pgWalUsage, &walusage_start);
 
-		printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+		printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 		/* calc differences of buffer counters. */
 		memset(&bufusage, 0, sizeof(BufferUsage));
 		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
 
-		printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+		printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 		/* Create an entry for this query */
 		entry = pgsm_create_hash_entry(0, queryId, NULL);
 
@@ -1219,13 +1219,13 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
 		entry->counters.info.cmd_type = pstmt->commandType;
 
-		printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+		printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 		pgsm_add_to_list(entry, query_text, query_len);
 
 		/* Check that we've not exceeded max_stack_depth */
 		Assert(list_length(lentries) <= max_stack_depth);
 
-		printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+		printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 		/* The plan details are captured when the query finishes */
 		pgsm_update_entry(entry,	/* entry */
 						  (char *) query_text,	/* query */
@@ -1277,7 +1277,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		{
 #endif
 #if PG_VERSION_NUM >= 140000
-			printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+			printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 			if (prev_ProcessUtility)
 				prev_ProcessUtility(pstmt, queryString,
 									readOnlyTree,
@@ -1315,9 +1315,9 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		PG_END_TRY();
 #endif
 	}
-	printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 	pgsm_delete_entry(pstmt->queryId);
-	printf("pg_stat_monitor pgsm_ProcessUtility: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_ProcessUtility: %d().\n", __LINE__);
 }
 
 /*
@@ -1441,7 +1441,7 @@ pgsm_update_entry(pgsmEntry *entry,
 	int			sqlcode_len = error_info ? strlen(error_info->sqlcode) : 0;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
-	printf("pg_stat_monitor pgsm_update_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_update_entry: %d().\n", __LINE__);
 	/*
 	 * Start collecting data for next bucket and reset all counters and
 	 * timestamps
@@ -1453,11 +1453,11 @@ pgsm_update_entry(pgsmEntry *entry,
 		entry->minmax_stats_since = entry->stats_since;
 	}
 
-	printf("pg_stat_monitor pgsm_update_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_update_entry: %d().\n", __LINE__);
 	if (kind == PGSM_STORE)
 		SpinLockAcquire(&entry->mutex);
 
-	printf("pg_stat_monitor pgsm_update_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_update_entry: %d().\n", __LINE__);
 	/*
 	 * Extract comments if enabled and only when the query has completed with
 	 * or without error
@@ -1498,7 +1498,7 @@ pgsm_update_entry(pgsmEntry *entry,
 	}
 
 
-	printf("pg_stat_monitor pgsm_update_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_update_entry: %d().\n", __LINE__);
 	if (kind == PGSM_EXEC || kind == PGSM_STORE)
 	{
 		if (entry->counters.calls.calls == 0)
@@ -1532,7 +1532,7 @@ pgsm_update_entry(pgsmEntry *entry,
 		entry->counters.resp_calls[index]++;
 	}
 
-	printf("pg_stat_monitor pgsm_update_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_update_entry: %d().\n", __LINE__);
 	if (plan_text_len > 0 && !entry->counters.planinfo.plan_text[0])
 	{
 		entry->counters.planinfo.planid = plan_info->planid;
@@ -1595,7 +1595,7 @@ pgsm_update_entry(pgsmEntry *entry,
 
 	entry->counters.calls.rows += rows;
 
-	printf("pg_stat_monitor pgsm_update_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_update_entry: %d().\n", __LINE__);
 	if (bufusage)
 	{
 		entry->counters.blocks.shared_blks_hit += bufusage->shared_blks_hit;
@@ -1641,7 +1641,7 @@ pgsm_update_entry(pgsmEntry *entry,
 #endif
 	}
 
-	printf("pg_stat_monitor pgsm_update_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_update_entry: %d().\n", __LINE__);
 	entry->counters.calls.usage += USAGE_EXEC(exec_total_time + plan_total_time);
 
 	if (sys_info)
@@ -1695,7 +1695,7 @@ pgsm_update_entry(pgsmEntry *entry,
 		}
 	}
 
-	printf("pg_stat_monitor pgsm_update_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_update_entry: %d().\n", __LINE__);
 	/* parallel worker counters */
 	entry->counters.parallel_workers_to_launch += parallel_workers_to_launch;
 	entry->counters.parallel_workers_launched += parallel_workers_launched;
@@ -1744,14 +1744,14 @@ pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len)
 static void
 pgsm_delete_entry(uint64 queryid)
 {
-	printf("pg_stat_monitor pgsm_delete_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_delete_entry: %d().\n", __LINE__);
 	pgsmEntry  *entry = NULL;
 	ListCell   *lc = NULL;
 
 	if (lentries == NIL)
 		return;
 
-	printf("pg_stat_monitor pgsm_delete_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_delete_entry: %d().\n", __LINE__);
 	entry = (pgsmEntry *) llast(lentries);
 	if (entry->key.queryid == queryid)
 	{
@@ -1761,14 +1761,14 @@ pgsm_delete_entry(uint64 queryid)
 		return;
 	}
 
-	printf("pg_stat_monitor pgsm_delete_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_delete_entry: %d().\n", __LINE__);
 	/*
 	 * The rest of the code is just paranoia. In theory this list is a stack,
 	 * and we always want to remove the last item. Similarly, in the getter
 	 * method we are always looking for the last item.
 	 */
 
-	printf("pg_stat_monitor pgsm_delete_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_delete_entry: %d().\n", __LINE__);
 	foreach(lc, lentries)
 	{
 		entry = lfirst(lc);
@@ -1777,11 +1777,11 @@ pgsm_delete_entry(uint64 queryid)
 			pfree(entry->query_text.query_pointer);
 			entry->query_text.query_pointer = NULL;
 			lentries = list_delete_cell(lentries, lc);
-			printf("pg_stat_monitor pgsm_delete_entry: %s().\n", __LINE__);
+			printf("pg_stat_monitor pgsm_delete_entry: %d().\n", __LINE__);
 			return;
 		}
 	}
-	printf("pg_stat_monitor pgsm_delete_entry: %s().\n", __LINE__);
+	printf("pg_stat_monitor pgsm_delete_entry: %d().\n", __LINE__);
 }
 
 static pgsmEntry *
