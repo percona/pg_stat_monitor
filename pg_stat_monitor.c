@@ -343,7 +343,7 @@ _PG_init(void)
 	ExecutorCheckPerms_hook = HOOK(pgsm_ExecutorCheckPerms);
 
 	nested_queryids = (int64 *) malloc(sizeof(int64) * max_stack_depth);
-	nested_query_txts = (char **) malloc(sizeof(char *) * max_stack_depth);
+	nested_query_txts = (char **) calloc(max_stack_depth, sizeof(char *));
 
 	system_init = true;
 }
