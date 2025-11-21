@@ -37,6 +37,8 @@ ok($rt_value == 1, "Start Server");
 my ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'CREATE EXTENSION pg_stat_monitor;', extra_params => ['-a']);
 ok($cmdret == 0, "CREATE PGSM EXTENSION");
 PGSM::append_to_file($stdout);
+PGSM::append_to_debug_file($stderr);
+PGSM::append_to_debug_file("-------------");
 
 # Run required commands/queries and dump output to out file.
 

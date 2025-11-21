@@ -140,6 +140,8 @@ PGSM::append_to_debug_file($stdout);
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'CREATE EXTENSION pg_stat_monitor;', extra_params => ['-a']);
 ok($cmdret == 0, "Create PGSM Extension");
 PGSM::append_to_debug_file($stdout);
+PGSM::append_to_debug_file($stderr);
+PGSM::append_to_debug_file("-------------");
 
 # Following parameters are required for function 'generate_histogram_with_configurations' to generate and test a histogram
 # with given configuration. 
