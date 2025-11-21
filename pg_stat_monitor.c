@@ -43,7 +43,7 @@ typedef enum pgsmVersion
 
 PG_MODULE_MAGIC;
 
-#define BUILD_VERSION                   "2.3.0"
+#define BUILD_VERSION                   "2.3.1"
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
@@ -343,7 +343,7 @@ _PG_init(void)
 	ExecutorCheckPerms_hook = HOOK(pgsm_ExecutorCheckPerms);
 
 	nested_queryids = (int64 *) malloc(sizeof(int64) * max_stack_depth);
-	nested_query_txts = (char **) malloc(sizeof(char *) * max_stack_depth);
+	nested_query_txts = (char **) calloc(max_stack_depth, sizeof(char *));
 
 	system_init = true;
 }
