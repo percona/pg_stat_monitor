@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Clone postgres repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           repository: 'postgres/postgres'
           ref: 'REL_16_STABLE'
@@ -83,7 +83,7 @@ jobs:
           pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           path: 'src/pg_stat_monitor'
 
