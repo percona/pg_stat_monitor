@@ -82,7 +82,6 @@ void		_PG_init(void);
 
 /* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
 static int	nesting_level = 0;
-volatile bool __pgsm_do_not_capture_error = false;
 
 #if PG_VERSION_NUM < 170000
 /* Before planner nesting level was conunted separately */
@@ -98,10 +97,10 @@ static int	hist_bucket_count_total;
 
 static uint32 pgsm_client_ip = PGSM_INVALID_IP_MASK;
 
-/* The array to store outer layer query id*/
-int64	   *nested_queryids;
-char	  **nested_query_txts;
-List	   *lentries = NIL;
+/* The array to store outer layer query id */
+static int64 *nested_queryids;
+static char **nested_query_txts;
+static List *lentries = NIL;
 
 static char relations[REL_LST][REL_LEN];
 
@@ -211,12 +210,12 @@ static void pgsm_cleanup_callback(void *arg);
 static void pgsm_store_error(const char *query, ErrorData *edata);
 
 /*---- Local variables ----*/
-MemoryContextCallback mem_cxt_reset_callback =
+static MemoryContextCallback mem_cxt_reset_callback =
 {
 	.func = pgsm_cleanup_callback,
 	.arg = NULL
 };
-volatile bool callback_setup = false;
+static volatile bool callback_setup = false;
 
 static void pgsm_update_entry(pgsmEntry *entry,
 							  const char *query,
