@@ -213,12 +213,12 @@ install_deps() {
 
         if [ x"$RHEL" = x8 ];
         then
-		clang_version=$(yum list --showduplicates clang-devel | grep "17.0" | grep clang | awk '{print $2}' | head -n 1)
-                llvm_version=$(yum list --showduplicates llvm-devel | grep "17.0" | grep llvm | awk '{print $2}' | head -n 1)
-                yum install -y clang-devel-${clang_version} clang-${clang_version} llvm-devel-${llvm_version}
-                dnf module -y disable llvm-toolset
+		    clang_version=$(yum list --showduplicates clang-devel | grep "20.1" | grep clang | awk '{print $2}' | head -n 1)
+            llvm_version=$(yum list --showduplicates llvm-devel | grep "20.1" | grep llvm | awk '{print $2}' | head -n 1)
+            yum install -y clang-devel-${clang_version} clang-${clang_version} llvm-devel-${llvm_version}
+            dnf module disable -y rust-toolset llvm-toolset
         else
-                yum install -y clang-devel clang llvm-devel
+            yum install -y clang-devel clang llvm-devel
         fi
 
         PKGLIST="percona-postgresql${PG_RELEASE}-devel"
