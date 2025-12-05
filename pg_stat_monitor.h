@@ -325,8 +325,9 @@ typedef struct Counters
 	JitInfo		jitinfo;
 	ErrorInfo	error;
 	Wal_Usage	walusage;
-	int			resp_calls[MAX_RESPONSE_BUCKET];	/* execution time's in
-													 * msec */
+	int			resp_calls[MAX_RESPONSE_BUCKET + 2];	/* execution time's in
+														 * msec; including 2
+														 * outlier buckets */
 	int64		parallel_workers_to_launch; /* # of parallel workers planned
 											 * to be launched */
 	int64		parallel_workers_launched;	/* # of parallel workers actually
