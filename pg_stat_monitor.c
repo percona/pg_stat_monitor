@@ -3774,7 +3774,7 @@ intarray_get_datum(int32 arr[], int len)
 {
 	int			j;
 	char		str[1024];
-	char		tmp[10];
+	char		tmp[13];
 
 	str[0] = '\0';
 
