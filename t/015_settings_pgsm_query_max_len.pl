@@ -47,6 +47,14 @@ $node->restart();
 ok($cmdret == 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT length('åååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååååå');", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+ok($cmdret == 0, "Run truncated multi-byte query string");
+PGSM::append_to_file($stdout);
+
+($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT length(query), query FROM pg_stat_monitor ORDER BY query;", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
+ok($cmdret == 0, "Print truncated multi-byte query string");
+PGSM::append_to_file($stdout);
+
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_max_len';", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);

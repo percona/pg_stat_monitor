@@ -1983,7 +1983,7 @@ pgsm_store(pgsmEntry *entry)
 
 		/* New query, truncate length if necessary. */
 		if (query_len > pgsm_query_max_len)
-			query_len = pgsm_query_max_len;
+			query_len = pg_mbcliplen(query, query_len, pgsm_query_max_len);
 
 		/* Save the query text in raw dsa area */
 		query_dsa_area = get_dsa_area_for_query_text();
