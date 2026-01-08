@@ -3768,30 +3768,27 @@ comp_location(const void *a, const void *b)
 }
 
 #define MAX_STRING_LEN	1024
-/* Convert array into Text dataum */
+
+/* Convert array of integers into Text datum */
 static Datum
 intarray_get_datum(int32 arr[], int len)
 {
-	int			j;
-	char		str[1024];
-	char		tmp[10];
+	StringInfoData str;
+	Datum		datum;
 
-	str[0] = '\0';
+	if (len < 1)
+		return CStringGetTextDatum("");
 
-	/* Need to calculate the actual size, and avoid unnessary memory usage */
-	for (j = 0; j < len; j++)
-	{
-		if (!str[0])
-		{
-			snprintf(tmp, 10, "%d", arr[j]);
-			strcat(str, tmp);
-			continue;
-		}
-		snprintf(tmp, 10, ",%d", arr[j]);
-		strcat(str, tmp);
-	}
-	return CStringGetTextDatum(str);
+	initStringInfo(&str);
+	appendStringInfo(&str, "%d", arr[0]);
 
+	for (int i = 1; i < len; i++)
+		appendStringInfo(&str, ",%d", arr[i]);
+
+	datum = CStringGetTextDatum(str.data);
+	pfree(str.data);
+
+	return datum;
 }
 
 
