@@ -62,7 +62,6 @@
 
 
 #define MAX_BACKEND_PROCESES (MaxBackends + NUM_AUXILIARY_PROCS + max_prepared_xacts)
-#define  IntArrayGetTextDatum(x,y) intarray_get_datum(x,y)
 
 /* XXX: Should USAGE_EXEC reflect execution time and/or buffer usage? */
 #define USAGE_EXEC(duration)	(1.0)
