@@ -2553,7 +2553,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = Float8GetDatumFast(tmp.blocks.temp_blk_write_time);
 
 		/* resp_calls at column number 49 */
-		values[i++] = IntArrayGetTextDatum(tmp.resp_calls, hist_bucket_count_total);
+		values[i++] = intarray_get_datum(tmp.resp_calls, hist_bucket_count_total);
 
 		/* cpu_user_time at column number 50 */
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.utime);
