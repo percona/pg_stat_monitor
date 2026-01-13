@@ -38,44 +38,27 @@ jobs:
 
   format:
     name: Format
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     steps:
-      - name: Clone postgres repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          repository: 'postgres/postgres'
-          ref: 'REL_17_STABLE'
-
       - name: Checkout sources
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          path: 'contrib/pg_stat_monitor'
 
-      - name: Configure postgres
-        run: ./configure
-
-      - name: Install perltidy
-        run: sudo cpan -T SHANCOCK/Perl-Tidy-20230309.tar.gz
-
-      - name: Install pg_bsd_indent
-        working-directory: src/tools/pg_bsd_indent
-        run: sudo make install
+      - name: Install pgindent and pg_bsd_indent
+        run: |
+          sudo apt-get install -y postgresql-server-dev-16
 
       - name: Add pg_bsd_indent and pgindent to path
         run: |
-          echo "/usr/local/pgsql/bin" >> $GITHUB_PATH
-          echo "${{ github.workspace }}/src/tools/pgindent" >> $GITHUB_PATH
+          echo "/usr/lib/postgresql/16/bin" >> $GITHUB_PATH
 
       - name: Format sources
-        working-directory: contrib/pg_stat_monitor
         run: |
-          make update-typedefs
-          make indent
+          wget -q -O - "https://buildfarm.postgresql.org/cgi-bin/typedefs.pl?branch=REL_18_STABLE" | cat - typedefs.list | sort | uniq > typedefs-full.list
+          pgindent --typedefs=typedefs-full.list .
 
       - name: Check files are formatted and no source code changes
-        working-directory: contrib/pg_stat_monitor
         run: |
           git status
           git diff --exit-code
