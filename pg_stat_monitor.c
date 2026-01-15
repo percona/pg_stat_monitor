@@ -52,8 +52,6 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V2_3    73
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_3	/* maximum of above */
 
-#define PGSM_TEXT_FILE PGSTAT_STAT_PERMANENT_DIRECTORY "pg_stat_monitor_query"
-
 #define PGUNSIXBIT(val) (((val) & 0x3F) + '0')
 
 #define _snprintf(_str_dst, _str_src, _len, _max_len)\
@@ -2107,7 +2105,7 @@ pg_stat_monitor_reset(PG_FUNCTION_ARGS)
 
 	pgsm = pgsm_get_ss();
 	pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
-	hash_entry_dealloc(-1, -1, NULL);
+	hash_entry_dealloc(INVALID_BUCKET_ID, INVALID_BUCKET_ID, NULL);
 
 	pgsm_lock_release(pgsm);
 	PG_RETURN_VOID();
