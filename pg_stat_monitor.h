@@ -21,7 +21,6 @@
 
 #include <arpa/inet.h>
 #include <math.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
@@ -40,13 +39,11 @@
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
 #include "optimizer/planner.h"
-#include "postmaster/bgworker.h"
 #include "parser/analyze.h"
 #include "parser/parsetree.h"
 #include "parser/scanner.h"
 #include "parser/scansup.h"
 #include "pgstat.h"
-#include "storage/fd.h"
 #include "storage/ipc.h"
 #include "storage/spin.h"
 #include "tcop/utility.h"
@@ -57,54 +54,33 @@
 #include "utils/lsyscache.h"
 #include "utils/guc.h"
 #include "utils/guc_tables.h"
-#include "utils/memutils.h"
 #include "utils/palloc.h"
 
-
-#define MAX_BACKEND_PROCESES (MaxBackends + NUM_AUXILIARY_PROCS + max_prepared_xacts)
 
 /* XXX: Should USAGE_EXEC reflect execution time and/or buffer usage? */
 #define USAGE_EXEC(duration)	(1.0)
 #define USAGE_INIT				(1.0)	/* including initial planning */
-#define ASSUMED_LENGTH_INIT		1024	/* initial assumed mean query length */
-#define USAGE_DECREASE_FACTOR	(0.99)	/* decreased every entry_dealloc */
-#define STICKY_DECREASE_FACTOR	(0.50)	/* factor for sticky entries */
-#define USAGE_DEALLOC_PERCENT	5	/* free this % of entries at once */
 
 #define JUMBLE_SIZE				1024	/* query serialization buffer size */
 
 #define HISTOGRAM_MAX_TIME		50000000
 #define MAX_RESPONSE_BUCKET 50
 #define INVALID_BUCKET_ID	-1
-#define TEXT_LEN			255
 #define ERROR_MESSAGE_LEN	100
 #define REL_TYPENAME_LEN	64
 #define REL_LST				10
 #define REL_LEN				132 /* REL_TYPENAME_LEN * 2 (relname + schema) + 1
 								 * (for view indication) + 1 and dot and
 								 * string terminator */
-#define CMD_LST				10
-#define CMD_LEN				20
 #define APPLICATIONNAME_LEN	NAMEDATALEN
 #define COMMENTS_LEN        256
-#define PGSM_OVER_FLOW_MAX	10
 #define PLAN_TEXT_LEN		1024
-/* the assumption of query max nested level */
-#define DEFAULT_MAX_NESTED_LEVEL	10
 
 #define MAX_QUERY_BUF						((int64)pgsm_query_shared_buffer * 1024 * 1024)
 #define MAX_BUCKETS_MEM 					((int64)pgsm_max * 1024 * 1024)
-#define BUCKETS_MEM_OVERFLOW() 				((hash_get_num_entries(pgsm_hash) * sizeof(pgsmEntry)) >= MAX_BUCKETS_MEM)
 #define MAX_BUCKET_ENTRIES 					(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
-#define QUERY_BUFFER_OVERFLOW(x,y)  		((x + y + sizeof(uint64) + sizeof(uint64)) > MAX_QUERY_BUF)
-#define QUERY_MARGIN 						100
-#define MIN_QUERY_LEN						10
 #define SQLCODE_LEN                         20
 #define TOTAL_RELS_LENGTH					(REL_LST * REL_LEN)
-#define	MAX_SETTINGS                        15
-
-/* Update this if need a enum GUC with more options. */
-#define MAX_ENUM_OPTIONS 6
 
 /*
  * pg_stat_monitor uses the hash structure to store all query statistics
@@ -152,23 +128,6 @@ typedef enum pgsmStoreKind
 	PGSM_STORE,
 	PGSM_ERROR,
 } pgsmStoreKind;
-
-#define PGSM_NUMKIND	(PGSM_ERROR + 1)
-
-/* the assumption of query max nested level */
-#define DEFAULT_MAX_NESTED_LEVEL	10
-
-/*
- * Type of aggregate keys
- */
-typedef enum AGG_KEY
-{
-	AGG_KEY_DATABASE = 0,
-	AGG_KEY_USER,
-	AGG_KEY_HOST
-} AGG_KEY;
-
-#define MAX_QUERY_LEN 1024
 
 /* shared memory storage for the query */
 typedef struct CallTime
@@ -439,10 +398,7 @@ bool		IsHashInitialize(void);
 bool		IsSystemOOM(void);
 void		pgsm_shmem_startup(void);
 void		pgsm_shmem_shutdown(int code, Datum arg);
-int			pgsm_get_bucket_size(void);
 pgsmSharedState *pgsm_get_ss(void);
-void		hash_query_entries();
-void		hash_query_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer[]);
 void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
 pgsmEntry  *hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding);
 Size		pgsm_ShmemSize(void);
