@@ -1,0 +1,75 @@
+name: PMM Integration
+on:
+  push:
+    branches:
+      - main
+      - release-*
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    strategy:
+      matrix:
+        postgresql: [13, 14, 15, 16, 17, 18]
+
+    steps:
+      - name: Clone QA Integration
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          repository: Percona-Lab/qa-integration
+          ref: main
+          path: qa-integration
+
+      - name: Clone PMM UI tests
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          repository: percona/pmm-ui-tests
+          ref: main
+          path: pmm-ui-tests
+
+      - name: Set TARGET_BRANCH variable
+        run: echo "TARGET_BRANCH=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Run PMM Server
+        run: docker run --detach --restart always -p 443:8443 -p 8081:8080 --name pmm-server perconalab/pmm-server:3-dev-latest
+
+      - name: Setup PostgreSQL ${{ matrix.postgresql }} & PGSM
+        working-directory: qa-integration/pmm_qa
+        run: |
+          mkdir -m 777 -p /tmp/backup_data
+          python3 -m venv virtenv
+          . virtenv/bin/activate
+          pip install --upgrade pip
+          pip install --force-reinstall -U setuptools
+          pip install -r requirements.txt
+          python3 pmm-framework.py --database pdpgsql=${{ matrix.postgresql }},PGSM_BRANCH=${{ env.TARGET_BRANCH }}
+
+      - name: Install npx dependencies
+        working-directory: pmm-ui-tests
+        run: npm ci && npx playwright install --with-deps && npx codeceptjs def pr.codecept.js
+
+      - name: Run integration tests
+        working-directory: pmm-ui-tests
+        run: |
+          export PMM_UI_URL="http://127.0.0.1:8081/"
+          npx codeceptjs run -c pr.codecept.js tests/qa-integration/pmm_pdpgsql_integration_test.js
+
+      - name: Collect pmm-agent logs
+        if: failure()
+        run: docker exec pdpgsql_pmm_${{ matrix.postgresql }}_1 cat /var/log/pmm-agent.log > ./pmm-ui-tests/tests/output/pmm-agent.log
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: failure()
+        with:
+          name: tests-artifact
+          path: ./pmm-ui-tests/tests/output/
+          if-no-files-found: ignore
