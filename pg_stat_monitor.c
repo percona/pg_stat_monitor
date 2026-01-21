@@ -2107,7 +2107,7 @@ pg_stat_monitor_reset(PG_FUNCTION_ARGS)
 
 	pgsm = pgsm_get_ss();
 	pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
-	hash_entry_dealloc(-1, -1, NULL);
+	hash_entry_dealloc(INVALID_BUCKET_ID, INVALID_BUCKET_ID, NULL);
 
 	pgsm_lock_release(pgsm);
 	PG_RETURN_VOID();
