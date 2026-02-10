@@ -10,12 +10,12 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           path: src/pg_stat_monitor
 
       - name: Checkout cppcheck sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           repository: "danmar/cppcheck"
           ref: "2.13.4"
@@ -43,13 +43,13 @@ jobs:
 
     steps:
       - name: Clone postgres repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           repository: 'postgres/postgres'
           ref: 'REL_17_STABLE'
 
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           path: 'contrib/pg_stat_monitor'
 
@@ -87,9 +87,9 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
 
       - name: Check license headers
-        uses: apache/skywalking-eyes/header@61275cc80d0798a405cb070f7d3a8aaf7cf2c2c1 # v0.8.0
+        uses: apache/skywalking-eyes/header@v0.8.0
         with:
           token: "" # Prevent comments

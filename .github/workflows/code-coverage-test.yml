@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Clone postgres repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           repository: 'postgres/postgres'
           ref: 'REL_15_STABLE'
@@ -83,7 +83,7 @@ jobs:
           pg_ctl -D /opt/pgsql/data -l logfile start
 
       - name: Clone pg_stat_monitor repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           path: 'src/pg_stat_monitor'
 
@@ -113,7 +113,7 @@ jobs:
         working-directory: src/pg_stat_monitor
 
       - name: Upload
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        uses: codecov/codecov-action@v5
         with:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -130,7 +130,7 @@ jobs:
 
       - name: Upload logs on fail
         if: ${{ failure() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: Regressions diff and postgresql log
           path: |

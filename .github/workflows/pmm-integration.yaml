@@ -22,14 +22,14 @@ jobs:
 
     steps:
       - name: Clone QA Integration
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           repository: Percona-Lab/qa-integration
           ref: main
           path: qa-integration
 
       - name: Clone PMM UI tests
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           repository: percona/pmm-ui-tests
           ref: main
@@ -67,7 +67,7 @@ jobs:
         run: docker exec pdpgsql_pmm_${{ matrix.postgresql }}_1 cat /var/log/pmm-agent.log > ./pmm-ui-tests/tests/output/pmm-agent.log
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: tests-artifact
