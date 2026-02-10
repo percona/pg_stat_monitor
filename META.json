@@ -5,7 +5,7 @@
    "version": "2.3.2",
    "maintainer": [
       "Artem Gavrilov <artem.gavrilov@percona.com>",
-      "Diego dos Santos Fronza <diego.fronza@percona.com>"
+      "Percona PostgreSQL Team <postgresql@percona.com>"
    ],
    "license": {
       "PostgreSQL": "https://www.postgresql.org/about/licence"
