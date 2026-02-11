@@ -62,14 +62,6 @@ PG_MODULE_MAGIC;
     (pgsm_track == PGSM_TRACK_ALL || \
     (pgsm_track == PGSM_TRACK_TOP && (level) == 0)))
 
-#define _snprintf2(_str_dst, _str_src, _len1, _len2)\
-do                                                      \
-{                                                       \
-	int i;                                            \
-	for(i = 0; i < _len1; i++)                        \
-		strlcpy((char *)_str_dst[i], _str_src[i], _len2); \
-}while(0)
-
 #define PGSM_INVALID_IP_MASK	0xFFFFFFFF
 
 #define pgsm_client_ip_is_valid() \
@@ -1498,7 +1490,8 @@ pgsm_update_entry(pgsmEntry *entry,
 			_snprintf(entry->counters.info.application_name, app_name, app_name_len + 1, APPLICATIONNAME_LEN);
 
 		entry->counters.info.num_relations = num_relations;
-		_snprintf2(entry->counters.info.relations, relations, num_relations, REL_LEN);
+		for (int i = 0; i < num_relations; i++)
+			strlcpy(entry->counters.info.relations[i], relations[i], REL_LEN);
 
 		if (nesting_level > 0 && nesting_level < max_stack_depth && entry->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
 		{
