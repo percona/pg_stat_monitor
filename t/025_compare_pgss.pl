@@ -13,11 +13,6 @@ use pgsm;
 # Get file name and CREATE out file name and dirs WHERE requried
 PGSM::setup_files_dir(basename($0));
 
-if ($PGSM::PG_MAJOR_VERSION <= 12)
-{
-    plan skip_all => "pg_stat_monitor test cases for versions 12 and below.";
-}
-
 # CREATE new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
 my $pgdata = $node->data_dir;

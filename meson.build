@@ -19,6 +19,7 @@ install_data(
   'pg_stat_monitor--2.0--2.1.sql',
   'pg_stat_monitor--2.1--2.2.sql',
   'pg_stat_monitor--2.2--2.3.sql',
+  'pg_stat_monitor--2.3--2.4.sql',
   kwargs: contrib_data_args,
 )
 

@@ -32,15 +32,6 @@ my $col_max_time = "max_exec_time";
 my $col_mean_time = "mean_exec_time";
 my $col_stddev_time = "stddev_exec_time";
 
-if ($PGSM::PG_MAJOR_VERSION <= 12)
-{
-   $col_total_time = "total_time";
-   $col_min_time = "min_time";
-   $col_max_time = "max_time";
-   $col_mean_time = "mean_time";
-   $col_stddev_time = "stddev_time";
-}
-
 # CREATE EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'CREATE EXTENSION pg_stat_monitor;', extra_params => ['-a']);
 ok($cmdret == 0, "CREATE PGSM EXTENSION");

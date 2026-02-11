@@ -122,11 +122,6 @@ sub setup_files_dir
     # Create expected filename with path
     my $expected_filename = "${filename_without_extension}.out";
 
-    if ($PG_MAJOR_VERSION <= 12 and "$filename_without_extension" == "001_settings_default")
-    {
-        $expected_filename = "${expected_filename}.${PG_MAJOR_VERSION}";
-    }
-
     if ($PG_MAJOR_VERSION >= 15 and "$filename_without_extension" == "007_settings_pgsm_query_shared_buffer")
     {
         $expected_filename = "${expected_filename}.${PG_MAJOR_VERSION}";
