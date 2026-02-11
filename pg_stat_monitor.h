@@ -350,42 +350,6 @@ typedef struct pgsmLocalState
 
 } pgsmLocalState;
 
-#if PG_VERSION_NUM < 140000
-/*
- * Struct for tracking locations/lengths of constants during normalization
- */
-typedef struct LocationLen
-{
-	int			location;		/* start offset in query text */
-	int			length;			/* length in bytes, or -1 to ignore */
-} LocationLen;
-
-/*
- * Working state for computing a query jumble and producing a normalized
- * query string
- */
-typedef struct JumbleState
-{
-	/* Jumble of current query tree */
-	unsigned char *jumble;
-
-	/* Number of bytes used in jumble[] */
-	Size		jumble_len;
-
-	/* Array of locations of constants that should be removed */
-	LocationLen *clocations;
-
-	/* Allocated length of clocations array */
-	int			clocations_buf_size;
-
-	/* Current number of valid entries in clocations array */
-	int			clocations_count;
-
-	/* highest Param id we've seen, in order to start normalization correctly */
-	int			highest_extern_param_id;
-} JumbleState;
-#endif
-
 /* guc.c */
 void		init_guc(void);
 

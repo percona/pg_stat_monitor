@@ -2,11 +2,6 @@
 -- Statement level tracking
 --
 
-SELECT setting::integer < 140000 AS skip_test FROM pg_settings where name = 'server_version_num'  \gset
-\if :skip_test
-\quit
-\endif
-
 CREATE EXTENSION pg_stat_monitor;
 SET pg_stat_monitor.pgsm_track_utility = TRUE;
 SET pg_stat_monitor.pgsm_normalized_query = TRUE;
