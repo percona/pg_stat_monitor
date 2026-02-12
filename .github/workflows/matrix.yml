@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         pg_package: [psp]
-        pg_version: [14, 15, 16, 17, 18]
+        pg_version: [18]
         os: [ubuntu-24.04]
         compiler: [gcc, clang]
         build_type: [debugoptimized]
@@ -36,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         pg_package: [pgdg]
-        pg_version: [14, 15, 16, 17, 18]
+        pg_version: [18]
         os: [ubuntu-24.04]
         compiler: [gcc, clang]
         build_type: [debugoptimized]
