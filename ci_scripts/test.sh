@@ -3,6 +3,7 @@
 set -e
 
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
+PG_BIN_DIR=$(pg_config --bindir)
 
 cd "$SCRIPT_DIR/.."
 
@@ -14,10 +15,10 @@ if [ "$1" = sanitize ]; then
     OPTS+=' --set max_stack_depth=8MB'
 fi
 
-pg_ctl -D regress_install -l regress_install.log init -o "$OPTS"
+$PG_BIN_DIR/pg_ctl -D regress_install -l regress_install.log init -o "$OPTS"
 
-pg_ctl -D regress_install -l regress_install.log start
+$PG_BIN_DIR/pg_ctl -D regress_install -l regress_install.log start
 
 make PG_CONFIG=../pginst/bin/pg_config installcheck
 
-pg_ctl -D regress_install stop
+$PG_BIN_DIR/pg_ctl -D regress_install stop
