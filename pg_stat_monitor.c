@@ -54,9 +54,6 @@ PG_MODULE_MAGIC;
 
 #define PGUNSIXBIT(val) (((val) & 0x3F) + '0')
 
-#define _snprintf(_str_dst, _str_src, _len, _max_len)\
-  memcpy((void *)_str_dst, _str_src, _len < _max_len ? _len : _max_len)
-
 #define pgsm_enabled(level) \
     (!IsParallelWorker() && \
     (pgsm_track == PGSM_TRACK_ALL || \
@@ -1281,8 +1278,6 @@ pgsm_update_entry(pgsmEntry *entry,
 {
 	int			index;
 	double		old_mean;
-	int			message_len = error_info ? strlen(error_info->message) : 0;
-	int			sqlcode_len = error_info ? strlen(error_info->sqlcode) : 0;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
 	/*
@@ -1305,7 +1300,7 @@ pgsm_update_entry(pgsmEntry *entry,
 	 */
 	if (pgsm_extract_comments && kind == PGSM_STORE
 		&& !entry->counters.info.comments[0] && comments_len > 0)
-		_snprintf(entry->counters.info.comments, comments, comments_len + 1, COMMENTS_LEN);
+		strlcpy(entry->counters.info.comments, comments, COMMENTS_LEN);
 
 	if (kind == PGSM_PLAN || kind == PGSM_STORE)
 	{
@@ -1375,14 +1370,14 @@ pgsm_update_entry(pgsmEntry *entry,
 	{
 		entry->counters.planinfo.planid = plan_info->planid;
 		entry->counters.planinfo.plan_len = plan_text_len;
-		_snprintf(entry->counters.planinfo.plan_text, plan_info->plan_text, plan_text_len + 1, PLAN_TEXT_LEN);
+		strlcpy(entry->counters.planinfo.plan_text, plan_info->plan_text, PLAN_TEXT_LEN);
 	}
 
 	/* Only should process this once when storing the data */
 	if (kind == PGSM_STORE)
 	{
 		if (pgsm_track_application_names && app_name_len > 0 && !entry->counters.info.application_name[0])
-			_snprintf(entry->counters.info.application_name, app_name, app_name_len + 1, APPLICATIONNAME_LEN);
+			strlcpy(entry->counters.info.application_name, app_name, APPLICATIONNAME_LEN);
 
 		entry->counters.info.num_relations = num_relations;
 		for (int i = 0; i < num_relations; i++)
@@ -1428,8 +1423,8 @@ pgsm_update_entry(pgsmEntry *entry,
 	if (error_info)
 	{
 		entry->counters.error.elevel = error_info->elevel;
-		_snprintf(entry->counters.error.sqlcode, error_info->sqlcode, sqlcode_len, SQLCODE_LEN);
-		_snprintf(entry->counters.error.message, error_info->message, message_len, ERROR_MESSAGE_LEN);
+		strlcpy(entry->counters.error.sqlcode, error_info->sqlcode, SQLCODE_LEN);
+		strlcpy(entry->counters.error.message, error_info->message, ERROR_MESSAGE_LEN);
 	}
 
 	entry->counters.calls.rows += rows;
