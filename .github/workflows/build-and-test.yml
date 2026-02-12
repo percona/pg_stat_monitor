@@ -1,0 +1,107 @@
+name: Reusable build and test
+on:
+  workflow_call:
+    inputs:
+      pg_package:
+        type: string
+        required: true
+      pg_version:
+        type: string
+        required: true
+      os:
+        type: string
+        required: true
+      compiler:
+        type: string
+        required: true
+      build_type:
+        type: string
+        required: true
+
+env:
+  artifact_name: build-${{ inputs.pg_version }}-${{ inputs.os }}-${{ inputs.compiler }}-${{ inputs.build_type }}
+  CC: ${{ inputs.compiler }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          ref: ${{ github.ref }}
+
+      - name: Install dependencies for Ubuntu
+        if: startsWith(inputs.os, 'ubuntu-')
+        run: src/ci_scripts/ubuntu-deps.sh
+
+      - name: Install dependencies for MacOS
+        if: startsWith(inputs.os,  'macos-')
+        run: src/ci_scripts/macos-deps.sh
+
+      - name: Install PostgreSQL
+        run: src/ci_scripts/install-postgresql.sh ${{ inputs.pg_package }} ${{ inputs.pg_version }}
+
+      - name: Build pg_stat_monitor
+        run: src/ci_scripts/build.sh ${{ inputs.build_type }}
+
+      - name: Add build and install to artifact tar file
+        run: tar -czf artifacts.tar src postgres pginst
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.artifact_name }}
+          overwrite: true
+          path: |
+            artifacts.tar
+          retention-days: 1
+
+  test:
+    name: Test
+    runs-on: ${{ inputs.os }}
+    needs: build
+    timeout-minutes: 20
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.artifact_name }}
+          path: .
+
+      - name: Extract artifact file
+        run: tar -xzf artifacts.tar
+
+      - name: Install dependencies for Ubuntu
+        if: startsWith(inputs.os, 'ubuntu-')
+        run: src/ci_scripts/ubuntu-deps.sh
+
+      - name: Install dependencies for MacOS
+        if: startsWith(inputs.os,  'macos-')
+        run: src/ci_scripts/macos-deps.sh
+
+      - name: Setup kmip and vault
+        run: src/ci_scripts/setup-keyring-servers.sh
+
+      - name: Test pg_tde
+        run: src/ci_scripts/test.sh
+
+      - name: Report on test fail
+        uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        with:
+          name: log-test-${{ inputs.pg_version }}-${{ inputs.os }}-${{ inputs.compiler }}-${{ inputs.build_type }}
+          path: |
+            src/regression_install
+            src/regression_install.log
+            src/regression.diffs
+            src/regression.out
+            src/results
+            src/t/results
+            src/tmp_check
+          retention-days: 3
+
