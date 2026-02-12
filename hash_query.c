@@ -137,7 +137,7 @@ pgsm_startup(void)
 		pgsmStateLocal.shared_pgsmState = pgsm;
 
 		/*
-		 * Postmaster will never access the dsa again, thus free it's local
+		 * Postmaster will never access the dsa again, thus free its local
 		 * references.
 		 */
 		dsa_detach(dsa);
@@ -169,7 +169,7 @@ InitializeSharedState(pgsmSharedState *pgsm)
 
 
 /*
- * Create the classic or dshahs hash table for storing the query statistics.
+ * Create the classic or dshash hash table for storing the query statistics.
  */
 static PGSM_HASH_TABLE_HANDLE
 pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa)

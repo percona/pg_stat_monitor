@@ -75,14 +75,14 @@ do                                                      \
 #define pgsm_client_ip_is_valid() \
 	(pgsm_client_ip != PGSM_INVALID_IP_MASK)
 
-/*---- Initicalization Function Declarations ----*/
+/*---- Initialization Function Declarations ----*/
 void		_PG_init(void);
 
 /* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
 static int	nesting_level = 0;
 
 #if PG_VERSION_NUM < 170000
-/* Before planner nesting level was conunted separately */
+/* Before planner nesting level was counted separately */
 static int	plan_nested_level = 0;
 #endif
 
@@ -263,7 +263,7 @@ static uint64 get_next_wbucket(pgsmSharedState *pgsm);
 
 /*
  * To prevent deadlocks against our own backend we need to disable error
- * capture while holding the LWLock. The error capture hook is resposible
+ * capture while holding the LWLock. The error capture hook is responsible
  * itself for re-enabling data capture when called on ERROR or above since
  * then we may not have been able to call pgsm_lock_release() due to the
  * statement being aborted.
@@ -293,7 +293,7 @@ _PG_init(void)
 	if (!process_shared_preload_libraries_in_progress)
 		return;
 
-	/* Inilize the GUC variables */
+	/* Initialize the GUC variables */
 	init_guc();
 
 	set_histogram_bucket_timings();
@@ -2289,7 +2289,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		}
 		else
 			query_txt = pstrdup("Query string not available");	/* Should never happen.
-																 * Just a safty check */
+																 * Just a safety check */
 
 		/* copy counters to a local variable to keep locking time short */
 		{
@@ -2470,7 +2470,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		if (tmp.calls.calls == 0)
 		{
-			/* Query of pg_stat_monitor itslef started from zero count */
+			/* Query of pg_stat_monitor itself started from zero count */
 			tmp.calls.calls++;
 			tmp.resp_calls[0]++;
 		}
@@ -2692,7 +2692,7 @@ get_next_wbucket(pgsmSharedState *pgsm)
 
 		pgsm_lock_release(pgsm);
 
-		/* Allign the value in prev_bucket_sec to the bucket start time */
+		/* Align the value in prev_bucket_sec to the bucket start time */
 		tv.tv_sec = (tv.tv_sec) - (tv.tv_sec % pgsm_bucket_time);
 
 		pg_atomic_exchange_u64(&pgsm->prev_bucket_sec, (uint64) tv.tv_sec);
@@ -2708,7 +2708,7 @@ get_next_wbucket(pgsmSharedState *pgsm)
 
 /*
  * This function expects a NORMALIZED query as the input.
- * It iterates oer the normalized query skipping comments and
+ * It iterates over the normalized query skipping comments and
  * multiple spaces. All spaces are converted to ' ' so that we
  * the calculation is independent of the space type whether
  * newline, tab, or any other type. Trailing and leading spaces
@@ -2792,7 +2792,7 @@ get_pgsm_query_id_hash(const char *norm_query, int norm_len)
 			*q_iter = '\0';
 	}
 
-	/* Calcuate the hash. */
+	/* Calculate the hash. */
 	pgsm_query_id = pgsm_hash_string(query, strlen(query));
 
 	pfree(query);
@@ -3806,14 +3806,14 @@ pgsm_emit_log_hook(ErrorData *edata)
 	if (IsParallelWorker())
 		goto exit;
 
-	/* Check if PostgreSQL has finished its own bootstraping code. */
+	/* Check if PostgreSQL has finished its own bootstrapping code. */
 	if (MyProc == NULL)
 		goto exit;
 
 	if (edata->elevel >= WARNING && !disable_error_capture && IsSystemOOM() == false)
 		pgsm_store_error(debug_query_string ? debug_query_string : "", edata);
 
-	/* We need to make sure we re-enble error capture if query was aborted */
+	/* We need to make sure we re-enable error capture if query was aborted */
 	if (edata->elevel >= ERROR)
 		disable_error_capture = false;
 exit:
@@ -3937,8 +3937,8 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 	}
 
 	/*
-	 * Equisized logrithmic values will yield exponential values as required.
-	 * For calculating logrithmic value, we MUST use the number of bucket
+	 * Equisized logarithmic values will yield exponential values as required.
+	 * For calculating logarithmic value, we MUST use the number of bucket
 	 * provided by the user.
 	 */
 	bucket_size = log(q_max - q_min) / (double) b_count_user;
