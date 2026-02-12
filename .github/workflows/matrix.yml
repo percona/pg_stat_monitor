@@ -12,7 +12,7 @@ on:
 
 jobs:
   psp:
-    name: Percona Server for PostgreSQL integration matrix
+    name: Percona Server for PostgreSQL
     strategy:
       fail-fast: false
       matrix:
@@ -31,7 +31,7 @@ jobs:
     secrets: inherit
 
   pgdg:
-    name: PostgreSQL Development Group integration matrix
+    name: PostgreSQL Development Group
     strategy:
       fail-fast: false
       matrix:

@@ -36,17 +36,17 @@ jobs:
 
       - name: Install dependencies for Ubuntu
         if: startsWith(inputs.os, 'ubuntu-')
-        run: src/ci_scripts/ubuntu-deps.sh
+        run: ci_scripts/ubuntu-deps.sh
 
       - name: Install dependencies for MacOS
         if: startsWith(inputs.os,  'macos-')
-        run: src/ci_scripts/macos-deps.sh
+        run: ci_scripts/macos-deps.sh
 
       - name: Install PostgreSQL
-        run: src/ci_scripts/install-postgresql.sh ${{ inputs.pg_package }} ${{ inputs.pg_version }}
+        run: ci_scripts/install-postgresql.sh ${{ inputs.pg_package }} ${{ inputs.pg_version }}
 
       - name: Build pg_stat_monitor
-        run: src/ci_scripts/build.sh ${{ inputs.build_type }}
+        run: ci_scripts/build.sh ${{ inputs.build_type }}
 
       - name: Add build and install to artifact tar file
         run: tar -czf artifacts.tar src postgres pginst
@@ -78,17 +78,17 @@ jobs:
 
       - name: Install dependencies for Ubuntu
         if: startsWith(inputs.os, 'ubuntu-')
-        run: src/ci_scripts/ubuntu-deps.sh
+        run: ci_scripts/ubuntu-deps.sh
 
       - name: Install dependencies for MacOS
         if: startsWith(inputs.os,  'macos-')
-        run: src/ci_scripts/macos-deps.sh
+        run: ci_scripts/macos-deps.sh
 
       - name: Setup kmip and vault
-        run: src/ci_scripts/setup-keyring-servers.sh
+        run: ci_scripts/setup-keyring-servers.sh
 
       - name: Test pg_tde
-        run: src/ci_scripts/test.sh
+        run: ci_scripts/test.sh
 
       - name: Report on test fail
         uses: actions/upload-artifact@v4
