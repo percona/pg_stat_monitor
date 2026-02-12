@@ -19,7 +19,6 @@ on:
         required: true
 
 env:
-  artifact_name: build-${{ inputs.pg_version }}-${{ inputs.os }}-${{ inputs.compiler }}-${{ inputs.build_type }}
   CC: ${{ inputs.compiler }}
 
 jobs:
@@ -48,47 +47,8 @@ jobs:
       - name: Build pg_stat_monitor
         run: ci_scripts/build.sh ${{ inputs.build_type }}
 
-      - name: Add build and install to artifact tar file
-        run: tar -czf artifacts.tar src postgres pginst
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.artifact_name }}
-          overwrite: true
-          path: |
-            artifacts.tar
-          retention-days: 1
-
-  test:
-    name: Test
-    runs-on: ${{ inputs.os }}
-    needs: build
-    timeout-minutes: 20
-
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v5
-        with:
-          name: ${{ env.artifact_name }}
-          path: .
-
-      - name: Extract artifact file
-        run: tar -xzf artifacts.tar
-
-      - name: Install dependencies for Ubuntu
-        if: startsWith(inputs.os, 'ubuntu-')
-        run: ci_scripts/ubuntu-deps.sh
-
-      - name: Install dependencies for MacOS
-        if: startsWith(inputs.os,  'macos-')
-        run: ci_scripts/macos-deps.sh
-
-      - name: Setup kmip and vault
-        run: ci_scripts/setup-keyring-servers.sh
-
-      - name: Test pg_tde
-        run: ci_scripts/test.sh
+      - name: Run tests
+        run: ci_scripts/test.sh ${{ inputs.build_type }}
 
       - name: Report on test fail
         uses: actions/upload-artifact@v4
@@ -104,4 +64,3 @@ jobs:
             src/t/results
             src/tmp_check
           retention-days: 3
-

@@ -18,7 +18,7 @@ case "$1" in
         sudo apt -y install postgresql-${2} postgresql-server-dev-${2}
         ;;
 
-    pst)
+    psp)
         echo "Installing Percona Server for PostgreSQL"
         sudo wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
         sudo dpkg -i percona-release_latest.generic_all.deb
@@ -29,7 +29,7 @@ case "$1" in
 
     *)
         echo "Unknown PostgreSQL distribution type: $1"
-        echo "Please use one of the following: pgdg, ppg"
+        echo "Please use one of the following: pgdg, psp"
         exit 1
         ;;
 esac
