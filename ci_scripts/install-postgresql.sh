@@ -25,7 +25,7 @@ case "$1" in
         sudo percona-release setup ppg-${2}
         sudo apt update -y
         sudo apt install -y percona-postgresql-${2} \
-            percona-postgresql-contrib percona-postgresql-server-dev-all \
+            percona-postgresql-contrib percona-postgresql-server-dev-${2} \
             percona-pgpool2 libpgpool2 percona-postgresql-${2}-pgaudit \
             percona-postgresql-${2}-pgaudit-dbgsym percona-postgresql-${2}-repack \
             percona-postgresql-${2}-repack-dbgsym percona-pgaudit${2}-set-user \
