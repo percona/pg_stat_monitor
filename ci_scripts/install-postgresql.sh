@@ -24,7 +24,15 @@ case "$1" in
         sudo dpkg -i percona-release_latest.generic_all.deb
         sudo percona-release setup ppg-${2}
         sudo apt update -y
-        sudo apt install -y percona-postgresql-${2} percona-postgresql-server-dev-${2}
+        sudo apt install -y percona-postgresql-${2} \
+            percona-postgresql-contrib percona-postgresql-server-dev-all \
+            percona-pgpool2 libpgpool2 percona-postgresql-${2}-pgaudit \
+            percona-postgresql-${2}-pgaudit-dbgsym percona-postgresql-${2}-repack \
+            percona-postgresql-${2}-repack-dbgsym percona-pgaudit${2}-set-user \
+            percona-pgaudit${2}-set-user-dbgsym percona-postgresql-${2}-postgis-3 \
+            percona-postgresql-${2}-postgis-3-scripts \
+            percona-postgresql-postgis-scripts percona-postgresql-postgis \
+            percona-postgis
         ;;
 
     *)

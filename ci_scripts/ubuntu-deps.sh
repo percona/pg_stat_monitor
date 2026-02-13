@@ -10,6 +10,8 @@ DEPS=(
 
     # Test
     libipc-run-perl
+    libtext-trim-perl
+    libjson-perl
     # Run pgperltidy
     perltidy
 )
