@@ -49,7 +49,9 @@ jobs:
 
       - name: Debug
         run: |
+          whoami
           cat /etc/passwd
+          ls -l /var/run
           ls -l /var/run/postgresql
 
 
