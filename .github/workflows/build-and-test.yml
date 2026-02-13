@@ -47,6 +47,9 @@ jobs:
       - name: Build pg_stat_monitor
         run: ci_scripts/build.sh ${{ inputs.build_type }}
 
+      - name: Set permissions
+        run: sudo chown -R ${{ github.actor }}:${{ github.actor }} /var/run/postgresql
+
       - name: Run tests
         run: ci_scripts/test.sh ${{ inputs.build_type }}
 
