@@ -37,6 +37,7 @@ case "$1" in
     pgdg-macos)
         echo "Installing PostgreSQL from PostgreSQL Global Development Group (PGDG) Distribution on macOS"
         brew install postgresql@${2}
+        brew link postgresql@${2}
         ;;
 
     *)
