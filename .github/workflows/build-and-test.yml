@@ -47,6 +47,12 @@ jobs:
       - name: Build pg_stat_monitor
         run: ci_scripts/build.sh ${{ inputs.build_type }}
 
+      - name: Debug
+        run: |
+          cat /etc/passwd
+          ls -l /var/run/postgresql
+
+
       - name: Run tests
         run: ci_scripts/test.sh ${{ inputs.build_type }}
 
