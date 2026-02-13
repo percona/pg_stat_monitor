@@ -52,6 +52,7 @@ jobs:
         run: ci_scripts/build.sh ${{ inputs.build_type }}
 
       - name: Set permissions
+        if: startsWith(inputs.os, 'ubuntu-')
         run: sudo chown -R runner:runner /var/run/postgresql
 
       - name: Stop existing PostgreSQL instances
