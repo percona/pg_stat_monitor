@@ -52,6 +52,7 @@ jobs:
           whoami
           cat /etc/passwd
           ls -l /var/run
+          ls -l /run
           ls -l /var/run/postgresql
 
 

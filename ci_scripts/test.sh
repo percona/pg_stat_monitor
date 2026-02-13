@@ -9,7 +9,7 @@ cd "$SCRIPT_DIR/.."
 
 PG_VERSION=$(pg_config --version | sed -n 's/PostgreSQL \([0-9]*\).*/\1/p')
 
-OPTS='--set shared_preload_libraries=pg_stat_monitor'
+OPTS='--set shared_preload_libraries=pg_stat_monitor --set unix_socket_directories=/tmp'
 
 if [ "$1" = sanitize ]; then
     OPTS+=' --set max_stack_depth=8MB'
