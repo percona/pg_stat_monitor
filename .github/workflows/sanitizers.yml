@@ -37,7 +37,7 @@ jobs:
           ref: PSP_REL_${{ env.pg_version }}_STABLE
 
       - name: Install dependencies
-        run: src/ci_scripts/ubuntu-deps.sh
+        run: src/ci_scripts/ubuntu-deps.sh dev
 
       - name: Build postgres
         run: src/ci_scripts/build-postgres.sh sanitize
