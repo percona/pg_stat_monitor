@@ -56,6 +56,7 @@ jobs:
         run: sudo chown -R runner:runner /var/run/postgresql
 
       - name: Stop existing PostgreSQL instances
+        if: startsWith(inputs.os, 'ubuntu-')
         run: sudo service postgresql stop
 
       - name: Run tests
