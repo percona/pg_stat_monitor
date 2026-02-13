@@ -50,6 +50,9 @@ jobs:
       - name: Set permissions
         run: sudo chown -R runner:runner /var/run/postgresql
 
+      - name: Stop existing PostgreSQL instances
+        run: sudo service postgresql stop
+
       - name: Run tests
         run: ci_scripts/test.sh ${{ inputs.build_type }}
 
