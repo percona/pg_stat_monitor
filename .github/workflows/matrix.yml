@@ -50,7 +50,7 @@ jobs:
     secrets: inherit
 
   macos:
-    name: MacOS matrix
+    name: MacOS
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +69,7 @@ jobs:
     secrets: inherit
 
   arm:
-    name: ARM matrix
+    name: ARM
     # if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
