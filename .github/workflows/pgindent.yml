@@ -1,8 +1,6 @@
 name: Format
 on:
   pull_request:
-    paths-ignore:
-      - documentation/**
 
 env:
   pg_version: 18
@@ -13,33 +11,29 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - name: Remove existing PostgreSQL
+        run: sudo apt purge postgresql*
+
       - name: Clone repository
         uses: actions/checkout@v5
         with:
-          path: src
           submodules: recursive
-
-      - name: Clone postgres repository
-        uses: actions/checkout@v5
-        with:
-          path: postgres
-          repository: percona/postgres.git
-          ref: PSP_REL_${{ env.pg_version }}_STABLE
+          ref: ${{ github.ref }}
 
       - name: Install dependencies
-        run: src/ci_scripts/ubuntu-deps.sh
+        run: ci_scripts/ubuntu-deps.sh
 
-      - name: Build postgres
-        run: src/ci_scripts/build-and-install-psp.sh debug
+      - name: Install PostgreSQL
+        run: ci_scripts/install-postgresql.sh ${{ env.pg_package }} ${{ env.pg_version }}
 
-      - name: Build pg_tde
-        run: src/ci_scripts/build.sh debug
+      - name: Build pg_stat_monitor
+        run: ci_scripts/build.sh debug
 
       - name: Update typedefs
-        run: src/ci_scripts/dump-typedefs.sh
+        run: ci_scripts/dump-typedefs.sh
 
       - name: Run pgindent
-        run: src/ci_scripts/run-pgindent.sh --check --diff
+        run: ci_scripts/run-pgindent.sh --check --diff
 
       - name: Run pgperltidy
-        run: src/ci_scripts/run-pgperltidy.sh --assert-tidy --standard-error-output
+        run: ci_scripts/run-pgperltidy.sh --assert-tidy --standard-error-output
