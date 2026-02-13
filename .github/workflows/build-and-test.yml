@@ -48,7 +48,7 @@ jobs:
         run: ci_scripts/build.sh ${{ inputs.build_type }}
 
       - name: Set permissions
-        run: sudo chown -R ${{ github.actor }}:${{ github.actor }} /var/run/postgresql
+        run: sudo chown -R runner:runner /var/run/postgresql
 
       - name: Run tests
         run: ci_scripts/test.sh ${{ inputs.build_type }}
