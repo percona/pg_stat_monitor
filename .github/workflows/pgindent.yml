@@ -1,6 +1,8 @@
-name: Checks
+name: Format
 on:
   pull_request:
+    paths-ignore:
+      - documentation/**
 
 env:
   pg_version: 18
@@ -41,17 +43,3 @@ jobs:
 
       - name: Run pgperltidy
         run: src/ci_scripts/run-pgperltidy.sh --assert-tidy --standard-error-output
-
-  license:
-    name: License
-    runs-on: ubuntu-22.04
-    timeout-minutes: 5
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v6
-
-      - name: Check license headers
-        uses: apache/skywalking-eyes/header@v0.8.0
-        with:
-          token: "" # Prevent comments
