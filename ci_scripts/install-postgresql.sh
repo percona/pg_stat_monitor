@@ -34,3 +34,4 @@ case "$1" in
         ;;
 esac
 
+chown -R postgres:postgres /var/run/postgresql
