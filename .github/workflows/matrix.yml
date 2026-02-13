@@ -54,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pg_package: [psp]
+        pg_package: [pgdg-macos]
         pg_version: [18]
         os: [macos-15]
         compiler: [clang]
