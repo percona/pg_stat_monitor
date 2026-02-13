@@ -34,6 +34,10 @@ case "$1" in
             percona-postgresql-postgis-scripts percona-postgresql-postgis \
             percona-postgis
         ;;
+    pgdg-macos)
+        echo "Installing PostgreSQL from PostgreSQL Global Development Group (PGDG) Distribution on macOS"
+        brew install postgresql@${2}
+        ;;
 
     *)
         echo "Unknown PostgreSQL distribution type: $1"
