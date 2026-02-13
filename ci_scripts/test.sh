@@ -15,8 +15,6 @@ if [ "$1" = sanitize ]; then
     OPTS+=' --set max_stack_depth=8MB'
 fi
 
-export PGHOST="/tmp"
-
 $PG_BIN_DIR/pg_ctl -D regression_install -l regression_install.log init -o "$OPTS"
 
 $PG_BIN_DIR/pg_ctl -D regression_install -l regression_install.log start
