@@ -34,4 +34,4 @@ case "$1" in
         ;;
 esac
 
-chown -R postgres:postgres /var/run/postgresql
+sudo chown -R postgres:postgres /var/run/postgresql
