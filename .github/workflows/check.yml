@@ -1,4 +1,4 @@
-name: Checks
+name: Check
 on:
   pull_request:
 
@@ -7,8 +7,8 @@ env:
   pg_package: pgdg
 
 jobs:
-  check:
-    name: Check
+  format:
+    name: Format
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -27,7 +27,7 @@ jobs:
           ref: PSP_REL_${{ env.pg_version }}_STABLE
 
       - name: Install dependencies
-        run: src/ci_scripts/ubuntu-deps.sh
+        run: src/ci_scripts/ubuntu-deps.sh dev
 
       - name: Build and install PostgreSQL
         run: src/ci_scripts/build-postgres.sh debug
