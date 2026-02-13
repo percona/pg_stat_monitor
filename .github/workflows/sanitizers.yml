@@ -1,0 +1,69 @@
+name: Sanitizers
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  pg_version: 18
+  CC: clang
+  LD: clang
+  UBSAN_OPTIONS: log_path=${{ github.workspace }}/sanitize.log print_suppressions=0 print_stacktrace=1 print_summary=1 halt_on_error=1
+  ASAN_OPTIONS: log_path=${{ github.workspace }}/sanitize.log print_suppressions=0 abort_on_error=1
+  LSAN_OPTIONS: log_path=${{ github.workspace }}/sanitize.log print_suppressions=0 suppressions=${{ github.workspace }}/src/ci_scripts/suppressions/lsan.supp
+  ASAN_SYMBOLIZER_PATH: /usr/bin/llvm-symbolizer-14
+  # Avoid failures on slow recovery
+  PGCTLTIMEOUT: 120
+  PG_TEST_TIMEOUT_DEFAULT: 300
+
+jobs:
+  run:
+    name: Run
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v5
+        with:
+          path: src
+          submodules: recursive
+
+      - name: Clone postgres repository
+        uses: actions/checkout@v5
+        with:
+          path: postgres
+          repository: percona/postgres.git
+          ref: PSP_REL_${{ env.pg_version }}_STABLE
+
+      - name: Install dependencies
+        run: src/ci_scripts/ubuntu-deps.sh
+
+      - name: Build postgres
+        run: src/ci_scripts/build-postgres.sh sanitize
+
+      - name: Build pg_stat_monitor
+        run: src/ci_scripts/build.sh sanitize
+
+      - name: Run pg_stat_monitor tests
+        run: src/ci_scripts/test.sh sanitize
+
+      - name: Print sanitize logs
+        if: ${{ !cancelled() }}
+        run: cat sanitize.log.*
+
+      - name: Report on test fail
+        uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        with:
+          name: sanitizers-testlog
+          path: |
+            sanitize.log.*
+            src/regression_install
+            src/regression_install.log
+            src/regression.diffs
+            src/regression.out
+            src/results
+            src/t/results
+            src/tmp_check
+          retention-days: 3
