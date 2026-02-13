@@ -1,0 +1,78 @@
+name: Reusable build and test
+on:
+  workflow_call:
+    inputs:
+      pg_package:
+        type: string
+        required: true
+      pg_version:
+        type: string
+        required: true
+      os:
+        type: string
+        required: true
+      compiler:
+        type: string
+        required: true
+      build_type:
+        type: string
+        required: true
+
+env:
+  CC: ${{ inputs.compiler }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Remove existing PostgreSQL
+        if: startsWith(inputs.os, 'ubuntu-')
+        run: sudo apt purge postgresql*
+
+      - name: Clone repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          ref: ${{ github.ref }}
+
+      - name: Install dependencies for Ubuntu
+        if: startsWith(inputs.os, 'ubuntu-')
+        run: ci_scripts/ubuntu-deps.sh
+
+      - name: Install dependencies for MacOS
+        if: startsWith(inputs.os,  'macos-')
+        run: ci_scripts/macos-deps.sh
+
+      - name: Install PostgreSQL
+        run: ci_scripts/install-postgresql.sh ${{ inputs.pg_package }} ${{ inputs.pg_version }}
+
+      - name: Build pg_stat_monitor
+        run: ci_scripts/build.sh ${{ inputs.build_type }}
+
+      - name: Set permissions
+        if: startsWith(inputs.os, 'ubuntu-')
+        run: sudo chown -R runner:runner /var/run/postgresql
+
+      - name: Stop existing PostgreSQL instances
+        if: startsWith(inputs.os, 'ubuntu-')
+        run: sudo service postgresql stop
+
+      - name: Run tests
+        run: ci_scripts/test.sh ${{ inputs.build_type }}
+
+      - name: Report on test fail
+        uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        with:
+          name: log-test-${{ inputs.pg_package }}-${{ inputs.pg_version }}-${{ inputs.os }}-${{ inputs.compiler }}-${{ inputs.build_type }}
+          path: |
+            regression_install
+            regression_install.log
+            regression.diffs
+            regression.out
+            results
+            t/results
+            tmp_check
+          retention-days: 3
