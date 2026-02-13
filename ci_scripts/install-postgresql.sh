@@ -33,5 +33,3 @@ case "$1" in
         exit 1
         ;;
 esac
-
-sudo chown -R postgres:postgres /var/run/postgresql
