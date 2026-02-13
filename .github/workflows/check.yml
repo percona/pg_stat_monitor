@@ -12,32 +12,37 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Remove existing PostgreSQL
-        run: sudo apt purge postgresql*
-
       - name: Clone repository
         uses: actions/checkout@v5
         with:
           submodules: recursive
+          path: src
           ref: ${{ github.ref }}
 
-      - name: Install dependencies
-        run: ci_scripts/ubuntu-deps.sh
+      - name: Clone postgres repository
+        uses: actions/checkout@v5
+        with:
+          path: postgres
+          repository: percona/postgres.git
+          ref: PSP_REL_${{ env.pg_version }}_STABLE
 
-      - name: Install PostgreSQL
-        run: ci_scripts/install-postgresql.sh ${{ env.pg_package }} ${{ env.pg_version }}
+      - name: Install dependencies
+        run: src/ci_scripts/ubuntu-deps.sh
+
+      - name: Build and install PostgreSQL
+        run: src/ci_scripts/build-postgres.sh debug
 
       - name: Build pg_stat_monitor
-        run: ci_scripts/build.sh debug
+        run: src/ci_scripts/build.sh debug
 
       - name: Update typedefs
-        run: ci_scripts/dump-typedefs.sh
+        run: src/ci_scripts/dump-typedefs.sh
 
       - name: Run pgindent
-        run: ci_scripts/run-pgindent.sh --check --diff
+        run: src/ci_scripts/run-pgindent.sh --check --diff
 
       - name: Run pgperltidy
-        run: ci_scripts/run-pgperltidy.sh --assert-tidy --standard-error-output
+        run: src/ci_scripts/run-pgperltidy.sh --assert-tidy --standard-error-output
 
   license:
     name: License
