@@ -54,7 +54,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ failure() }}
         with:
-          name: log-test-${{ inputs.pg_version }}-${{ inputs.os }}-${{ inputs.compiler }}-${{ inputs.build_type }}
+          name: log-test-${{ inputs.pg_package }}-${{ inputs.pg_version }}-${{ inputs.os }}-${{ inputs.compiler }}-${{ inputs.build_type }}
           path: |
             regression_install
             regression_install.log
