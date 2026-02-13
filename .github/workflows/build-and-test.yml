@@ -56,11 +56,11 @@ jobs:
         with:
           name: log-test-${{ inputs.pg_version }}-${{ inputs.os }}-${{ inputs.compiler }}-${{ inputs.build_type }}
           path: |
-            src/regression_install
-            src/regression_install.log
-            src/regression.diffs
-            src/regression.out
-            src/results
-            src/t/results
-            src/tmp_check
+            regression_install
+            regression_install.log
+            regression.diffs
+            regression.out
+            results
+            t/results
+            tmp_check
           retention-days: 3
