@@ -27,6 +27,10 @@ jobs:
     runs-on: ${{ inputs.os }}
     timeout-minutes: 10
     steps:
+      - name: Remove existing PostgreSQL
+        if: startsWith(inputs.os, 'ubuntu-')
+        run: sudo apt purge postgresql*
+
       - name: Clone repository
         uses: actions/checkout@v5
         with:
