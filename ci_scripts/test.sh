@@ -9,15 +9,15 @@ cd "$SCRIPT_DIR/.."
 
 PG_VERSION=$(pg_config --version | sed -n 's/PostgreSQL \([0-9]*\).*/\1/p')
 
-OPTS='--set shared_preload_libraries=pg_stat_monitor'
+OPTS='-c shared_preload_libraries=pg_stat_monitor'
 
 if [ "$1" = sanitize ]; then
-    OPTS+=' --set max_stack_depth=8MB'
+    OPTS+=' -c max_stack_depth=8MB'
 fi
 
-$PG_BIN_DIR/pg_ctl -D regression_install -l regression_install.log init -o "$OPTS"
+$PG_BIN_DIR/pg_ctl -D regression_install -l regression_install.log init
 
-$PG_BIN_DIR/pg_ctl -D regression_install -l regression_install.log start
+$PG_BIN_DIR/pg_ctl -D regression_install -l regression_install.log start -o "$OPTS"
 
 make USE_PGXS=1 installcheck
 
