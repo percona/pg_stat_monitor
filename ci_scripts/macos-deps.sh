@@ -15,4 +15,4 @@ DEPS=(
 brew update
 brew install ${DEPS[@]}
 
-cpan IPC::Run JSON
+cpan IPC::Run Text::Trim JSON
