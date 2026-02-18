@@ -13,7 +13,4 @@ header:
 
       Portions Copyright (c) 1994, The Regents of the University of California
 
-      IDENTIFICATION
-         contrib/pg_stat_monitor/.*\.(c|h)
-
   comment: never
