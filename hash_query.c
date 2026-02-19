@@ -15,7 +15,6 @@
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
-#include "nodes/pg_list.h"
 #include "pg_stat_monitor.h"
 
 static pgsmLocalState pgsmStateLocal;

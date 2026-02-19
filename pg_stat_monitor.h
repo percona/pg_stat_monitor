@@ -55,8 +55,6 @@
 #include "utils/timestamp.h"
 #include "utils/lsyscache.h"
 #include "utils/guc.h"
-#include "utils/guc_tables.h"
-#include "utils/palloc.h"
 
 
 /* XXX: Should USAGE_EXEC reflect execution time and/or buffer usage? */
