@@ -2523,7 +2523,6 @@ get_next_wbucket(pgsmSharedState *pgsm)
 	uint64		current_bucket_sec;
 	uint64		new_bucket_id;
 	uint64		prev_bucket_id;
-	struct tm;
 	bool		update_bucket = false;
 
 	gettimeofday(&tv, NULL);
