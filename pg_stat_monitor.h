@@ -17,17 +17,17 @@
 #ifndef __PG_STAT_MONITOR_H__
 #define __PG_STAT_MONITOR_H__
 
-#include "postgres.h"
+#include <postgres.h>
 
-#include "executor/instrument.h"
-#include "lib/dshash.h"
-#include "nodes/nodes.h"
-#include "storage/lwlock.h"
-#include "storage/spin.h"
-#include "utils/dsa.h"
-#include "utils/guc.h"
-#include "utils/hsearch.h"
-#include "utils/timestamp.h"
+#include <executor/instrument.h>
+#include <lib/dshash.h>
+#include <nodes/nodes.h>
+#include <storage/lwlock.h>
+#include <storage/spin.h>
+#include <utils/dsa.h>
+#include <utils/guc.h>
+#include <utils/hsearch.h>
+#include <utils/timestamp.h>
 
 
 /* XXX: Should USAGE_EXEC reflect execution time and/or buffer usage? */

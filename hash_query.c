@@ -14,11 +14,11 @@
  *
  *-------------------------------------------------------------------------
  */
-#include "postgres.h"
+#include <postgres.h>
 
-#include "storage/ipc.h"
-#include "storage/shmem.h"
-#include "utils/memutils.h"
+#include <storage/ipc.h>
+#include <storage/shmem.h>
+#include <utils/memutils.h>
 
 #include "pg_stat_monitor.h"
 
