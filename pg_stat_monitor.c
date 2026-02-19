@@ -16,18 +16,44 @@
  */
 
 #include "postgres.h"
+
+#include <arpa/inet.h>
+#include <math.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+
+#include "access/hash.h"
 #include "access/parallel.h"
-#include "nodes/pg_list.h"
-#include "utils/guc.h"
-#include "pgstat.h"
+#include "access/xact.h"
+#include "catalog/pg_authid.h"
 #include "commands/dbcommands.h"
+#include "commands/explain.h"
+#include "common/ip.h"
+#include "funcapi.h"
+#include "jit/jit.h"
+#include "mb/pg_wchar.h"
+#include "miscadmin.h"
+#include "nodes/pg_list.h"
+#include "optimizer/planner.h"
+#include "parser/analyze.h"
+#include "parser/parsetree.h"
+#include "parser/scanner.h"
+#include "parser/scansup.h"
+#include "pgstat.h"
+#include "storage/ipc.h"
+#include "storage/proc.h"
+#include "storage/shmem.h"
+#include "tcop/utility.h"
+#include "utils/acl.h"
+#include "utils/builtins.h"
+#include "utils/lsyscache.h"
+#include "utils/memutils.h"
 
 #if PG_VERSION_NUM >= 180000
 #include "commands/explain_state.h"
 #include "commands/explain_format.h"
 #endif
 
-#include "commands/explain.h"
 #include "pg_stat_monitor.h"
 
  /*

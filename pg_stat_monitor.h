@@ -19,42 +19,15 @@
 
 #include "postgres.h"
 
-#include <arpa/inet.h>
-#include <math.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-
-#include "lib/dshash.h"
-#include "utils/dsa.h"
-
-#include "access/hash.h"
-#include "access/xact.h"
-#include "catalog/pg_authid.h"
 #include "executor/instrument.h"
-#include "common/ip.h"
-#include "jit/jit.h"
-#include "funcapi.h"
-#include "access/twophase.h"
-#include "mb/pg_wchar.h"
-#include "miscadmin.h"
-#include "optimizer/planner.h"
-#include "parser/analyze.h"
-#include "parser/parsetree.h"
-#include "parser/scanner.h"
-#include "parser/scansup.h"
-#include "pgstat.h"
-#include "storage/ipc.h"
+#include "lib/dshash.h"
+#include "nodes/nodes.h"
 #include "storage/lwlock.h"
-#include "storage/proc.h"
-#include "storage/shmem.h"
 #include "storage/spin.h"
-#include "tcop/utility.h"
-#include "utils/acl.h"
-#include "utils/builtins.h"
-#include "utils/memutils.h"
-#include "utils/timestamp.h"
-#include "utils/lsyscache.h"
+#include "utils/dsa.h"
 #include "utils/guc.h"
+#include "utils/hsearch.h"
+#include "utils/timestamp.h"
 
 
 /* XXX: Should USAGE_EXEC reflect execution time and/or buffer usage? */
