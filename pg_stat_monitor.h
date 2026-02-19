@@ -30,6 +30,7 @@
 #include "utils/dsa.h"
 
 #include "access/hash.h"
+#include "access/xact.h"
 #include "catalog/pg_authid.h"
 #include "executor/instrument.h"
 #include "common/ip.h"
@@ -45,6 +46,9 @@
 #include "parser/scansup.h"
 #include "pgstat.h"
 #include "storage/ipc.h"
+#include "storage/lwlock.h"
+#include "storage/proc.h"
+#include "storage/shmem.h"
 #include "storage/spin.h"
 #include "tcop/utility.h"
 #include "utils/acl.h"
