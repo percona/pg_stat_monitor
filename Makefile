@@ -1,5 +1,3 @@
-# contrib/pg_stat_monitor/Makefile
-
 MODULE_big = pg_stat_monitor
 OBJS = hash_query.o guc.o pg_stat_monitor.o $(WIN32RES)
 

@@ -9,9 +9,6 @@
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
  *
- * IDENTIFICATION
- *	  contrib/pg_stat_monitor/hash_query.c
- *
  *-------------------------------------------------------------------------
  */
 #include <postgres.h>
