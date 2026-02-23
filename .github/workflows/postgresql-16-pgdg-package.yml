@@ -59,7 +59,7 @@ jobs:
       - name: Start pg_stat_monitor_tests
         run: |
           sudo service postgresql stop
-          echo "shared_preload_libraries = 'pg_stat_monitor'" | 
+          echo "shared_preload_libraries = 'pg_stat_monitor'" |
             sudo tee -a /etc/postgresql/16/main/postgresql.conf
           sudo service postgresql start
           sudo psql -V

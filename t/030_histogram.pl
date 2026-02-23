@@ -115,10 +115,10 @@ sub generate_histogram_with_configurations
    PGSM::append_to_debug_file("===============End===============");
 }
 
-# Update postgresql.conf to include/load pg_stat_monitor library   
+# Update postgresql.conf to include/load pg_stat_monitor library
 $node->append_conf('postgresql.conf', "shared_preload_libraries = 'pg_stat_monitor'");
 
-# Set change postgresql.conf for this test case. 
+# Set change postgresql.conf for this test case.
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_bucket_time = 36000");
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_normalized_query = yes");
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'");
@@ -142,18 +142,18 @@ ok($cmdret == 0, "Create PGSM Extension");
 PGSM::append_to_debug_file($stdout);
 
 # Following parameters are required for function 'generate_histogram_with_configurations' to generate and test a histogram
-# with given configuration. 
+# with given configuration.
 # Parameter 1 ==> pgsm_histogram_min
 # Parameter 2 ==> pgsm_histogram_max
 # Parameter 3 ==> pgsm_histogram_buckets
-# Parameter 4 ==> generated and expected total calls count against 'SELECT 1 AS a' 
+# Parameter 4 ==> generated and expected total calls count against 'SELECT 1 AS a'
 # Parameter 5 ==> expected resp_calls value output
 # Parameter 6 ==> expected ranges (rows) count in histogram output
 # Parameter 7 ==> using pg_sleep to generate dataset, '1' will call sql function 'run_pg_sleep' (declared above).
-#                 '0' will call the 'SELECT 1 AS a' expected_total_calls (Parameter 4) times. 
+#                 '0' will call the 'SELECT 1 AS a' expected_total_calls (Parameter 4) times.
 # Parameter 8 ==> Scenario number (placeholder to reflect in log for debugging purposes)
 
-# Scenario 1. Run pg_sleep 
+# Scenario 1. Run pg_sleep
 generate_histogram_with_configurations(1, 10000, 3, 13, "{0,4,4,5,0}", 5, 1, 1);
 
 #Scenario 2

@@ -38,15 +38,15 @@
 
 ## Overview
 
-**NOTE**: The latest stable releases can be found underneath [Releases](https://github.com/percona/pg_stat_monitor/releases). 
+**NOTE**: The latest stable releases can be found underneath [Releases](https://github.com/percona/pg_stat_monitor/releases).
 
 The `pg_stat_monitor` is a **_Query Performance Monitoring_** tool for PostgreSQL. It attempts to provide a more holistic picture by providing much-needed query performance insights in a [single view](https://docs.percona.com/pg-stat-monitor/reference.html).
 
 `pg_stat_monitor` provides improved insights that allow database users to understand query origins, execution, planning statistics and details, query information, and metadata. This significantly improves observability, enabling users to debug and tune query performance. `pg_stat_monitor` is developed on the basis of `pg_stat_statements` as its more advanced replacement.
 
-While `pg_stat_statements` provides ever-increasing metrics, `pg_stat_monitor` aggregates the collected data, saving user efforts for doing it themselves. `pg_stat_monitor`  stores statistics in configurable time-based units – buckets. This allows focusing on statistics generated for shorter time periods and makes query timing information such as max/min/mean time more accurate. 
+While `pg_stat_statements` provides ever-increasing metrics, `pg_stat_monitor` aggregates the collected data, saving user efforts for doing it themselves. `pg_stat_monitor`  stores statistics in configurable time-based units – buckets. This allows focusing on statistics generated for shorter time periods and makes query timing information such as max/min/mean time more accurate.
 
->**NOTE**: Because of these differences in data processing, memory blocks and WAL (Write Ahead Logs) related statistics data are displayed inconsistently when both `pg_stat_monitor` and `pg_stat_statements` are used together. 
+>**NOTE**: Because of these differences in data processing, memory blocks and WAL (Write Ahead Logs) related statistics data are displayed inconsistently when both `pg_stat_monitor` and `pg_stat_statements` are used together.
 
 To learn about other features, available in `pg_stat_monitor`, see the [Features](#pg_stat_monitor-features) section and the [User Guide](https://docs.percona.com/pg-stat-monitor/user_guide.html).
 
@@ -173,7 +173,7 @@ Use the [ALTER SYSTEM](https://www.postgresql.org/docs/current/sql-altersystem.h
 ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_monitor';
 ```
 
-> **NOTE**: If you’ve added other modules to the `shared_preload_libraries` parameter (for example, `pg_stat_statements`), list all of them separated by commas for the `ALTER SYSTEM` command. 
+> **NOTE**: If you’ve added other modules to the `shared_preload_libraries` parameter (for example, `pg_stat_statements`), list all of them separated by commas for the `ALTER SYSTEM` command.
 >
 >In PostgreSQL 14, you can specify `pg_stat_statements` and `pg_stat_monitor` in any order. However, due to the extensions' architecture, if both `pg_stat_statements` and `pg_stat_monitor` are loaded, only the last listed extension captures utility queries, CREATE TABLE, Analyze, etc. The first listed extension captures  most common queries like SELECT, UPDATE, INSERT, but does not capture utility queries.
 >
@@ -262,7 +262,7 @@ To uninstall `pg_stat_monitor`, do the following:
 
 2. Remove `pg_stat_monitor` from the `shared_preload_libraries` configuration parameter:
 
-    ```sql 
+    ```sql
     ALTER SYSTEM SET shared_preload_libraries = '';
     ```
 
@@ -285,9 +285,9 @@ To uninstall `pg_stat_monitor`, do the following:
 
 ### How we work
 
-We follow the [OneFlow git branching scheme](https://www.endoflineblog.com/oneflow-a-git-branching-model-and-workflow) to maintain the ongoing development and stable releases. 
+We follow the [OneFlow git branching scheme](https://www.endoflineblog.com/oneflow-a-git-branching-model-and-workflow) to maintain the ongoing development and stable releases.
 
-The concept of the OneFlow model is, that we do have a single long-lived [branch](https://github.com/percona/pg_stat_monitor/tree/main) which simplifies the versioning scheme and day-to-day operations that we have to perform. 
+The concept of the OneFlow model is, that we do have a single long-lived [branch](https://github.com/percona/pg_stat_monitor/tree/main) which simplifies the versioning scheme and day-to-day operations that we have to perform.
 
 What branches do exist?
 
@@ -303,7 +303,7 @@ The [Contributing Guide](https://github.com/percona/pg_stat_monitor/blob/master/
 
 ### Report a bug
 
-If you would like to suggest a new feature / an improvement or you found a bug in `pg_stat_monitor`, please submit the report to the [Percona Jira issue tracker](https://jira.percona.com/projects/PG). 
+If you would like to suggest a new feature / an improvement or you found a bug in `pg_stat_monitor`, please submit the report to the [Percona Jira issue tracker](https://jira.percona.com/projects/PG).
 
 Refer to the [Submit a bug report or a feature request](https://github.com/percona/pg_stat_monitor/blob/master/CONTRIBUTING.md#submit-a-bug-report-or-a-feature-request) section for bug reporting guidelines.
 

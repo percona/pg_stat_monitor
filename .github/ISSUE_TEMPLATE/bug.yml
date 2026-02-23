@@ -1,10 +1,10 @@
 name: Bug Report
 description: File a bug report
 labels: ["bug"]
-assignees: 
-  - artemgavrilov 
+assignees:
+  - artemgavrilov
   - dutow
-  
+
 body:
   - type: markdown
     attributes:

@@ -123,7 +123,7 @@ get_sources(){
     fi
     PRODUCT=percona-pg-stat-monitor${PG_RELEASE}
     PRODUCT_FULL=${PRODUCT}-${VERSION}
-    
+
     echo "PRODUCT=${PRODUCT}" > pg-stat-monitor.properties
     echo "PRODUCT_FULL=${PRODUCT_FULL}" >> pg-stat-monitor.properties
     echo "VERSION=${VERSION}" >> pg-stat-monitor.properties
@@ -264,10 +264,10 @@ install_deps() {
     		chmod +x llvm.sh
     		./llvm.sh 14 bullseye
 		else
-			wget http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7_7.0.1-12_amd64.deb http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/libllvm7_7.0.1-12_amd64.deb http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7-runtime_7.0.1-12_amd64.deb 
+			wget http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7_7.0.1-12_amd64.deb http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/libllvm7_7.0.1-12_amd64.deb http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7-runtime_7.0.1-12_amd64.deb
         	apt install ./libllvm7_7.0.1-12_amd64.deb ./llvm-7_7.0.1-12_amd64.deb ./llvm-7-runtime_7.0.1-12_amd64.deb
 		fi
-        
+
         PKGLIST+=" debconf debhelper clang devscripts dh-exec git wget libkrb5-dev libssl-dev"
         PKGLIST+=" build-essential debconf debhelper devscripts dh-exec git wget libxml-checker-perl"
         PKGLIST+=" libxml-libxml-perl libio-socket-ssl-perl libperl-dev libssl-dev libxml2-dev txt2man zlib1g-dev libpq-dev"

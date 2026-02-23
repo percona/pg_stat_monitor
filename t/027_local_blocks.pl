@@ -56,7 +56,7 @@ PGSM::append_to_file($stdout);
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT substr(query,0,130) AS query, calls, rows_retrieved, cpu_user_time, cpu_sys_time, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, temp_blks_read, temp_blks_written FROM pg_stat_monitor WHERE query LIKE \'%t1%\' ORDER BY query,calls DESC;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_debug_file($stdout);
 
-# Compare values for query 'INSERT INTO t1 VALUES(generate_series($1,$2))' 
+# Compare values for query 'INSERT INTO t1 VALUES(generate_series($1,$2))'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT PGSM.local_blks_hit != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%INSERT INTO t1%\';', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: local_blks_hit should not be 0.");
@@ -73,7 +73,7 @@ if ($PGSM::PG_MAJOR_VERSION >= 17)
 }
 
 
-# Compare values for query 'SELECT * FROM t1' 
+# Compare values for query 'SELECT * FROM t1'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT PGSM.local_blks_hit != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%FROM t1%\';', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: local_blks_hit should not be 0.");

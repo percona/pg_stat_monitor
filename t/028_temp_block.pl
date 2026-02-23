@@ -77,7 +77,7 @@ PGSM::append_to_debug_file($stdout);
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT temp_files, temp_bytes FROM pg_stat_database db;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_debug_file($stdout);
 
-# Compare values for query 'SELECT * FROM t1' 
+# Compare values for query 'SELECT * FROM t1'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT PGSM.temp_blks_read != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%FROM t1%\';', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: temp_blks_read should not be 0.");

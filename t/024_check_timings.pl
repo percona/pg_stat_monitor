@@ -24,7 +24,7 @@ $node->append_conf('postgresql.conf', "pg_stat_statements.track_utility = off");
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_bucket_time = 36000");
 $node->append_conf('postgresql.conf', "track_io_timing = on");
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track_utility = no");
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_normalized_query = yes"); 
+$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_normalized_query = yes");
 # Start server
 my $rt_value = $node->start;
 ok($rt_value == 1, "Start Server");
@@ -74,7 +74,7 @@ PGSM::append_to_debug_file($stdout);
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT substr(query,0,130) AS query, calls, rows, total_exec_time, min_exec_time, max_exec_time, mean_exec_time,stddev_exec_time, cpu_user_time, cpu_sys_time FROM pg_stat_monitor WHERE query LIKE \'%bench%\' ORDER BY query,calls DESC;', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_debug_file($stdout);
 
-# Compare values for query 'DELETE FROM pgbench_accounts WHERE $1 = $2' 
+# Compare values for query 'DELETE FROM pgbench_accounts WHERE $1 = $2'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.total_exec_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: total_exec_time should not be 0.");
@@ -98,12 +98,12 @@ is($stdout,'t',"Check: stddev_exec_time should not be 0.");
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.cpu_user_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: cpu_user_time should not be 0.");
- 
+
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.cpu_sys_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: cpu_sys_time should not be 0.");
 
-# Compare values for query 'INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)' 
+# Compare values for query 'INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.total_exec_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: total_exec_time should not be 0.");
@@ -127,12 +127,12 @@ is($stdout,'t',"Check: stddev_exec_time should not be 0.");
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.cpu_user_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: cpu_user_time should not be 0.");
- 
+
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.cpu_sys_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: cpu_sys_time should not be 0.");
 
-# Compare values for query 'SELECT abalance FROM pgbench_accounts WHERE aid = $1' 
+# Compare values for query 'SELECT abalance FROM pgbench_accounts WHERE aid = $1'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.total_exec_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: total_exec_time should not be 0.");
@@ -156,12 +156,12 @@ is($stdout,'t',"Check: stddev_exec_time should not be 0.");
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.cpu_user_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: cpu_user_time should not be 0.");
- 
+
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.cpu_sys_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: cpu_sys_time should not be 0.");
 
-# Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2' 
+# Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.total_exec_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts SET abalance%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: total_exec_time should not be 0.");
@@ -185,7 +185,7 @@ is($stdout,'t',"Check: stddev_exec_time should not be 0.");
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.cpu_user_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts SET abalance%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: cpu_user_time should not be 0.");
- 
+
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT SUM(PGSM.cpu_sys_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts SET abalance%\' GROUP BY query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: cpu_sys_time should not be 0.");

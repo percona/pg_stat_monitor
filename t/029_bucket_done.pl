@@ -34,7 +34,7 @@ my ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'CREATE EXTENSION pg_st
 ok($cmdret == 0, "Create PGSM EXTENSION");
 PGSM::append_to_debug_file($stdout);
 
-# Run 'SELECT pg_stat_monitor settings' and dump output to out file 
+# Run 'SELECT pg_stat_monitor settings' and dump output to out file
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name LIKE '%pg_stat_monitor%';", extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_debug_file($stdout);

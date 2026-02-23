@@ -43,18 +43,18 @@ If the bug hasn’t been reported / addressed, or we’ve agreed on the enhancem
 3. Create a separate branch for your changes. If you work on a Jira issue, please include the issue number in the branch name so it reads as `<JIRAISSUE>-my_branch`. This makes it easier to track your contribution.
 4. Make your changes. Please follow the guidelines outlined in the [PostgreSQL Coding Standard](https://www.postgresql.org/docs/current/source.html) to improve code readability.
    <details>
-    <summary>.vimrc configuration example</summary> 
+    <summary>.vimrc configuration example</summary>
 
     ```
     set nocompatible                " choose no compatibility with legacy vi
-    syntax enableset 
-    tabstop=4set 
-    background=lightset 
-    textwidth=80set 
+    syntax enableset
+    tabstop=4set
+    background=lightset
+    textwidth=80set
     colorcolumn=80
     let g:filestyle_ignore_patterns = ['^\t* \{1,3}\S']
     highlight Normal ctermbg=15
-    highlight ColorColumn ctermbg=52 
+    highlight ColorColumn ctermbg=52
     ```
   </details>
 
@@ -86,7 +86,7 @@ To build `pg_stat_monitor` from source code, you require the following:
 Refer to the [Building from source code](https://github.com/percona/pg_stat_monitor#installing-from-source-code) section for guidelines.
 
 
-### Running tests 
+### Running tests
 
 When you work, you should periodically run tests to check that your changes don’t break existing code.
 
@@ -104,14 +104,14 @@ You can find the tests in the `regression` directory.
         ```sh
         make installcheck
         ```
-        
+
 
     2. If you installed PostgreSQL server  from Percona Distribution for PostgreSQL, use the following command:
 
         ```sh
         sudo su postgres bash -c 'make installcheck USE_PGXS=1'
         ```
-#### Run automatically       
+#### Run automatically
 
 The tests are run automatically with GitHub actions once you commit and push your changes. Make sure all tests are successfully passed before you proceed.
 
