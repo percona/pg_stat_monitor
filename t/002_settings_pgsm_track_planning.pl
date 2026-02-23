@@ -93,7 +93,7 @@ is($stdout,'t',"Compare: (round(total_plan_time::numeric,3) = round(min_plan_tim
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT substr(query, 0,100) AS query, calls, total_plan_time, min_plan_time,max_plan_time,mean_plan_time,stddev_plan_time FROM pg_stat_monitor ORDER BY query;', extra_params => ['-a','-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_file($stdout);
 
-# Disable pgsm_track_planning 
+# Disable pgsm_track_planning
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track_planning = 'no'\n");
 $node->restart();
 

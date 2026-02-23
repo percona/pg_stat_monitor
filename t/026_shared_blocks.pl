@@ -29,7 +29,7 @@ $node->append_conf('postgresql.conf', "pg_stat_statements.track_utility = off");
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_bucket_time = 360000");
 $node->append_conf('postgresql.conf', "track_io_timing = on");
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track_utility = no");
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_normalized_query = yes"); 
+$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_normalized_query = yes");
 
 # Start server
 my $rt_value = $node->start;
@@ -140,7 +140,7 @@ is($stdout,'t',"Check: shared_blks_written should not be 0.");
 trim($stdout);
 is($stdout,'t',"Check: ${col_shared_blk_write_time} should not be 0.");
 
-# Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2' 
+# Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres','SELECT SUM(PGSM.shared_blks_hit) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%UPDATE pgbench_accounts SET abalance%\' GROUP BY PGSM.query;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 trim($stdout);
 is($stdout,'t',"Check: shared_blks_hit should not be 0.");

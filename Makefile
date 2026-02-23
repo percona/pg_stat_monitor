@@ -6,7 +6,7 @@ DATA = pg_stat_monitor--2.0.sql pg_stat_monitor--1.0--2.0.sql pg_stat_monitor--2
 
 PGFILEDESC = "pg_stat_monitor - execution statistics of SQL statements"
 
-LDFLAGS_SL += $(filter -lm, $(LIBS)) 
+LDFLAGS_SL += $(filter -lm, $(LIBS))
 
 TAP_TESTS = 1
 REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/pg_stat_monitor/pg_stat_monitor.conf --inputdir=regression

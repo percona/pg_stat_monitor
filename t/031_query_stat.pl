@@ -19,7 +19,7 @@ my $pgdata = $node->data_dir;
 # UPDATE postgresql.conf to include/load pg_stat_monitor library
 open my $conf, '>>', "$pgdata/postgresql.conf";
 print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
-print $conf "pg_stat_monitor.pgsm_bucket_time = 2147483647\n"; # Max value for this parameter 
+print $conf "pg_stat_monitor.pgsm_bucket_time = 2147483647\n"; # Max value for this parameter
 print $conf "pg_stat_monitor.pgsm_max_buckets = 20000\n"; # Max value for this parameter
 close $conf;
 

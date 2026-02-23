@@ -42,7 +42,7 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT rows                int8,
 
 	OUT plans          	 	int8,  -- 23
-   
+
     OUT total_plan_time     float8,
     OUT min_plan_time       float8,
     OUT max_plan_time       float8,

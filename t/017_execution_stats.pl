@@ -99,7 +99,7 @@ is($stdout,'t',"Compare: (round(${col_total_time}::numeric,3) = round(${col_min_
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT substr(query, 0,100) AS query, calls, ${col_total_time}, ${col_min_time},${col_max_time},${col_mean_time},${col_stddev_time} FROM pg_stat_monitor ORDER BY query;", extra_params => ['-a','-Pformat=aligned','-Ptuples_only=off']);
 PGSM::append_to_debug_file($stdout);
 
-# Dump output to out file 
+# Dump output to out file
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT pg_stat_monitor_reset();', extra_params => ['-a', '-Pformat=aligned','-Ptuples_only=off']);
 ok($cmdret == 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);

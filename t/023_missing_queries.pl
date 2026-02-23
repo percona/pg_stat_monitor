@@ -4,7 +4,7 @@
 #
 # Before the fix, there were scenarios in which pg_stat_monitor could lose
 # queries (thus wrong call count/stats) when transitioning to a new bucket.
-# 
+#
 # The problem before the fix is DESCribed below:
 # 1. Say current active bucket number is 1.
 # 2. QueryID XYZ has call count (calls) = 4.
@@ -12,7 +12,7 @@
 # 4. Bucket 1 timer expires, pg_stat_monitor moves to bucket 2.
 # 5. pg_stat_monitor moves only the pending QueryID XYZ to bucket 2.
 # 6. Remove QueryID XYZ FROM bucket 1 (all stats, calls=4, etc..).
-# 
+#
 # Since only the pending QueryID XYZ was moved to bucket 2, all
 # previous statistics for the same QueryID would have been incorrectly
 # removed FROM the previous bucket (1).
@@ -28,7 +28,7 @@
 # first bucket, then the last query starts in the same bucket but is finished
 # in the next bucket.
 # We expect a total query count of 3 for this query, and it must exist in two
-# buckets. 
+# buckets.
 
 use strict;
 use warnings;

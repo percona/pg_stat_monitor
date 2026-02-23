@@ -21,7 +21,7 @@ open my $conf, '>>', "$pgdata/postgresql.conf";
 print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
 print $conf "pg_stat_monitor.pgsm_enable_overflow = false\n";
 print $conf "pg_stat_monitor.pgsm_bucket_time = 1\n";
-print $conf "pg_stat_monitor.pgsm_max_buckets = 2\n"; 
+print $conf "pg_stat_monitor.pgsm_max_buckets = 2\n";
 print $conf "pg_stat_monitor.pgsm_max = 1\n";
 print $conf "pg_stat_monitor.pgsm_query_shared_buffer = 1\n";
 close $conf;

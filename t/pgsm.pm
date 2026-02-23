@@ -25,7 +25,7 @@ our $out_filename_with_path;
 our $debug_out_filename_with_path;
 
 BEGIN {
-    # Get PG Server Major version from pg_config 
+    # Get PG Server Major version from pg_config
     $PG_MAJOR_VERSION = `pg_config --version | awk {'print \$2'} | cut -f1 -d"." | sed -e 's/[^0-9].*\$//g'`;
     $PG_MAJOR_VERSION =~ s/^\s+|\s+$//g;
 
