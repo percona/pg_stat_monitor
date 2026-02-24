@@ -693,7 +693,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true, queryDesc->operation);
 		if (!entry)
 		{
-			elog(DEBUG2, "[pg_stat_monitor] pgsm_ExecutorEnd: Failed to find entry for [%lld] %s.", queryId, queryDesc->sourceText);
+			elog(DEBUG2, "[pg_stat_monitor] pgsm_ExecutorEnd: Failed to find entry for [" INT64_FORMAT "] %s.", queryId, queryDesc->sourceText);
 			return;
 		}
 
