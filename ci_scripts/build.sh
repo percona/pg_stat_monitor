@@ -5,8 +5,6 @@ set -e
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
 CFLAGS=-Werror
 
-sudo pg_config 
-
 cd "$SCRIPT_DIR/.."
 
 case "$1" in
@@ -32,4 +30,4 @@ case "$1" in
 esac
 
 export CFLAGS
-sudo make USE_PGXS=1 install -j
+sudo -E make USE_PGXS=1 install -j
