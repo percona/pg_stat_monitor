@@ -5,7 +5,6 @@ set -e
 ARGS=
 
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
-INSTALL_DIR="$SCRIPT_DIR/../../pginst"
 PSP_DIR="$SCRIPT_DIR/../../postgres"
 
 INSTALL_INJECTION_POINTS=0
@@ -52,7 +51,6 @@ fi
 cd "$PSP_DIR"
 
 ./configure \
-   --prefix="$INSTALL_DIR" \
    --enable-debug \
    --enable-tap-tests \
    $ARGS
