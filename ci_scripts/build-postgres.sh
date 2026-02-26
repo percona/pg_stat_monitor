@@ -50,4 +50,4 @@ cd "$PSP_DIR"
    --enable-tap-tests \
    $ARGS
 
-sudo make install-world -s -j $NCPU
+sudo make install-world -j $NCPU
