@@ -30,4 +30,4 @@ case "$1" in
 esac
 
 export CFLAGS
-sudo -E make USE_PGXS=1 install -j
+sudo env "PATH=$PATH" make USE_PGXS=1 install -j
