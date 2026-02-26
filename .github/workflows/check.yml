@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Remove existing PostgreSQL
-        run: sudo apt purge postgresql*
+        run: sudo apt purge postgresql* libpq*
 
       - name: debug
         run: |
