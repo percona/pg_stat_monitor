@@ -55,7 +55,7 @@ cd "$PSP_DIR"
    --enable-tap-tests \
    $ARGS
 
-make install-world -s -j $NCPU
+sudo make install-world -s -j $NCPU
 
 if [ "$INSTALL_INJECTION_POINTS" = 1 ]; then
     # Injection points extension is not built by default
