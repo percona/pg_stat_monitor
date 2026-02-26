@@ -1,0 +1,75 @@
+name: Code coverage
+on:
+  #pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  pg_version: 18
+  pg_package: pgdg
+  # Avoid failures on slow recovery
+  PGCTLTIMEOUT: 120
+  PG_TEST_TIMEOUT_DEFAULT: 300
+
+jobs:
+  collect:
+    name: Collect and upload
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Remove existing PostgreSQL
+        run: sudo apt purge postgresql*
+
+      - name: Clone repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          ref: ${{ github.ref }}
+
+      - name: Install dependencies
+        run: ci_scripts/ubuntu-deps.sh
+
+      - name: Install PostgreSQL
+        run: ci_scripts/install-postgresql.sh ${{ env.pg_package }} ${{ env.pg_version }}
+
+      - name: Build pg_stat_monitor
+        run: ci_scripts/build.sh debug
+
+      - name: Set permissions
+        run: sudo chown -R runner:runner /var/run/postgresql
+
+      - name: Stop existing PostgreSQL instances
+        run: sudo service postgresql stop
+
+      - name: Run tests
+        run: ci_scripts/test.sh
+
+      - name: Collect coverage data
+        run: find . -type f -name '*.c' | xargs -t gcov -abcfu
+
+      - name: Upload coverage data to codecov.io
+        uses: codecov/codecov-action@v5
+        with:
+          verbose: true
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: "*.c.gcov"
+
+      - name: Report on test fail
+        uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        with:
+          name: coverage-testlog
+          path: |
+            regression_install
+            regression_install.log
+            regression.diffs
+            regression.out
+            results
+            t/results
+            tmp_check
+          retention-days: 3

@@ -1,84 +1,56 @@
-name: Checks
+name: Check
 on:
   pull_request:
 
+env:
+  pg_version: 18
+  pg_package: pgdg
+
 jobs:
-  cppcheck:
-    name: Cppcheck
-    runs-on: ubuntu-22.04
-    timeout-minutes: 5
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v6
-        with:
-          path: src/pg_stat_monitor
-
-      - name: Checkout cppcheck sources
-        uses: actions/checkout@v6
-        with:
-          repository: "danmar/cppcheck"
-          ref: "2.13.4"
-          path: src/cppcheck
-
-      - name: Build and install cppcheck
-        working-directory: src/cppcheck
-        run: |
-          mkdir build
-          cd build
-          cmake ..
-          cmake --build .
-          sudo cmake --install .
-
-      - name: Execute linter check with cppcheck
-        working-directory: src/pg_stat_monitor
-        run: |
-          set -x
-          cppcheck --enable=all --inline-suppr --template='{file}:{line},{severity},{id},{message}' --error-exitcode=1 --suppress=missingIncludeSystem --suppress=unmatchedSuppression:pg_stat_monitor.c --check-config .
-
   format:
     name: Format
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
-
     steps:
+      - name: Remove existing PostgreSQL
+        run: sudo apt purge postgresql* libpq*
+
+      - name: Clone repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          path: src
+          ref: ${{ github.ref }}
+
       - name: Clone postgres repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
         with:
-          repository: 'postgres/postgres'
-          ref: 'REL_17_STABLE'
+          path: postgres
+          repository: percona/postgres.git
+          ref: PSP_REL_${{ env.pg_version }}_STABLE
 
-      - name: Checkout sources
-        uses: actions/checkout@v6
-        with:
-          path: 'contrib/pg_stat_monitor'
+      - name: Install dependencies
+        run: src/ci_scripts/ubuntu-deps.sh dev
 
-      - name: Configure postgres
-        run: ./configure
+      - name: Build and install PostgreSQL
+        run: src/ci_scripts/build-postgres.sh debug
 
-      - name: Install perltidy
-        run: sudo cpan -T SHANCOCK/Perl-Tidy-20230309.tar.gz
-
-      - name: Install pg_bsd_indent
-        working-directory: src/tools/pg_bsd_indent
-        run: sudo make install
-
-      - name: Add pg_bsd_indent and pgindent to path
+      - name: Debug PostgreSQL path
         run: |
-          echo "/usr/local/pgsql/bin" >> $GITHUB_PATH
-          echo "${{ github.workspace }}/src/tools/pgindent" >> $GITHUB_PATH
+          /usr/local/pgsql/bin/pg_config
+          pg_config
 
-      - name: Format sources
-        working-directory: contrib/pg_stat_monitor
-        run: |
-          make update-typedefs
-          make indent
+      - name: Build pg_stat_monitor
+        run: src/ci_scripts/build.sh debug
 
-      - name: Check files are formatted and no source code changes
-        working-directory: contrib/pg_stat_monitor
-        run: |
-          git status
-          git diff --exit-code
+      - name: Update typedefs
+        run: src/ci_scripts/dump-typedefs.sh
+
+      - name: Run pgindent
+        run: src/ci_scripts/run-pgindent.sh --check --diff
+
+      - name: Run pgperltidy
+        run: src/ci_scripts/run-pgperltidy.sh --assert-tidy --standard-error-output
 
   license:
     name: License
