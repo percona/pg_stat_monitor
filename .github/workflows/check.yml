@@ -34,6 +34,16 @@ jobs:
 
       - name: Build and install PostgreSQL
         run: src/ci_scripts/build-postgres.sh debug
+      - name: debug
+        run: |
+          ls -la /usr/lib/postgresql
+          ls -la /usr/lib/postgresql/18
+          ls -la /usr/lib/postgresql/18/lib
+          ls -la /usr/lib/postgresql/18/lib/pgxs
+          ls -la /usr/lib/postgresql/18/lib/pgxs/src
+          ls -la /usr/lib/postgresql/18/lib/pgxs/src/makefiles
+
+          pg_config
 
       - name: Build pg_stat_monitor
         run: src/ci_scripts/build.sh debug
