@@ -5,7 +5,7 @@ set -e
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
 CFLAGS=-Werror
 
-pg_config 
+sudo pg_config 
 
 cd "$SCRIPT_DIR/.."
 
