@@ -51,4 +51,4 @@ cd "$PSP_DIR"
    $ARGS
 
 sudo make install-world -j $NCPU
-echo /usr/local/pgsql/bin >> $GITHUB_PATH
+echo "/usr/local/pgsql/bin" >> $GITHUB_PATH

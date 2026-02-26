@@ -29,5 +29,8 @@ case "$1" in
         ;;
 esac
 
+echo $GITHUB_PATH
+
+
 export CFLAGS
 sudo make USE_PGXS=1 install -j
