@@ -35,6 +35,9 @@ jobs:
       - name: Build and install PostgreSQL
         run: src/ci_scripts/build-postgres.sh debug
 
+      - name: Debug PostgreSQL path
+        run: echo $GITHUB_PATH
+
       - name: Build pg_stat_monitor
         run: src/ci_scripts/build.sh debug
 
