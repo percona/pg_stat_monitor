@@ -38,6 +38,8 @@ jobs:
         run: |
           pg_config
 
+          wheris postgres
+
           sudo ls -la /usr/lib/postgresql
           sudo ls -la /usr/lib/postgresql/18
           sudo ls -la /usr/lib/postgresql/18/lib
