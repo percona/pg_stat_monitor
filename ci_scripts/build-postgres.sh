@@ -7,26 +7,21 @@ ARGS=
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
 PSP_DIR="$SCRIPT_DIR/../../postgres"
 
-INSTALL_INJECTION_POINTS=0
-
 case "$1" in
     debug)
         echo "Building with debug option"
         ARGS+=" --enable-cassert --enable-injection-points"
-        INSTALL_INJECTION_POINTS=1
         ;;
 
     debugoptimized)
         echo "Building with debugoptimized option"
         export CFLAGS="-O2"
         ARGS+=" --enable-cassert --enable-injection-points"
-        INSTALL_INJECTION_POINTS=1
         ;;
 
     coverage)
         echo "Building with coverage option"
         ARGS+=" --enable-cassert --enable-injection-points --enable-coverage"
-        INSTALL_INJECTION_POINTS=1
         ;;
 
     sanitize)
@@ -56,8 +51,3 @@ cd "$PSP_DIR"
    $ARGS
 
 sudo make install-world -s -j $NCPU
-
-if [ "$INSTALL_INJECTION_POINTS" = 1 ]; then
-    # Injection points extension is not built by default
-    make install -j -s -C src/test/modules/injection_points
-fi
