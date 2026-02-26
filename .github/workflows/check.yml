@@ -38,7 +38,7 @@ jobs:
         run: |
           pg_config
 
-          wheris postgres
+          whereis postgres
 
           sudo ls -la /usr/lib/postgresql
           sudo ls -la /usr/lib/postgresql/18
