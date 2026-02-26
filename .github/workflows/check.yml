@@ -36,7 +36,7 @@ jobs:
         run: src/ci_scripts/build-postgres.sh debug
 
       - name: Debug PostgreSQL path
-        run: cat $GITHUB_PATH
+        run: /usr/local/pgsql/bin/pg_config
 
       - name: Build pg_stat_monitor
         run: src/ci_scripts/build.sh debug
