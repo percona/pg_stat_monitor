@@ -38,12 +38,12 @@ jobs:
         run: |
           pg_config
 
-          ls -la /usr/lib/postgresql
-          ls -la /usr/lib/postgresql/18
-          ls -la /usr/lib/postgresql/18/lib
-          ls -la /usr/lib/postgresql/18/lib/pgxs
-          ls -la /usr/lib/postgresql/18/lib/pgxs/src
-          ls -la /usr/lib/postgresql/18/lib/pgxs/src/makefiles
+          sudo ls -la /usr/lib/postgresql
+          sudo ls -la /usr/lib/postgresql/18
+          sudo ls -la /usr/lib/postgresql/18/lib
+          sudo ls -la /usr/lib/postgresql/18/lib/pgxs
+          sudo ls -la /usr/lib/postgresql/18/lib/pgxs/src
+          sudo ls -la /usr/lib/postgresql/18/lib/pgxs/src/makefiles
 
 
       - name: Build pg_stat_monitor
