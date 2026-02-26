@@ -5,6 +5,8 @@ set -e
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
 CFLAGS=-Werror
 
+pg_config 
+
 cd "$SCRIPT_DIR/.."
 
 case "$1" in
@@ -28,9 +30,6 @@ case "$1" in
         exit 1
         ;;
 esac
-
-echo $GITHUB_PATH
-
 
 export CFLAGS
 sudo make USE_PGXS=1 install -j
