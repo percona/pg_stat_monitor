@@ -67,7 +67,7 @@ jobs:
         run: docker exec pdpgsql_pmm_${{ matrix.postgresql }}_1 cat /var/log/pmm-agent.log > ./pmm-ui-tests/tests/output/pmm-agent.log
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: tests-artifact
