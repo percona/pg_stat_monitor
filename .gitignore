@@ -62,7 +62,7 @@ dkms.conf
 .vscode/*
 
 # tools files
-typedefs-full.list
+typedefs*.list
 
 # test files
 results/
