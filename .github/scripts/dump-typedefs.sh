@@ -10,7 +10,7 @@ if ! test -f pg_stat_monitor.so; then
   exit 1
 fi
 
-../postgres/src/tools/find_typedef . >> typedefs.list
+../postgres/src/tools/find_typedef . > typedefs.list
 
 # Fetches typedefs list for PostgreSQL core and merges it with typedefs defined in this project.
 # https://wiki.postgresql.org/wiki/Running_pgindent_on_non-core_code_or_development_code
