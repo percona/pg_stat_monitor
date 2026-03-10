@@ -31,7 +31,8 @@ REGRESS = basic \
 	user \
 	level_tracking \
 	decode_error_level \
-	parallel
+	parallel \
+	histogram
 
 # Disabled because these tests require "shared_preload_libraries=pg_stat_statements",
 # which typical installcheck users do not have (e.g. buildfarm clients).
