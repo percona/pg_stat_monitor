@@ -37,3 +37,4 @@ SELECT query,
 (1 row)
 
 DROP TABLE pgsm_parallel_tab;
+DROP EXTENSION pg_stat_monitor;

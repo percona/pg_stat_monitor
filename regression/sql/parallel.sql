@@ -30,3 +30,4 @@ SELECT query,
   ORDER BY query COLLATE "C";
 
 DROP TABLE pgsm_parallel_tab;
+DROP EXTENSION pg_stat_monitor;
