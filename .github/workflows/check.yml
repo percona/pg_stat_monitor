@@ -43,8 +43,8 @@ jobs:
       - name: Run pgindent
         run: src/.github/scripts/run-pgindent.sh --check --diff
 
-      # - name: Run pgperltidy
-      #   run: src/.github/scripts/run-pgperltidy.sh --assert-tidy --standard-error-output
+      - name: Run pgperltidy
+        run: src/.github/scripts/run-pgperltidy.sh --assert-tidy --standard-error-output
 
   license:
     name: License
