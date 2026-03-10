@@ -62,4 +62,4 @@ dkms.conf
 .vscode/*
 
 # tools files
-typedefs-full.list
+typedefs*.list
