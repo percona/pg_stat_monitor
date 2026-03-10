@@ -352,7 +352,7 @@ typedef enum
 	PSGM_TRACK_NONE = 0,		/* track no statements */
 	PGSM_TRACK_TOP,				/* only top level statements */
 	PGSM_TRACK_ALL				/* all statements, including nested ones */
-} PGSMTrackLevel;
+}			PGSMTrackLevel;
 static const struct config_enum_entry track_options[] =
 {
 	{"none", PSGM_TRACK_NONE, false},
@@ -366,7 +366,7 @@ typedef enum
 	HISTOGRAM_START,
 	HISTOGRAM_END,
 	HISTOGRAM_COUNT
-} HistogramTimingType;
+}			HistogramTimingType;
 
 extern int	pgsm_max;
 extern int	pgsm_query_max_len;
