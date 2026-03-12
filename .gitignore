@@ -63,3 +63,8 @@ dkms.conf
 
 # tools files
 typedefs-full.list
+
+# test files
+results/
+t/results/
+tmp_check/
