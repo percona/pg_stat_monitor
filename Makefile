@@ -35,6 +35,7 @@ REGRESS = basic \
 	decode_error_level \
 	parallel
 
+EXTRA_INSTALL = contrib/pg_stat_statements
 
 ifdef USE_PGXS
 PG_CONFIG ?= pg_config
