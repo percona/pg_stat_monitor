@@ -1614,6 +1614,7 @@ pgsm_delete_entry(uint64 queryid)
 		pfree(entry->query_text.query_pointer);
 		entry->query_text.query_pointer = NULL;
 		lentries = list_delete_last(lentries);
+		pfree(entry);
 		return;
 	}
 
@@ -1631,6 +1632,7 @@ pgsm_delete_entry(uint64 queryid)
 			pfree(entry->query_text.query_pointer);
 			entry->query_text.query_pointer = NULL;
 			lentries = list_delete_cell(lentries, lc);
+			pfree(entry);
 			return;
 		}
 	}
