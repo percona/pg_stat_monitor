@@ -202,17 +202,8 @@ static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
 static void pgsm_delete_entry(uint64 queryid);
 static pgsmEntry *pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
-
-static void pgsm_cleanup_callback(void *arg);
+static void pgsm_cleanup_memory(void);
 static void pgsm_store_error(const char *query, ErrorData *edata);
-
-/*---- Local variables ----*/
-static MemoryContextCallback mem_cxt_reset_callback =
-{
-	.func = pgsm_cleanup_callback,
-	.arg = NULL
-};
-static volatile bool callback_setup = false;
 
 static void pgsm_update_entry(pgsmEntry *entry,
 							  const char *query,
@@ -388,19 +379,6 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	/* Safety check... */
 	if (!IsSystemInitialized())
 		return;
-
-	if (callback_setup == false)
-	{
-		/*
-		 * If MessageContext is valid setup a callback to cleanup our local
-		 * stats list when the MessagContext gets reset
-		 */
-		if (MemoryContextIsValid(MessageContext))
-		{
-			MemoryContextRegisterResetCallback(MessageContext, &mem_cxt_reset_callback);
-			callback_setup = true;
-		}
-	}
 
 	if (!pgsm_enabled(nesting_level))
 		return;
@@ -757,6 +735,15 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	pgsm_delete_entry(queryDesc->plannedstmt->queryId);
 
 	num_relations = 0;
+
+#if PG_VERSION_NUM >= 170000
+	if (nesting_level == 0)
+#else
+	if ((nesting_level + plan_nested_level) == 0)
+#endif
+	{
+		pgsm_cleanup_memory();
+	}
 }
 
 static bool
@@ -1013,175 +1000,203 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 *
 	 * Likewise, we don't track execution of DEALLOCATE.
 	 */
-	if (enabled &&
-		!IsA(parsetree, ExecuteStmt) &&
-		!IsA(parsetree, PrepareStmt) &&
-		!IsA(parsetree, DeallocateStmt))
+	PG_TRY();
 	{
-		pgsmEntry  *entry;
-		char	   *query_text;
-		int			location;
-		int			query_len;
-		instr_time	start;
-		instr_time	duration;
-		uint64		rows;
-		SysInfo		sys_info;
-		BufferUsage bufusage;
-		BufferUsage bufusage_start = pgBufferUsage;
-		WalUsage	walusage;
-		WalUsage	walusage_start = pgWalUsage;
-
-		if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
-			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
-
-		INSTR_TIME_SET_CURRENT(start);
-		nesting_level++;
-
-		PG_TRY();
-		{
-			if (prev_ProcessUtility)
-				prev_ProcessUtility(pstmt, queryString,
-									readOnlyTree,
-									context, params, queryEnv,
-									dest,
-									qc);
-			else
-				standard_ProcessUtility(pstmt, queryString,
-										readOnlyTree,
-										context, params, queryEnv,
-										dest,
-										qc);
-			nesting_level--;
-		}
-		PG_CATCH();
-		{
-			nesting_level--;
-			PG_RE_THROW();
-		}
-
-		sys_info.utime = 0;
-		sys_info.stime = 0;
-
-		PG_END_TRY();
-
-		if (getrusage(RUSAGE_SELF, &rusage_end) != 0)
-			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
-		else
-		{
-			sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
-			sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
-		}
-
-		INSTR_TIME_SET_CURRENT(duration);
-		INSTR_TIME_SUBTRACT(duration, start);
-
-		rows = (qc && (qc->commandTag == CMDTAG_COPY ||
-					   qc->commandTag == CMDTAG_FETCH ||
-					   qc->commandTag == CMDTAG_SELECT ||
-					   qc->commandTag == CMDTAG_REFRESH_MATERIALIZED_VIEW))
-			? qc->nprocessed
-			: 0;
-
-		/* calc differences of WAL counters. */
-		memset(&walusage, 0, sizeof(WalUsage));
-		WalUsageAccumDiff(&walusage, &pgWalUsage, &walusage_start);
-
-		/* calc differences of buffer counters. */
-		memset(&bufusage, 0, sizeof(BufferUsage));
-		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
-
-		/* Create an entry for this query */
-		entry = pgsm_create_hash_entry(0, queryId, NULL);
-
-		location = pstmt->stmt_location;
-		query_len = pstmt->stmt_len;
-		query_text = (char *) CleanQuerytext(queryString, &location, &query_len);
-
-		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
-		entry->counters.info.cmd_type = pstmt->commandType;
-
-		pgsm_add_to_list(entry, query_text, query_len);
-
-		/* Check that we've not exceeded max_stack_depth */
-		Assert(list_length(lentries) <= max_stack_depth);
-
-		/* The plan details are captured when the query finishes */
-		pgsm_update_entry(entry,	/* entry */
-						  (char *) query_text,	/* query */
-						  NULL, /* comments */
-						  0,	/* comments length */
-						  NULL, /* PlanInfo */
-						  &sys_info,	/* SysInfo */
-						  NULL, /* ErrorInfo */
-						  0,	/* plan_total_time */
-						  INSTR_TIME_GET_MILLISEC(duration),	/* exec_total_time */
-						  rows, /* rows */
-						  &bufusage,	/* bufusage */
-						  &walusage,	/* walusage */
-						  NULL, /* jitusage */
-						  0,	/* parallel_workers_to_launch */
-						  0,	/* parallel_workers_launched */
-						  false,	/* reset */
-						  PGSM_EXEC);	/* kind */
-
-		pgsm_store(entry);
-	}
-	else
-	{
-		/*
-		 * Even though we're not tracking execution time for this statement,
-		 * we must still increment the nesting level, to ensure that functions
-		 * evaluated within it are not seen as top-level calls.  But don't do
-		 * so for EXECUTE; that way, when control reaches pgss_planner or
-		 * pgss_ExecutorStart, we will treat the costs as top-level if
-		 * appropriate.  Likewise, don't bump for PREPARE, so that parse
-		 * analysis will treat the statement as top-level if appropriate.
-		 *
-		 * Likewise, we don't track execution of DEALLOCATE.
-		 *
-		 * To be absolutely certain we don't mess up the nesting level,
-		 * evaluate the bump_level condition just once.
-		 */
-
-#if PG_VERSION_NUM >= 170000
-		bool		bump_level =
+		if (enabled &&
 			!IsA(parsetree, ExecuteStmt) &&
 			!IsA(parsetree, PrepareStmt) &&
-			!IsA(parsetree, DeallocateStmt);
+			!IsA(parsetree, DeallocateStmt))
+		{
+			pgsmEntry  *entry;
+			char	   *query_text;
+			int			location;
+			int			query_len;
+			instr_time	start;
+			instr_time	duration;
+			uint64		rows;
+			SysInfo		sys_info;
+			BufferUsage bufusage;
+			BufferUsage bufusage_start = pgBufferUsage;
+			WalUsage	walusage;
+			WalUsage	walusage_start = pgWalUsage;
 
-		if (bump_level)
+			if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
+				elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
+
+			INSTR_TIME_SET_CURRENT(start);
 			nesting_level++;
 
-		PG_TRY();
-		{
+#if PG_VERSION_NUM < 160000
+			PG_TRY();
+#else
+			PG_TRY(1);
 #endif
-			if (prev_ProcessUtility)
-				prev_ProcessUtility(pstmt, queryString,
-									readOnlyTree,
-									context, params, queryEnv,
-									dest,
-									qc);
-			else
-				standard_ProcessUtility(pstmt, queryString,
+			{
+				if (prev_ProcessUtility)
+					prev_ProcessUtility(pstmt, queryString,
 										readOnlyTree,
 										context, params, queryEnv,
 										dest,
 										qc);
+				else
+					standard_ProcessUtility(pstmt, queryString,
+											readOnlyTree,
+											context, params, queryEnv,
+											dest,
+											qc);
+				nesting_level--;
+			}
+#if PG_VERSION_NUM < 160000
+			PG_CATCH();
+#else
+			PG_CATCH(1);
+#endif
+			{
+				nesting_level--;
+				PG_RE_THROW();
+			}
+
+			sys_info.utime = 0;
+			sys_info.stime = 0;
+#if PG_VERSION_NUM < 160000
+			PG_END_TRY();
+#else
+			PG_END_TRY(1);
+#endif
+
+			if (getrusage(RUSAGE_SELF, &rusage_end) != 0)
+				elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
+			else
+			{
+				sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
+				sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
+			}
+
+			INSTR_TIME_SET_CURRENT(duration);
+			INSTR_TIME_SUBTRACT(duration, start);
+
+			rows = (qc && (qc->commandTag == CMDTAG_COPY ||
+						   qc->commandTag == CMDTAG_FETCH ||
+						   qc->commandTag == CMDTAG_SELECT ||
+						   qc->commandTag == CMDTAG_REFRESH_MATERIALIZED_VIEW))
+				? qc->nprocessed
+				: 0;
+
+			/* calc differences of WAL counters. */
+			memset(&walusage, 0, sizeof(WalUsage));
+			WalUsageAccumDiff(&walusage, &pgWalUsage, &walusage_start);
+
+			/* calc differences of buffer counters. */
+			memset(&bufusage, 0, sizeof(BufferUsage));
+			BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
+
+			/* Create an entry for this query */
+			entry = pgsm_create_hash_entry(0, queryId, NULL);
+
+			location = pstmt->stmt_location;
+			query_len = pstmt->stmt_len;
+			query_text = (char *) CleanQuerytext(queryString, &location, &query_len);
+
+			entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
+			entry->counters.info.cmd_type = pstmt->commandType;
+
+			pgsm_add_to_list(entry, query_text, query_len);
+
+			/* Check that we've not exceeded max_stack_depth */
+			Assert(list_length(lentries) <= max_stack_depth);
+
+			/* The plan details are captured when the query finishes */
+			pgsm_update_entry(entry,	/* entry */
+							  (char *) query_text,	/* query */
+							  NULL, /* comments */
+							  0,	/* comments length */
+							  NULL, /* PlanInfo */
+							  &sys_info,	/* SysInfo */
+							  NULL, /* ErrorInfo */
+							  0,	/* plan_total_time */
+							  INSTR_TIME_GET_MILLISEC(duration),	/* exec_total_time */
+							  rows, /* rows */
+							  &bufusage,	/* bufusage */
+							  &walusage,	/* walusage */
+							  NULL, /* jitusage */
+							  0,	/* parallel_workers_to_launch */
+							  0,	/* parallel_workers_launched */
+							  false,	/* reset */
+							  PGSM_EXEC);	/* kind */
+
+			pgsm_store(entry);
+		}
+		else
+		{
+			/*
+			 * Even though we're not tracking execution time for this
+			 * statement, we must still increment the nesting level, to ensure
+			 * that functions evaluated within it are not seen as top-level
+			 * calls.  But don't do so for EXECUTE; that way, when control
+			 * reaches pgss_planner or pgss_ExecutorStart, we will treat the
+			 * costs as top-level if appropriate.  Likewise, don't bump for
+			 * PREPARE, so that parse analysis will treat the statement as
+			 * top-level if appropriate.
+			 *
+			 *
+			 * Likewise, we don't track execution of DEALLOCATE.
+			 *
+			 * To be absolutely certain we don't mess up the nesting level,
+			 * evaluate the bump_level condition just once.
+			 */
 
 #if PG_VERSION_NUM >= 170000
+			bool		bump_level =
+				!IsA(parsetree, ExecuteStmt) &&
+				!IsA(parsetree, PrepareStmt) &&
+				!IsA(parsetree, DeallocateStmt);
+
 			if (bump_level)
-				nesting_level--;
-		}
-		PG_CATCH();
-		{
-			if (bump_level)
-				nesting_level--;
-			PG_RE_THROW();
-		}
-		PG_END_TRY();
+				nesting_level++;
+
+			PG_TRY(2);
+			{
 #endif
+				if (prev_ProcessUtility)
+					prev_ProcessUtility(pstmt, queryString,
+										readOnlyTree,
+										context, params, queryEnv,
+										dest,
+										qc);
+				else
+					standard_ProcessUtility(pstmt, queryString,
+											readOnlyTree,
+											context, params, queryEnv,
+											dest,
+											qc);
+
+#if PG_VERSION_NUM >= 170000
+				if (bump_level)
+					nesting_level--;
+			}
+			PG_CATCH(2);
+			{
+				if (bump_level)
+					nesting_level--;
+				PG_RE_THROW();
+			}
+			PG_END_TRY(2);
+#endif
+		}
+		pgsm_delete_entry(pstmt->queryId);
 	}
-	pgsm_delete_entry(pstmt->queryId);
+	PG_FINALLY();
+	{
+#if PG_VERSION_NUM >= 170000
+		if (nesting_level == 0)
+#else
+		if ((nesting_level + plan_nested_level) == 0)
+#endif
+		{
+			pgsm_cleanup_memory();
+		}
+	}
+	PG_END_TRY();
 }
 
 /*
@@ -1678,13 +1693,12 @@ pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_t
 }
 
 static void
-pgsm_cleanup_callback(void *arg)
+pgsm_cleanup_memory()
 {
 	/* Reset the memory context holding the list */
 	MemoryContextReset(GetPgsmMemoryContext());
 
 	lentries = NIL;
-	callback_setup = false;
 }
 
 /*
