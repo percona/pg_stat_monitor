@@ -19,7 +19,19 @@
 
 #include "pg_stat_monitor.h"
 
+typedef struct pgsmLocalState
+{
+	pgsmSharedState *shared_pgsmState;
+	dsa_area   *dsa;			/* local dsa area for backend attached to the
+								 * dsa area created by postmaster at startup. */
+	PGSM_HASH_TABLE *shared_hash;
+	MemoryContext pgsm_mem_cxt;
+
+} pgsmLocalState;
+
 static pgsmLocalState pgsmStateLocal;
+static void pgsm_attach_shmem(void);
+static void pgsm_shmem_shutdown(int code, Datum arg);
 static PGSM_HASH_TABLE_HANDLE pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa);
 static Size pgsm_get_shared_area_size(void);
 static void InitializeSharedState(pgsmSharedState *pgsm);
@@ -205,7 +217,7 @@ pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa)
  * different virtual address in this process.
  *
  */
-void
+static void
 pgsm_attach_shmem(void)
 {
 	MemoryContext oldcontext;
@@ -273,7 +285,7 @@ pgsm_get_ss(void)
  * Note: we don't bother with acquiring lock, because there should be no
  * other processes running when this is called.
  */
-void
+static void
 pgsm_shmem_shutdown(int code, Datum arg)
 {
 	/* Don't try to dump during a crash. */

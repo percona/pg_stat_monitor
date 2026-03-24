@@ -127,6 +127,7 @@ static int	app_name_len;
 /* Query buffer, store queries' text. */
 static char *pgsm_explain(QueryDesc *queryDesc);
 
+static void pgsm_shmem_startup(void);
 static void extract_query_comments(const char *query, char *comments, size_t max_len);
 static void set_histogram_bucket_timings(void);
 static void histogram_bucket_timings(int index, double *b_start, double *b_end);
@@ -331,7 +332,7 @@ _PG_init(void)
  * Also create and load the query-texts file, which is expected to exist
  * (even if empty) while the module is enabled.
  */
-void
+static void
 pgsm_shmem_startup(void)
 {
 	if (prev_shmem_startup_hook)
