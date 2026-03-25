@@ -39,15 +39,15 @@ SELECT username, query FROM pg_stat_monitor ORDER BY username, query COLLATE "C"
  su       | DROP OWNED BY u2
  su       | DROP USER u2
  su       | SELECT pg_stat_monitor_reset()
- su       | SET ROLE su
+ su       | SET ROLE u1
  u1       | CREATE TABLE t1 (a int)
  u1       | SELECT * FROM t1
  u1       | SELECT pg_stat_monitor_reset();
- u1       | SET ROLE u1
+ u1       | SET ROLE u2
  u2       | CREATE TABLE t2 (a int)
  u2       | DROP TABLE t2
  u2       | SELECT * FROM t2
- u2       | SET ROLE u2
+ u2       | SET ROLE su
 (12 rows)
 
 SELECT pg_stat_monitor_reset();
