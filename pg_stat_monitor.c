@@ -127,6 +127,7 @@ static int	app_name_len;
 /* Query buffer, store queries' text. */
 static char *pgsm_explain(QueryDesc *queryDesc);
 
+static void pgsm_shmem_startup(void);
 static void extract_query_comments(const char *query, char *comments, size_t max_len);
 static void set_histogram_bucket_timings(void);
 static void histogram_bucket_timings(int index, double *b_start, double *b_end);
@@ -197,7 +198,7 @@ DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryStri
 static int64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
 
-static pgsmEntry *pgsm_create_hash_entry(uint64 bucket_id, int64 queryid, PlanInfo *plan_info);
+static pgsmEntry *pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info);
 static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
 static void pgsm_delete_entry(uint64 queryid);
 static pgsmEntry *pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
@@ -331,7 +332,7 @@ _PG_init(void)
  * Also create and load the query-texts file, which is expected to exist
  * (even if empty) while the module is enabled.
  */
-void
+static void
 pgsm_shmem_startup(void)
 {
 	if (prev_shmem_startup_hook)
@@ -458,7 +459,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	 * bucket value. The correct bucket value will be needed then to search
 	 * the hash table, or create the appropriate entry.
 	 */
-	entry = pgsm_create_hash_entry(0, query->queryId, NULL);
+	entry = pgsm_create_hash_entry(query->queryId, NULL);
 
 	/*
 	 * Update other member that are not counters, so that we don't have to
@@ -1091,7 +1092,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
 
 		/* Create an entry for this query */
-		entry = pgsm_create_hash_entry(0, queryId, NULL);
+		entry = pgsm_create_hash_entry(queryId, NULL);
 
 		location = pstmt->stmt_location;
 		query_len = pstmt->stmt_len;
@@ -1572,7 +1573,7 @@ pgsm_store_error(const char *query, ErrorData *edata)
 
 	queryid = pgsm_hash_string(query, len);
 
-	entry = pgsm_create_hash_entry(0, queryid, NULL);
+	entry = pgsm_create_hash_entry(queryid, NULL);
 	entry->query_text.query_pointer = pnstrdup(query, len);
 
 	entry->pgsm_query_id = get_pgsm_query_id_hash(query, len);
@@ -1663,7 +1664,7 @@ pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_t
 		 * current bucket value. The correct bucket value will be needed then
 		 * to search the hash table, or create the appropriate entry.
 		 */
-		entry = pgsm_create_hash_entry(0, queryid, plan_info);
+		entry = pgsm_create_hash_entry(queryid, plan_info);
 
 		/*
 		 * Update other member that are not counters, so that we don't have to
@@ -1689,10 +1690,9 @@ pgsm_cleanup_callback(void *arg)
 
 /*
  * Function encapsulating some external calls for filling up the hash key data structure.
- * The bucket_id may not be known at this stage. So pass any value that you may wish.
  */
 static pgsmEntry *
-pgsm_create_hash_entry(uint64 bucket_id, int64 queryid, PlanInfo *plan_info)
+pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info)
 {
 	pgsmEntry  *entry;
 	int			sec_ctx;
@@ -1730,7 +1730,6 @@ pgsm_create_hash_entry(uint64 bucket_id, int64 queryid, PlanInfo *plan_info)
 	/* Set remaining data */
 	entry->key.dbid = MyDatabaseId;
 	entry->key.queryid = queryid;
-	entry->key.bucket_id = bucket_id;
 	entry->key.parentid = 0;
 
 #if PG_VERSION_NUM >= 170000

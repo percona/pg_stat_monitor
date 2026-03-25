@@ -310,40 +310,20 @@ typedef struct pgsmSharedState
 	TimestampTz bucket_start_time[];	/* start time of the bucket */
 } pgsmSharedState;
 
-typedef struct pgsmLocalState
-{
-	pgsmSharedState *shared_pgsmState;
-	dsa_area   *dsa;			/* local dsa area for backend attached to the
-								 * dsa area created by postmaster at startup. */
-	PGSM_HASH_TABLE *shared_hash;
-	MemoryContext pgsm_mem_cxt;
-
-} pgsmLocalState;
-
 /* guc.c */
 void		init_guc(void);
-
-/* hash_create.c */
-dsa_area   *get_dsa_area_for_query_text(void);
-PGSM_HASH_TABLE *get_pgsmHash(void);
-
-void		pgsm_attach_shmem(void);
-bool		IsHashInitialize(void);
-bool		IsSystemOOM(void);
-void		pgsm_shmem_startup(void);
-void		pgsm_shmem_shutdown(int code, Datum arg);
-pgsmSharedState *pgsm_get_ss(void);
-void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
-pgsmEntry  *hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding);
-Size		pgsm_ShmemSize(void);
-void		pgsm_startup(void);
 
 /* hash_query.c */
 void		pgsm_startup(void);
 MemoryContext GetPgsmMemoryContext(void);
-
-/* guc.c */
-void		init_guc(void);
+dsa_area   *get_dsa_area_for_query_text(void);
+PGSM_HASH_TABLE *get_pgsmHash(void);
+bool		IsHashInitialize(void);
+bool		IsSystemOOM(void);
+Size		pgsm_ShmemSize(void);
+pgsmSharedState *pgsm_get_ss(void);
+void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
+pgsmEntry  *hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding);
 
 /* GUC variables*/
 /*---- GUC variables ----*/
