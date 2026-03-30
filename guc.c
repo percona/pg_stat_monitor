@@ -33,12 +33,10 @@ bool		pgsm_track_utility;
 bool		pgsm_track_application_names;
 bool		pgsm_enable_pgsm_query_id;
 int			pgsm_track;
-static int	pgsm_overflow_target;	/* Not used since 2.0 */
 
 /* Check hooks to ensure histogram_min < histogram_max */
 static bool check_histogram_min(double *newval, void **extra, GucSource source);
 static bool check_histogram_max(double *newval, void **extra, GucSource source);
-static bool check_overflow_targer(int *newval, void **extra, GucSource source);
 
 /*
  * Define (or redefine) custom GUC variables.
@@ -159,22 +157,6 @@ init_guc(void)
 							NULL,	/* assign_hook */
 							NULL	/* show_hook */
 		);
-
-	/* deprecated in V 2.0 */
-	DefineCustomIntVariable("pg_stat_monitor.pgsm_overflow_target", /* name */
-							"Sets the overflow target for pg_stat_monitor. (Deprecated, use pgsm_enable_overflow)", /* short_desc */
-							NULL,	/* long_desc */
-							&pgsm_overflow_target,	/* value address */
-							1,	/* boot value */
-							0,	/* min value */
-							1,	/* max value */
-							PGC_POSTMASTER, /* context */
-							0,	/* flags */
-							check_overflow_targer,	/* check_hook */
-							NULL,	/* assign_hook */
-							NULL	/* show_hook */
-		);
-
 
 	DefineCustomBoolVariable("pg_stat_monitor.pgsm_track_utility",	/* name */
 							 "Selects whether utility commands are tracked.",	/* short_desc */
@@ -301,12 +283,4 @@ static bool
 check_histogram_max(double *newval, void **extra, GucSource source)
 {
 	return (*newval >= (pgsm_histogram_min + 1.0));
-}
-
-static bool
-check_overflow_targer(int *newval, void **extra, GucSource source)
-{
-	if (source != PGC_S_DEFAULT)
-		elog(WARNING, "pg_stat_monitor.pgsm_overflow_target is deprecated, use pgsm_enable_overflow");
-	return true;
 }
