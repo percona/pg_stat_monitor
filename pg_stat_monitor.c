@@ -1743,19 +1743,16 @@ pgsm_create_hash_entry(uint64 bucket_id, int64 queryid, PlanInfo *plan_info)
 	{
 		datname = get_database_name(entry->key.dbid);
 		username = GetUserNameFromId(entry->key.userid, true);
+
+		snprintf(entry->datname, sizeof(entry->datname), "%s", datname);
+		snprintf(entry->username, sizeof(entry->username), "%s", username);
+
+		if (datname)
+			pfree(datname);
+
+		if (username)
+			pfree(username);
 	}
-
-	if (!datname)
-		datname = pnstrdup("<database name not available>", sizeof(entry->datname) - 1);
-
-	if (!username)
-		username = pnstrdup("<user name not available>", sizeof(entry->username) - 1);
-
-	snprintf(entry->datname, sizeof(entry->datname), "%s", datname);
-	snprintf(entry->username, sizeof(entry->username), "%s", username);
-
-	pfree(datname);
-	pfree(username);
 
 	MemoryContextSwitchTo(oldctx);
 

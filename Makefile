@@ -29,6 +29,7 @@ REGRESS = basic \
 	squashing \
 	tags \
 	user \
+	rollback \
 	level_tracking \
 	decode_error_level \
 	parallel \
