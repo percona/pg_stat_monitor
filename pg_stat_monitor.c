@@ -1018,7 +1018,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		!IsA(parsetree, PrepareStmt) &&
 		!IsA(parsetree, DeallocateStmt))
 	{
-		pgsmEntry  *entry;
 		char	   *query_text;
 		int			location;
 		int			query_len;
@@ -1030,6 +1029,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		BufferUsage bufusage_start = pgBufferUsage;
 		WalUsage	walusage;
 		WalUsage	walusage_start = pgWalUsage;
+		pgsmEntry  *entry = pgsm_create_hash_entry(0, queryId, NULL);
 
 		if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
 			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
@@ -1089,9 +1089,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		/* calc differences of buffer counters. */
 		memset(&bufusage, 0, sizeof(BufferUsage));
 		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
-
-		/* Create an entry for this query */
-		entry = pgsm_create_hash_entry(0, queryId, NULL);
 
 		location = pstmt->stmt_location;
 		query_len = pstmt->stmt_len;
