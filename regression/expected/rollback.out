@@ -1,0 +1,72 @@
+CREATE EXTENSION pg_stat_monitor;
+CREATE USER u WITH SUPERUSER;
+SET ROLE u;
+CREATE TABLE t (a int PRIMARY KEY) ;
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+BEGIN;
+INSERT INTO t VALUES (1);
+COMMIT;
+SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
+             query              | username |      datname       
+--------------------------------+----------+--------------------
+ BEGIN                          | u        | contrib_regression
+ COMMIT                         | u        | contrib_regression
+ INSERT INTO t VALUES (1)       | u        | contrib_regression
+ SELECT pg_stat_monitor_reset() | u        | contrib_regression
+(4 rows)
+
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+-- During manual rollback we will be able to get username and datname of the query that was rolled back.
+BEGIN;
+INSERT INTO t VALUES (2);
+ROLLBACK;
+SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
+             query              | username |      datname       
+--------------------------------+----------+--------------------
+ BEGIN                          | u        | contrib_regression
+ INSERT INTO t VALUES (2)       | u        | contrib_regression
+ ROLLBACK                       | u        | contrib_regression
+ SELECT pg_stat_monitor_reset() | u        | contrib_regression
+(4 rows)
+
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+-- If transaction is rolled back due an error, we won't be able to get username and datname of the query that was rolled back.
+BEGIN;
+INSERT INTO t VALUES (1);
+ERROR:  duplicate key value violates unique constraint "t_pkey"
+DETAIL:  Key (a)=(1) already exists.
+ROLLBACK;
+SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
+             query              | username |      datname       
+--------------------------------+----------+--------------------
+ BEGIN                          | u        | contrib_regression
+ INSERT INTO t VALUES (1);      | u        | contrib_regression
+ ROLLBACK                       |          | 
+ SELECT pg_stat_monitor_reset() | u        | contrib_regression
+(4 rows)
+
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+DROP TABLE t;
+SET ROLE NONE;
+DROP USER u;
+DROP EXTENSION pg_stat_monitor;
