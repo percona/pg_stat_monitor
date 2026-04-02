@@ -68,7 +68,7 @@ init_guc(void)
 							1024,	/* min value */
 							INT_MAX,	/* max value */
 							PGC_POSTMASTER, /* context */
-							0,	/* flags */
+							GUC_UNIT_BYTE,	/* flags */
 							NULL,	/* check_hook */
 							NULL,	/* assign_hook */
 							NULL	/* show_hook */
