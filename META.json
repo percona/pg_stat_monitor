@@ -7,9 +7,7 @@
       "Artem Gavrilov <artem.gavrilov@percona.com>",
       "Percona PostgreSQL Team <postgresql@percona.com>"
    ],
-   "license": {
-      "PostgreSQL": "https://www.postgresql.org/about/licence"
-   },
+   "license": "postgresql",
    "provides": {
       "pg_stat_monitor": {
          "abstract": "PostgreSQL Query Performance Monitoring Tool",
@@ -36,7 +34,6 @@
         "type": "git"
       }
    },
-   "generated_by": "Artem Gavrilov",
    "meta-spec": {
       "version": "1.0.0",
       "url": "http://pgxn.org/meta/spec.txt"
