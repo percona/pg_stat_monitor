@@ -68,6 +68,6 @@ dkms.conf
 typedefs*.list
 
 # test files
-results/
-t/results/
-tmp_check/
+/results/
+/t/results/
+/tmp_check/
