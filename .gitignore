@@ -28,6 +28,9 @@
 *.so.*
 *.dylib
 
+# LLVM bitcode
+*.bc
+
 # Executables
 *.exe
 *.app
