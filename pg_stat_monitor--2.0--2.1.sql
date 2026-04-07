@@ -94,12 +94,16 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT bucket_done         BOOLEAN
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME', 'pg_stat_monitor_2_1'
-LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
+STRICT
+PARALLEL SAFE
+LANGUAGE c
+AS 'MODULE_PATHNAME', 'pg_stat_monitor_2_1';
 
 -- Register a view on the function for ease of use.
-CREATE FUNCTION pgsm_create_11_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_11_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -151,11 +155,12 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-
-CREATE FUNCTION pgsm_create_13_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_13_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -218,10 +223,12 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-CREATE FUNCTION pgsm_create_14_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_14_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -284,7 +291,7 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE FUNCTION pgsm_create_15_view() RETURNS INT AS
 $$
@@ -365,8 +372,10 @@ RETURN 0;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION pgsm_create_17_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_17_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -449,10 +458,12 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-CREATE FUNCTION pgsm_create_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
     DECLARE ver integer;
     BEGIN
         SELECT current_setting('server_version_num') INTO ver;
@@ -473,7 +484,7 @@ $$
     END IF;
     RETURN 0;
     END;
-$$ LANGUAGE plpgsql;
+$$;
 
 SELECT pgsm_create_view();
 REVOKE ALL ON FUNCTION pgsm_create_view FROM PUBLIC;

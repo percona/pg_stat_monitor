@@ -1,8 +1,11 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "ALTER EXTENSION pg_stat_monitor" to load this file. \quit
 
-CREATE OR REPLACE FUNCTION get_cmd_type (cmd_type INTEGER) RETURNS TEXT AS
-$$
+CREATE OR REPLACE FUNCTION get_cmd_type(cmd_type int)
+RETURNS text
+PARALLEL SAFE
+LANGUAGE sql
+AS $$
 SELECT
     CASE
         WHEN cmd_type = 0 THEN ''
@@ -16,12 +19,13 @@ SELECT
         WHEN cmd_type = 6 AND current_setting('server_version_num')::int < 150000 THEN 'NOTHING'
         WHEN cmd_type = 7 THEN 'NOTHING'
     END
-$$
-LANGUAGE SQL PARALLEL SAFE;
+$$;
 
 -- Create new function that handles error levels across PostgreSQL versions 12-17
 CREATE OR REPLACE FUNCTION decode_error_level(elevel int)
 RETURNS text
+PARALLEL SAFE
+LANGUAGE sql
 AS $$
 SELECT CASE
     WHEN elevel = 0 THEN ''
@@ -43,4 +47,4 @@ SELECT CASE
     WHEN elevel = 22 AND current_setting('server_version_num')::int >= 140000 THEN 'FATAL'
     WHEN elevel = 23 AND current_setting('server_version_num')::int >= 140000 THEN 'PANIC'
 END;
-$$ LANGUAGE SQL PARALLEL SAFE;
+$$;
