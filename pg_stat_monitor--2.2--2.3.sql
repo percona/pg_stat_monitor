@@ -95,11 +95,15 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT bucket_done         BOOLEAN
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME', 'pg_stat_monitor_2_3'
-LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
+STRICT
+PARALLEL SAFE
+LANGUAGE c
+AS 'MODULE_PATHNAME', 'pg_stat_monitor_2_3';
 
-CREATE FUNCTION pgsm_create_18_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_18_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -186,10 +190,12 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-CREATE OR REPLACE FUNCTION pgsm_create_view() RETURNS INT AS
-$$
+CREATE OR REPLACE FUNCTION pgsm_create_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
     DECLARE ver integer;
     BEGIN
         SELECT current_setting('server_version_num') INTO ver;
@@ -210,7 +216,7 @@ $$
     END IF;
     RETURN 0;
     END;
-$$ LANGUAGE plpgsql;
+$$;
 
 SELECT pgsm_create_view();
 REVOKE ALL ON FUNCTION pgsm_create_view FROM PUBLIC;

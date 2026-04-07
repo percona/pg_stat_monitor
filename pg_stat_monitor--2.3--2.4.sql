@@ -4,6 +4,8 @@
 -- Drop PostgreSQL 13 support from function
 CREATE OR REPLACE FUNCTION decode_error_level(elevel int)
 RETURNS text
+PARALLEL SAFE
+LANGUAGE sql
 AS $$
 SELECT CASE
     WHEN elevel = 0 THEN ''
@@ -22,13 +24,15 @@ SELECT CASE
     WHEN elevel = 22 THEN 'FATAL'
     WHEN elevel = 23 THEN 'PANIC'
 END;
-$$ LANGUAGE SQL PARALLEL SAFE;
+$$;
 
 DROP FUNCTION pgsm_create_13_view();
 DROP VIEW pg_stat_monitor;
 
-CREATE OR REPLACE FUNCTION pgsm_create_view() RETURNS INT AS
-$$
+CREATE OR REPLACE FUNCTION pgsm_create_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
     DECLARE ver integer;
     BEGIN
         SELECT current_setting('server_version_num') INTO ver;
@@ -46,7 +50,7 @@ $$
     END IF;
     RETURN 0;
     END;
-$$ LANGUAGE plpgsql;
+$$;
 
 SELECT pgsm_create_view();
 REVOKE ALL ON FUNCTION pgsm_create_view FROM PUBLIC;

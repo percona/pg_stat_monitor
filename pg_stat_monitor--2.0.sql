@@ -4,28 +4,36 @@
 -- Register functions.
 CREATE FUNCTION pg_stat_monitor_reset()
 RETURNS void
-AS 'MODULE_PATHNAME'
-LANGUAGE C PARALLEL SAFE;
+PARALLEL SAFE
+LANGUAGE c
+AS 'MODULE_PATHNAME';
 
 CREATE FUNCTION pg_stat_monitor_version()
 RETURNS text
-AS 'MODULE_PATHNAME'
-LANGUAGE C PARALLEL SAFE;
+PARALLEL SAFE
+LANGUAGE c
+AS 'MODULE_PATHNAME';
 
 CREATE FUNCTION get_histogram_timings()
 RETURNS text
-AS 'MODULE_PATHNAME'
-LANGUAGE C PARALLEL SAFE;
+PARALLEL SAFE
+LANGUAGE c
+AS 'MODULE_PATHNAME';
 
 CREATE FUNCTION range()
-RETURNS text[] AS $$
+RETURNS text[]
+LANGUAGE sql
+AS $$
 SELECT string_to_array(get_histogram_timings(), ','); 
-$$ LANGUAGE SQL;
+$$;
 
 -- Some generic utility function used internally.
 
-CREATE FUNCTION get_cmd_type (cmd_type INTEGER) RETURNS TEXT AS
-$$
+CREATE FUNCTION get_cmd_type(cmd_type int)
+RETURNS text
+PARALLEL SAFE
+LANGUAGE sql
+AS $$
 SELECT
     CASE
         WHEN cmd_type = 0 THEN ''
@@ -36,13 +44,13 @@ SELECT
         WHEN cmd_type = 5 THEN 'UTILITY'
         WHEN cmd_type = 6 THEN 'NOTHING'
     END
-$$
-LANGUAGE SQL PARALLEL SAFE;
+$$;
 
 CREATE FUNCTION decode_error_level(elevel int)
-RETURNS  text
-AS
-$$
+RETURNS text
+PARALLEL SAFE
+LANGUAGE sql
+AS $$
 SELECT
         CASE
            WHEN elevel = 0 THEN  ''
@@ -58,11 +66,12 @@ SELECT
            WHEN elevel = 19 THEN 'WARNING'
            WHEN elevel = 20 THEN 'ERROR'
        END
-$$
-LANGUAGE SQL PARALLEL SAFE;
+$$;
 
 CREATE FUNCTION histogram(_bucket int, _quryid int8)
-RETURNS SETOF RECORD AS $$
+RETURNS SETOF record
+LANGUAGE plpgsql
+AS $$
 DECLARE
  rec record;
 BEGIN
@@ -75,7 +84,7 @@ BEGIN
         RETURN next rec;
     END loop;
 END
-$$ language plpgsql;
+$$;
 
 -- pg_stat_monitor internal function, must not call outside from this file.
 CREATE FUNCTION pg_stat_monitor_internal(
@@ -158,12 +167,16 @@ CREATE FUNCTION pg_stat_monitor_internal(
     OUT bucket_done         BOOLEAN
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME', 'pg_stat_monitor_2_0'
-LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
+STRICT
+PARALLEL SAFE
+LANGUAGE c
+AS 'MODULE_PATHNAME', 'pg_stat_monitor_2_0';
 
 -- Register a view on the function for ease of use.
-CREATE FUNCTION pgsm_create_11_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_11_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -215,11 +228,12 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-
-CREATE FUNCTION pgsm_create_13_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_13_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -282,10 +296,12 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-CREATE FUNCTION pgsm_create_14_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_14_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -348,10 +364,12 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-CREATE FUNCTION pgsm_create_15_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_15_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
 BEGIN
 CREATE VIEW pg_stat_monitor AS SELECT
     bucket,
@@ -427,10 +445,12 @@ FROM pg_stat_monitor_internal(TRUE)
 ORDER BY bucket_start_time;
 RETURN 0;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-CREATE FUNCTION pgsm_create_view() RETURNS INT AS
-$$
+CREATE FUNCTION pgsm_create_view()
+RETURNS int
+LANGUAGE plpgsql
+AS $$
     DECLARE ver integer;
     BEGIN
         SELECT current_setting('server_version_num') INTO ver;
@@ -448,7 +468,7 @@ $$
     END IF;
     RETURN 0;
     END;
-$$ LANGUAGE plpgsql;
+$$;
 
 SELECT pgsm_create_view();
 REVOKE ALL ON FUNCTION pgsm_create_view FROM PUBLIC;
