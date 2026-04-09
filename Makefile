@@ -5,7 +5,7 @@ EXTENSION = pg_stat_monitor
 DATA = pg_stat_monitor--2.0.sql \
 	pg_stat_monitor--1.0--2.0.sql pg_stat_monitor--2.0--2.1.sql \
 	pg_stat_monitor--2.1--2.2.sql pg_stat_monitor--2.2--2.3.sql \
-	pg_stat_monitor--2.3--2.4.sql
+	pg_stat_monitor--2.3--next.sql
 
 PGFILEDESC = "pg_stat_monitor - Query Performance Monitoring Tool for PostgreSQL"
 
