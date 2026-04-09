@@ -11,7 +11,7 @@
    "provides": {
       "pg_stat_monitor": {
          "abstract": "PostgreSQL Query Performance Monitoring Tool",
-         "file": "pg_stat_monitor--2.3--2.4.sql",
+         "file": "pg_stat_monitor--2.3--next.sql",
          "docfile": "README.md",
          "version": "2.4.0"
       }
