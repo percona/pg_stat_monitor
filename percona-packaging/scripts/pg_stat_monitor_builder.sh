@@ -241,6 +241,9 @@ install_deps() {
                 echo "waiting"
             done
         fi
+        if [[ "${RHEL}" -eq 9 ]]; then
+            PKGLIST+=" gcc-toolset-14"
+        fi
         until yum -y install ${PKGLIST}; do
             echo "waiting"
             sleep 1
