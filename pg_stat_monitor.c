@@ -171,7 +171,11 @@ static int	pg_get_application_name(char *name, int buff_size);
 static PgBackendStatus *pg_get_backend_status(void);
 static Datum intarray_get_datum(int32 arr[], int len);
 
+#if PG_VERSION_NUM >= 190000
+DECLARE_HOOK(void pgsm_post_parse_analyze, ParseState *pstate, Query *query, const JumbleState *jstate);
+#else
 DECLARE_HOOK(void pgsm_post_parse_analyze, ParseState *pstate, Query *query, JumbleState *jstate);
+#endif
 DECLARE_HOOK(void pgsm_ExecutorStart, QueryDesc *queryDesc, int eflags);
 #if PG_VERSION_NUM < 180000
 DECLARE_HOOK(void pgsm_ExecutorRun, QueryDesc *queryDesc, ScanDirection direction, uint64 count, bool execute_once);
@@ -186,7 +190,11 @@ DECLARE_HOOK(bool pgsm_ExecutorCheckPerms, List *rt, bool abort);
 DECLARE_HOOK(bool pgsm_ExecutorCheckPerms, List *rt, List *rp, bool abort);
 #endif
 
+#if PG_VERSION_NUM >= 190000
+DECLARE_HOOK(PlannedStmt *pgsm_planner_hook, Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams, ExplainState *es);
+#else
 DECLARE_HOOK(PlannedStmt *pgsm_planner_hook, Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams);
+#endif
 DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryString,
 			 bool readOnlyTree,
 			 ProcessUtilityContext context,
@@ -376,7 +384,11 @@ pgsm_shmem_request(void)
 #endif
 
 static void
+#if PG_VERSION_NUM >= 190000
+pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, const JumbleState *jstate)
+#else
 pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *jstate)
+#endif
 {
 	pgsmEntry  *entry;
 	const char *query_text;
@@ -495,7 +507,11 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
  * Post-parse-analysis hook: mark query with a queryId
  */
 static void
+#if PG_VERSION_NUM >= 190000
+pgsm_post_parse_analyze(ParseState *pstate, Query *query, const JumbleState *jstate)
+#else
 pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
+#endif
 {
 	if (prev_post_parse_analyze_hook)
 		prev_post_parse_analyze_hook(pstate, query, jstate);
@@ -512,6 +528,14 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
 		elog(DEBUG1, "[pg_stat_monitor] pgsm_ExecutorStart: failed to execute getrusage.");
 
+#if PG_VERSION_NUM >= 190000
+	if (pgsm_enabled(nesting_level) &&
+		queryDesc->plannedstmt->queryId != INT64CONST(0))
+	{
+		queryDesc->query_instr_options |= INSTRUMENT_TIMER | INSTRUMENT_BUFFERS | INSTRUMENT_WAL;
+	}
+#endif
+
 	if (prev_ExecutorStart)
 		prev_ExecutorStart(queryDesc, eflags);
 	else
@@ -525,6 +549,7 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	if (pgsm_enabled(nesting_level) &&
 		queryDesc->plannedstmt->queryId != INT64CONST(0))
 	{
+#if PG_VERSION_NUM < 190000
 		/*
 		 * Set up to track total elapsed time in ExecutorRun.  Make sure the
 		 * space is allocated in the per-query context so it will go away at
@@ -538,6 +563,7 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 			queryDesc->totaltime = InstrAlloc(1, INSTRUMENT_ALL, false);
 			MemoryContextSwitchTo(oldcxt);
 		}
+#endif
 	}
 }
 
@@ -688,7 +714,11 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		MemoryContextSwitchTo(oldctx);
 	}
 
+#if PG_VERSION_NUM >= 190000
+	if (queryId != INT64CONST(0) && queryDesc->query_instr && pgsm_enabled(nesting_level))
+#else
 	if (queryId != INT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
+#endif
 	{
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true, queryDesc->operation);
 		if (!entry)
@@ -704,7 +734,9 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
 		 * levels of hook all do this.)
 		 */
+#if PG_VERSION_NUM < 190000
 		InstrEndLoop(queryDesc->totaltime);
+#endif
 
 		sys_info.utime = 0;
 		sys_info.stime = 0;
@@ -727,10 +759,17 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 						  &sys_info,	/* SysInfo */
 						  NULL, /* ErrorInfo */
 						  0,	/* plan_total_time */
+#if PG_VERSION_NUM >= 190000
+						  INSTR_TIME_GET_MILLISEC(queryDesc->query_instr->total),	/* exec_total_time */
+						  queryDesc->estate->es_processed,	/* rows */
+						  &queryDesc->query_instr->bufusage,	/* bufusage */
+						  &queryDesc->query_instr->walusage,	/* walusage */
+#else
 						  queryDesc->totaltime->total * 1000.0, /* exec_total_time */
 						  queryDesc->estate->es_processed,	/* rows */
 						  &queryDesc->totaltime->bufusage,	/* bufusage */
 						  &queryDesc->totaltime->walusage,	/* walusage */
+#endif
 #if PG_VERSION_NUM >= 150000
 						  queryDesc->estate->es_jit ? &queryDesc->estate->es_jit->instr : NULL, /* jitusage */
 #else
@@ -822,7 +861,11 @@ pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort)
 }
 
 static PlannedStmt *
+#if PG_VERSION_NUM >= 190000
+pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams, ExplainState *es)
+#else
 pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams)
+#endif
 {
 	PlannedStmt *result;
 	int64		queryId = parse->queryId;
@@ -885,9 +928,15 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 			 * the second call would trigger an assertion failure.
 			 */
 			if (planner_hook_next)
+#if PG_VERSION_NUM >= 190000
+				result = planner_hook_next(parse, query_string, cursorOptions, boundParams, es);
+			else
+				result = standard_planner(parse, query_string, cursorOptions, boundParams, es);
+#else
 				result = planner_hook_next(parse, query_string, cursorOptions, boundParams);
 			else
 				result = standard_planner(parse, query_string, cursorOptions, boundParams);
+#endif
 		}
 		PG_FINALLY();
 		{
@@ -952,9 +1001,15 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		PG_TRY();
 		{
 			if (planner_hook_next)
+#if PG_VERSION_NUM >= 190000
+				result = planner_hook_next(parse, query_string, cursorOptions, boundParams, es);
+			else
+				result = standard_planner(parse, query_string, cursorOptions, boundParams, es);
+#else
 				result = planner_hook_next(parse, query_string, cursorOptions, boundParams);
 			else
 				result = standard_planner(parse, query_string, cursorOptions, boundParams);
+#endif
 		}
 		PG_FINALLY();
 		{
@@ -2873,8 +2928,10 @@ fill_in_constant_lengths(JumbleState *jstate, const char *query,
 							 &ScanKeywords,
 							 ScanKeywordTokens);
 
+#if PG_VERSION_NUM < 190000
 	/* we don't want to re-emit any escape string warnings */
 	yyextra.escape_string_warning = false;
+#endif
 
 	/* Search for each constant, in sequence */
 	for (i = 0; i < jstate->clocations_count; i++)
