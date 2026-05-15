@@ -58,7 +58,7 @@ sub pgsm_init_pg
 	}
 
 	$pg_node->dump_info;
-	$pg_node->init;
+	$pg_node->init(extra => ['--lc-collate=C']);
 	return $pg_node;
 }
 
