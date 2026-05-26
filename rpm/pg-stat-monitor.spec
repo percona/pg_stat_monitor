@@ -2,6 +2,9 @@
 %global pgrel @@PG_REL@@
 %global rpm_release @@RPM_RELEASE@@
 %global pginstdir /usr/pgsql-@@PG_REL@@/
+%if 0%{?rhel} && 0%{?rhel} == 9
+%global gts_version 14
+%endif
 
 Summary:        Statistics collector for PostgreSQL
 Name:           %{sname}%{pgrel}
@@ -11,6 +14,9 @@ License:        PostgreSQL
 Source0:        percona-pg-stat-monitor%{pgrel}-%{version}.tar.gz
 URL:            https://github.com/Percona-Lab/pg_stat_monitor
 BuildRequires:  percona-postgresql%{pgrel}-devel
+%if 0%{?gts_version}
+BuildRequires:  gcc-toolset-%{gts_version}-gcc gcc-toolset-%{gts_version}-gcc-c++ gcc-toolset-%{gts_version}-annobin-plugin-gcc
+%endif
 Requires:       postgresql-server
 Provides:       percona-pg-stat-monitor%{pgrel}
 Conflicts:      percona-pg-stat-monitor%{pgrel}
@@ -33,6 +39,9 @@ It provides all the features of pg_stat_statment plus its own feature set.
 
 
 %build
+%if 0%{?gts_version}
+	source /opt/rh/gcc-toolset-14/enable
+%endif
 sed -i 's:PG_CONFIG ?= pg_config:PG_CONFIG = /usr/pgsql-%{pgrel}/bin/pg_config:' Makefile
 %{__make} USE_PGXS=1 %{?_smp_mflags}
 
