@@ -20,6 +20,11 @@
 #include <lib/dshash.h>
 #include <nodes/nodes.h>
 #include <storage/lwlock.h>
+#if PG_VERSION_NUM >= 190000
+#include <storage/shmem.h>
+#include <storage/proc.h>
+#include <utils/tuplestore.h>
+#endif
 #include <storage/spin.h>
 #include <utils/dsa.h>
 #include <utils/guc.h>
