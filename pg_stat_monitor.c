@@ -158,17 +158,17 @@ static void pgsm_shmem_request(void);
 static void pgsm_emit_log_hook(ErrorData *edata);
 static void pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate);
 static void pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags);
-#if PG_VERSION_NUM < 180000
-static void pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count, bool execute_once);
-#else
+#if PG_VERSION_NUM >= 180000
 static void pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count);
+#else
+static void pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count, bool execute_once);
 #endif
 static void pgsm_ExecutorFinish(QueryDesc *queryDesc);
 static void pgsm_ExecutorEnd(QueryDesc *queryDesc);
-#if PG_VERSION_NUM < 160000
-static bool pgsm_ExecutorCheckPerms(List *rt, bool abort);
-#else
+#if PG_VERSION_NUM >= 160000
 static bool pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort);
+#else
+static bool pgsm_ExecutorCheckPerms(List *rt, bool abort);
 #endif
 static PlannedStmt *pgsm_planner_hook(Query *parse, const char *query_string,
 									  int cursorOptions, ParamListInfo boundParams);
@@ -547,11 +547,11 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
  * ExecutorRun hook: all we need do is track nesting depth
  */
 static void
-#if PG_VERSION_NUM < 180000
+#if PG_VERSION_NUM >= 180000
+pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count)
+#else
 pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 				 bool execute_once)
-#else
-pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count)
 #endif
 {
 	if (nesting_level >= 0 && nesting_level < max_stack_depth)
@@ -565,18 +565,18 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count)
 	{
 		if (prev_ExecutorRun)
 		{
-#if PG_VERSION_NUM < 180000
-			prev_ExecutorRun(queryDesc, direction, count, execute_once);
-#else
+#if PG_VERSION_NUM >= 180000
 			prev_ExecutorRun(queryDesc, direction, count);
+#else
+			prev_ExecutorRun(queryDesc, direction, count, execute_once);
 #endif
 		}
 		else
 		{
-#if PG_VERSION_NUM < 180000
-			standard_ExecutorRun(queryDesc, direction, count, execute_once);
-#else
+#if PG_VERSION_NUM >= 180000
 			standard_ExecutorRun(queryDesc, direction, count);
+#else
+			standard_ExecutorRun(queryDesc, direction, count, execute_once);
 #endif
 		}
 		nesting_level--;
@@ -761,10 +761,10 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 }
 
 static bool
-#if PG_VERSION_NUM < 160000
-pgsm_ExecutorCheckPerms(List *rt, bool abort)
-#else
+#if PG_VERSION_NUM >= 160000
 pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort)
+#else
+pgsm_ExecutorCheckPerms(List *rt, bool abort)
 #endif
 {
 	ListCell   *lr = NULL;
@@ -813,10 +813,10 @@ pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort)
 	num_relations = i;
 
 	if (prev_ExecutorCheckPerms_hook)
-#if PG_VERSION_NUM < 160000
-		return prev_ExecutorCheckPerms_hook(rt, abort);
-#else
+#if PG_VERSION_NUM >= 160000
 		return prev_ExecutorCheckPerms_hook(rt, rp, abort);
+#else
+		return prev_ExecutorCheckPerms_hook(rt, abort);
 #endif
 
 	return true;
@@ -1463,14 +1463,14 @@ pgsm_update_entry(pgsmEntry *entry,
 		entry->counters.blocks.temp_blks_read += bufusage->temp_blks_read;
 		entry->counters.blocks.temp_blks_written += bufusage->temp_blks_written;
 
-#if PG_VERSION_NUM < 170000
-		entry->counters.blocks.shared_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
-		entry->counters.blocks.shared_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
-#else
+#if PG_VERSION_NUM >= 170000
 		entry->counters.blocks.shared_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_read_time);
 		entry->counters.blocks.shared_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_write_time);
 		entry->counters.blocks.local_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->local_blk_read_time);
 		entry->counters.blocks.local_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->local_blk_write_time);
+#else
+		entry->counters.blocks.shared_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
+		entry->counters.blocks.shared_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
 #endif
 
 #if PG_VERSION_NUM >= 150000
@@ -1478,14 +1478,14 @@ pgsm_update_entry(pgsmEntry *entry,
 		entry->counters.blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
 #endif
 
-#if PG_VERSION_NUM < 170000
-		memcpy((void *) &entry->counters.blocks.instr_shared_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
-		memcpy((void *) &entry->counters.blocks.instr_shared_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
-#else
+#if PG_VERSION_NUM >= 170000
 		memcpy((void *) &entry->counters.blocks.instr_shared_blk_read_time, &bufusage->shared_blk_read_time, sizeof(instr_time));
 		memcpy((void *) &entry->counters.blocks.instr_shared_blk_write_time, &bufusage->shared_blk_write_time, sizeof(instr_time));
 		memcpy((void *) &entry->counters.blocks.instr_local_blk_write_time, &bufusage->local_blk_write_time, sizeof(instr_time));
 		memcpy((void *) &entry->counters.blocks.instr_local_blk_write_time, &bufusage->local_blk_write_time, sizeof(instr_time));
+#else
+		memcpy((void *) &entry->counters.blocks.instr_shared_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
+		memcpy((void *) &entry->counters.blocks.instr_shared_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
 #endif
 
 
@@ -1815,14 +1815,14 @@ pgsm_store(pgsmEntry *entry)
 	bufusage.temp_blks_read = entry->counters.blocks.temp_blks_read;
 	bufusage.temp_blks_written = entry->counters.blocks.temp_blks_written;
 
-#if PG_VERSION_NUM < 170000
-	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
-#else
+#if PG_VERSION_NUM >= 170000
 	memcpy(&bufusage.shared_blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
 	memcpy(&bufusage.shared_blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
 	memcpy(&bufusage.local_blk_read_time, &entry->counters.blocks.instr_local_blk_read_time, sizeof(instr_time));
 	memcpy(&bufusage.local_blk_write_time, &entry->counters.blocks.instr_local_blk_write_time, sizeof(instr_time));
+#else
+	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
+	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
 #endif
 
 #if PG_VERSION_NUM >= 150000
