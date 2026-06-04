@@ -23,6 +23,7 @@
 #include <access/parallel.h>
 #include <access/xact.h>
 #include <catalog/pg_authid.h>
+#include <catalog/pg_class.h>
 #include <commands/dbcommands.h>
 #include <commands/explain.h>
 #include <common/ip.h>
@@ -170,9 +171,9 @@ static void pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint
 static void pgsm_ExecutorFinish(QueryDesc *queryDesc);
 static void pgsm_ExecutorEnd(QueryDesc *queryDesc);
 #if PG_VERSION_NUM >= 160000
-static bool pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort);
+static bool pgsm_ExecutorCheckPerms(List *rangeTable, List *rtePermInfos, bool ereport_on_violation);
 #else
-static bool pgsm_ExecutorCheckPerms(List *rt, bool abort);
+static bool pgsm_ExecutorCheckPerms(List *rangeTable, bool ereport_on_violation);
 #endif
 static PlannedStmt *pgsm_planner_hook(Query *parse, const char *query_string,
 									  int cursorOptions, ParamListInfo boundParams);
@@ -766,61 +767,64 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 
 static bool
 #if PG_VERSION_NUM >= 160000
-pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort)
+pgsm_ExecutorCheckPerms(List *rangeTable, List *rtePermInfos, bool ereport_on_violation)
 #else
-pgsm_ExecutorCheckPerms(List *rt, bool abort)
+pgsm_ExecutorCheckPerms(List *rangeTable, bool ereport_on_violation)
 #endif
 {
-	ListCell   *lr = NULL;
-	int			i = 0;
-	int			j = 0;
-	Oid			list_oid[20];
+	ListCell   *lr;
+	Oid			reloids[REL_LST];
 
 	num_relations = 0;
 
-	foreach(lr, rt)
+	foreach(lr, rangeTable)
 	{
-		RangeTblEntry *rte = lfirst(lr);
+		RangeTblEntry *rte = lfirst_node(RangeTblEntry, lr);
+		bool		found = false;
+		char	   *namespace_name;
+		char	   *relation_name;
 
 		if (rte->rtekind != RTE_RELATION
 #if PG_VERSION_NUM >= 160000
-			&& (rte->rtekind != RTE_SUBQUERY && rte->relkind != 'v')
+			&& (rte->rtekind != RTE_SUBQUERY && rte->relkind != RELKIND_VIEW)
 #endif
 			)
 			continue;
 
-		if (i < REL_LST)
+		/* Skip duplicates */
+		for (int i = 0; i < num_relations; i++)
 		{
-			bool		found = false;
-
-			for (j = 0; j < i; j++)
+			if (reloids[i] == rte->relid)
 			{
-				if (list_oid[j] == rte->relid)
-					found = true;
-			}
-
-			if (!found)
-			{
-				char	   *namespace_name;
-				char	   *relation_name;
-
-				list_oid[j] = rte->relid;
-				namespace_name = get_namespace_name(get_rel_namespace(rte->relid));
-				relation_name = get_rel_name(rte->relid);
-				if (rte->relkind == 'v')
-					snprintf(relations[i++], REL_LEN, "%s.%s*", namespace_name, relation_name);
-				else
-					snprintf(relations[i++], REL_LEN, "%s.%s", namespace_name, relation_name);
+				found = true;
+				break;
 			}
 		}
+		if (found)
+			continue;
+
+		reloids[num_relations] = rte->relid;
+
+		namespace_name = get_namespace_name(get_rel_namespace(rte->relid));
+		relation_name = get_rel_name(rte->relid);
+
+		if (rte->relkind == RELKIND_VIEW)
+			snprintf(relations[num_relations], REL_LEN, "%s.%s*", namespace_name, relation_name);
+		else
+			snprintf(relations[num_relations], REL_LEN, "%s.%s", namespace_name, relation_name);
+
+		num_relations++;
+
+		/* Only save the first REL_LST number of relations */
+		if (num_relations == REL_LST)
+			break;
 	}
-	num_relations = i;
 
 	if (prev_ExecutorCheckPerms_hook)
 #if PG_VERSION_NUM >= 160000
-		return prev_ExecutorCheckPerms_hook(rt, rp, abort);
+		return prev_ExecutorCheckPerms_hook(rangeTable, rtePermInfos, ereport_on_violation);
 #else
-		return prev_ExecutorCheckPerms_hook(rt, abort);
+		return prev_ExecutorCheckPerms_hook(rangeTable, ereport_on_violation);
 #endif
 
 	return true;
