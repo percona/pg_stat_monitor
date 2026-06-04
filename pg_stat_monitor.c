@@ -136,11 +136,8 @@ static bool IsSystemInitialized(void);
 static double time_diff(struct timeval end, struct timeval start);
 static void request_additional_shared_resources(void);
 
-
-/* Saved hook values in case of unload */
-
+/* Hooks */
 #if PG_VERSION_NUM >= 150000
-static void pgsm_shmem_request(void);
 static shmem_request_hook_type prev_shmem_request_hook = NULL;
 #endif
 static planner_hook_type planner_hook_next = NULL;
@@ -151,10 +148,35 @@ static ExecutorFinish_hook_type prev_ExecutorFinish = NULL;
 static ExecutorEnd_hook_type prev_ExecutorEnd = NULL;
 static ProcessUtility_hook_type prev_ProcessUtility = NULL;
 static emit_log_hook_type prev_emit_log_hook = NULL;
-
-DECLARE_HOOK(void pgsm_emit_log_hook, ErrorData *edata);
 static shmem_startup_hook_type prev_shmem_startup_hook = NULL;
 static ExecutorCheckPerms_hook_type prev_ExecutorCheckPerms_hook = NULL;
+
+#if PG_VERSION_NUM >= 150000
+static void pgsm_shmem_request(void);
+#endif
+static void pgsm_emit_log_hook(ErrorData *edata);
+static void pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate);
+static void pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags);
+#if PG_VERSION_NUM < 180000
+static void pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count, bool execute_once);
+#else
+static void pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count);
+#endif
+static void pgsm_ExecutorFinish(QueryDesc *queryDesc);
+static void pgsm_ExecutorEnd(QueryDesc *queryDesc);
+#if PG_VERSION_NUM < 160000
+static bool pgsm_ExecutorCheckPerms(List *rt, bool abort);
+#else
+static bool pgsm_ExecutorCheckPerms(List *rt, List *rp, bool abort);
+#endif
+static PlannedStmt *pgsm_planner_hook(Query *parse, const char *query_string,
+									  int cursorOptions, ParamListInfo boundParams);
+static void pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
+								bool readOnlyTree,
+								ProcessUtilityContext context,
+								ParamListInfo params, QueryEnvironment *queryEnv,
+								DestReceiver *dest,
+								QueryCompletion *qc);
 
 PG_FUNCTION_INFO_V1(pg_stat_monitor_version);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_reset);
@@ -171,28 +193,6 @@ static int	pg_get_application_name(char *name, int buff_size);
 static PgBackendStatus *pg_get_backend_status(void);
 static Datum intarray_get_datum(int32 arr[], int len);
 
-DECLARE_HOOK(void pgsm_post_parse_analyze, ParseState *pstate, Query *query, JumbleState *jstate);
-DECLARE_HOOK(void pgsm_ExecutorStart, QueryDesc *queryDesc, int eflags);
-#if PG_VERSION_NUM < 180000
-DECLARE_HOOK(void pgsm_ExecutorRun, QueryDesc *queryDesc, ScanDirection direction, uint64 count, bool execute_once);
-#else
-DECLARE_HOOK(void pgsm_ExecutorRun, QueryDesc *queryDesc, ScanDirection direction, uint64 count);
-#endif
-DECLARE_HOOK(void pgsm_ExecutorFinish, QueryDesc *queryDesc);
-DECLARE_HOOK(void pgsm_ExecutorEnd, QueryDesc *queryDesc);
-#if PG_VERSION_NUM < 160000
-DECLARE_HOOK(bool pgsm_ExecutorCheckPerms, List *rt, bool abort);
-#else
-DECLARE_HOOK(bool pgsm_ExecutorCheckPerms, List *rt, List *rp, bool abort);
-#endif
-
-DECLARE_HOOK(PlannedStmt *pgsm_planner_hook, Query *parse, const char *query_string, int cursorOptions, ParamListInfo boundParams);
-DECLARE_HOOK(void pgsm_ProcessUtility, PlannedStmt *pstmt, const char *queryString,
-			 bool readOnlyTree,
-			 ProcessUtilityContext context,
-			 ParamListInfo params, QueryEnvironment *queryEnv,
-			 DestReceiver *dest,
-			 QueryCompletion *qc);
 
 static int64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
@@ -301,23 +301,23 @@ _PG_init(void)
 	prev_shmem_startup_hook = shmem_startup_hook;
 	shmem_startup_hook = pgsm_shmem_startup;
 	prev_post_parse_analyze_hook = post_parse_analyze_hook;
-	post_parse_analyze_hook = HOOK(pgsm_post_parse_analyze);
+	post_parse_analyze_hook = pgsm_post_parse_analyze;
 	prev_ExecutorStart = ExecutorStart_hook;
-	ExecutorStart_hook = HOOK(pgsm_ExecutorStart);
+	ExecutorStart_hook = pgsm_ExecutorStart;
 	prev_ExecutorRun = ExecutorRun_hook;
-	ExecutorRun_hook = HOOK(pgsm_ExecutorRun);
+	ExecutorRun_hook = pgsm_ExecutorRun;
 	prev_ExecutorFinish = ExecutorFinish_hook;
-	ExecutorFinish_hook = HOOK(pgsm_ExecutorFinish);
+	ExecutorFinish_hook = pgsm_ExecutorFinish;
 	prev_ExecutorEnd = ExecutorEnd_hook;
-	ExecutorEnd_hook = HOOK(pgsm_ExecutorEnd);
+	ExecutorEnd_hook = pgsm_ExecutorEnd;
 	prev_ProcessUtility = ProcessUtility_hook;
-	ProcessUtility_hook = HOOK(pgsm_ProcessUtility);
+	ProcessUtility_hook = pgsm_ProcessUtility;
 	planner_hook_next = planner_hook;
-	planner_hook = HOOK(pgsm_planner_hook);
+	planner_hook = pgsm_planner_hook;
 	prev_emit_log_hook = emit_log_hook;
-	emit_log_hook = HOOK(pgsm_emit_log_hook);
+	emit_log_hook = pgsm_emit_log_hook;
 	prev_ExecutorCheckPerms_hook = ExecutorCheckPerms_hook;
-	ExecutorCheckPerms_hook = HOOK(pgsm_ExecutorCheckPerms);
+	ExecutorCheckPerms_hook = pgsm_ExecutorCheckPerms;
 
 	nested_queryids = (int64 *) malloc(sizeof(int64) * max_stack_depth);
 	nested_query_txts = (char **) calloc(max_stack_depth, sizeof(char *));
@@ -348,7 +348,7 @@ request_additional_shared_resources(void)
 	 * the postmaster process.)  We'll allocate or attach to the shared
 	 * resources in pgsm_shmem_startup().
 	 */
-	RequestAddinShmemSpace(pgsm_ShmemSize() + HOOK_STATS_SIZE);
+	RequestAddinShmemSpace(pgsm_ShmemSize());
 	RequestNamedLWLockTranche("pg_stat_monitor", 1);
 }
 
