@@ -391,13 +391,9 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 
 	if (callback_setup == false)
 	{
-		/*
-		 * If MessageContext is valid setup a callback to cleanup our local
-		 * stats list when the MessagContext gets reset
-		 */
-		if (MemoryContextIsValid(MessageContext))
+		if (MemoryContextIsValid(TopTransactionContext))
 		{
-			MemoryContextRegisterResetCallback(MessageContext, &mem_cxt_reset_callback);
+			MemoryContextRegisterResetCallback(TopTransactionContext, &mem_cxt_reset_callback);
 			callback_setup = true;
 		}
 	}
@@ -1029,10 +1025,31 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		BufferUsage bufusage_start = pgBufferUsage;
 		WalUsage	walusage;
 		WalUsage	walusage_start = pgWalUsage;
-		pgsmEntry  *entry = pgsm_create_hash_entry(0, queryId, NULL);
+		int64 appid;
+		char *datname = NULL;
+		char *username = NULL;
+		pgsmEntry  *entry = NULL;
 
 		if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
 			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
+
+		/* Prefetch application name before executing the utility process as it may change value */
+		if (pgsm_track_application_names)
+		{
+			/* Get the application name and set appid */
+			int app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
+			appid = pgsm_hash_string((const char *) app_name, app_name_len);
+		}
+
+		/* Prefetch database name and username before executing the utility as they may change value */
+		if (IsTransactionState())
+		{
+			int userid;
+			int sec_ctx;
+			datname = get_database_name(MyDatabaseId);
+			GetUserIdAndSecContext((Oid *) &userid, &sec_ctx);
+			username = GetUserNameFromId(userid, true);
+		}
 
 		INSTR_TIME_SET_CURRENT(start);
 		nesting_level++;
@@ -1094,6 +1111,24 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		query_len = pstmt->stmt_len;
 		query_text = (char *) CleanQuerytext(queryString, &location, &query_len);
 
+		/* Create entry after utility process because we need allocations and some utilities 
+		 * may create multiple transactions that will cause memory cleanup 
+		 */
+		entry = pgsm_create_hash_entry(0, queryId, NULL);
+
+		/* Update the entry with the prefetched data */
+		entry->key.appid = appid;
+
+		if (datname){
+			snprintf(entry->datname, sizeof(entry->datname), "%s", datname);
+			pfree(datname);
+		}
+
+		if (username){
+			snprintf(entry->username, sizeof(entry->username), "%s", username);
+			pfree(username);
+		}
+
 		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
 		entry->counters.info.cmd_type = pstmt->commandType;
 
@@ -1122,6 +1157,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 						  PGSM_EXEC);	/* kind */
 
 		pgsm_store(entry);
+		pgsm_delete_entry(queryId);
 	}
 	else
 	{
@@ -1710,6 +1746,9 @@ pgsm_create_hash_entry(uint64 bucket_id, int64 queryid, PlanInfo *plan_info)
 
 	if (pgsm_track_application_names)
 	{
+		/* TODO: Move app name fetching out of this function
+		 * because at this point app name may be changed by the query itself
+
 		/* Get the application name and set appid */
 		app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
 		entry->key.appid = pgsm_hash_string((const char *) app_name, app_name_len);
