@@ -386,15 +386,11 @@ extern bool pgsm_track_application_names;
 extern bool pgsm_enable_pgsm_query_id;
 extern int	pgsm_track;
 
-#define DECLARE_HOOK(hook, ...) \
-        static hook(__VA_ARGS__);
-#define HOOK(name) name
-#define HOOK_STATS_SIZE 0
-#endif
-
 void	   *pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
 void	   *pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
 void		pgsm_hash_seq_init(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, bool lock);
 void	   *pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS * hstat);
 void		pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat);
 void		pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key);
+
+#endif
