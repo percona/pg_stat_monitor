@@ -64,9 +64,13 @@ typedef enum pgsmVersion
 	PGSM_V2_3,
 } pgsmVersion;
 
-PG_MODULE_MAGIC;
-
 #define BUILD_VERSION                   "2.4.0"
+
+#if PG_VERSION_NUM >= 180000
+PG_MODULE_MAGIC_EXT(.name = "pg_stat_monitor",.version = BUILD_VERSION);
+#else
+PG_MODULE_MAGIC;
+#endif
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_STAT_MONITOR_COLS_V1_0    52
