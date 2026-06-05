@@ -2964,8 +2964,6 @@ comp_location(const void *a, const void *b)
 		return 0;
 }
 
-#define MAX_STRING_LEN	1024
-
 /* Convert array of integers into Text datum */
 static Datum
 intarray_get_datum(int32 arr[], int len)
@@ -3179,36 +3177,37 @@ get_histogram_bucket(double q_time)
 Datum
 get_histogram_timings(PG_FUNCTION_ARGS)
 {
-	double		b_start;
-	double		b_end;
-	int			b_count = hist_bucket_count_total;
-	int			index = 0;
-	char	   *tmp_str = palloc0(MAX_STRING_LEN);
-	char	   *text_str = palloc0(MAX_STRING_LEN);
+	StringInfoData buf;
 
-	for (index = 0; index < b_count; index++)
+	initStringInfo(&buf);
+
+	appendStringInfoChar(&buf, '{');
+
+	for (int index = 0; index < hist_bucket_count_total; index++)
 	{
+		double		b_start;
+		double		b_end;
+
 		histogram_bucket_timings(index, &b_start, &b_end);
 
 		if (index == 0)
-		{
-			snprintf(text_str, MAX_STRING_LEN, "{{%.3lf - %.3lf}", b_start, b_end);
-		}
-		else if (index == (b_count - 1))
-		{
-			snprintf(tmp_str, MAX_STRING_LEN, "%s, (%.3lf - ...}}", text_str, b_start);
-			snprintf(text_str, MAX_STRING_LEN, "%s", tmp_str);
-		}
+			appendStringInfoChar(&buf, '{');
 		else
-		{
-			snprintf(tmp_str, MAX_STRING_LEN, "%s, (%.3lf - %.3lf}", text_str, b_start, b_end);
-			snprintf(text_str, MAX_STRING_LEN, "%s", tmp_str);
-		}
+			appendStringInfoString(&buf, ", (");
+
+		appendStringInfo(&buf, "%.3f - ", b_start);
+
+		if (b_end == -1)
+			appendStringInfoString(&buf, "...");
+		else
+			appendStringInfo(&buf, "%.3f", b_end);
+
+		appendStringInfoChar(&buf, '}');
 	}
 
-	pfree(tmp_str);
+	appendStringInfoChar(&buf, '}');
 
-	return CStringGetTextDatum(text_str);
+	return CStringGetTextDatum(buf.data);
 }
 
 
