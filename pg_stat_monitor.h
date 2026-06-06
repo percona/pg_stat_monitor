@@ -341,13 +341,6 @@ static const struct config_enum_entry track_options[] =
 	{NULL, 0, false}
 };
 
-typedef enum
-{
-	HISTOGRAM_START,
-	HISTOGRAM_END,
-	HISTOGRAM_COUNT
-}			HistogramTimingType;
-
 extern int	pgsm_max;
 extern int	pgsm_query_max_len;
 extern int	pgsm_bucket_time;

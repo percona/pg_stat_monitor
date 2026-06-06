@@ -106,7 +106,11 @@ static int	plan_nested_level = 0;
 /* Histogram bucket variables */
 static double hist_bucket_min;
 static double hist_bucket_max;
-static double hist_bucket_timings[MAX_RESPONSE_BUCKET + 2][2];	/* Start and end timings */
+static struct
+{
+	double		start;
+	double		end;
+}			hist_bucket_timings[MAX_RESPONSE_BUCKET + 2];
 static int	hist_bucket_count_user;
 static int	hist_bucket_count_total;
 
@@ -3108,7 +3112,7 @@ set_histogram_bucket_timings(void)
 
 	for (b_count = 0; b_count < hist_bucket_count_total; b_count++)
 	{
-		histogram_bucket_timings(b_count, &hist_bucket_timings[b_count][HISTOGRAM_START], &hist_bucket_timings[b_count][HISTOGRAM_END]);
+		histogram_bucket_timings(b_count, &hist_bucket_timings[b_count].start, &hist_bucket_timings[b_count].end);
 	}
 }
 
@@ -3167,7 +3171,7 @@ get_histogram_bucket(double q_time)
 
 	for (index = 0; index < hist_bucket_count_total; index++)
 	{
-		if (exec_time >= hist_bucket_timings[index][HISTOGRAM_START] && exec_time <= hist_bucket_timings[index][HISTOGRAM_END])
+		if (exec_time >= hist_bucket_timings[index].start && exec_time <= hist_bucket_timings[index].end)
 			return index;
 	}
 
