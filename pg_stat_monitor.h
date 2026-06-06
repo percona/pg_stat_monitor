@@ -31,17 +31,14 @@
 #define USAGE_EXEC(duration)	(1.0)
 #define USAGE_INIT				(1.0)	/* including initial planning */
 
-#define JUMBLE_SIZE				1024	/* query serialization buffer size */
-
 #define HISTOGRAM_MAX_TIME		50000000
 #define MAX_RESPONSE_BUCKET 50
 #define INVALID_BUCKET_ID	-1
 #define ERROR_MESSAGE_LEN	100
-#define REL_TYPENAME_LEN	64
 #define REL_LST				10
-#define REL_LEN				132 /* REL_TYPENAME_LEN * 2 (relname + schema) + 1
-								 * (for view indication) + 1 and dot and
-								 * string terminator */
+#define REL_LEN				132 /* NAMEDATALEN * 2 (relname + schema) + 1
+								 * (view indication) + 1 and dot and string
+								 * terminator */
 #define APPLICATIONNAME_LEN	NAMEDATALEN
 #define COMMENTS_LEN        256
 #define PLAN_TEXT_LEN		1024
