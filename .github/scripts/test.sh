@@ -19,6 +19,6 @@ $PG_BIN_DIR/pg_ctl -D regression_install -l regression_install.log init
 
 $PG_BIN_DIR/pg_ctl -D regression_install -l regression_install.log start -o "$OPTS"
 
-make USE_PGXS=1 installcheck
+make installcheck
 
 $PG_BIN_DIR/pg_ctl -D regression_install stop

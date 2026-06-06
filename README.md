@@ -246,8 +246,8 @@ Compile and install the extension
 
 ```
 cd pg_stat_monitor
-make USE_PGXS=1
-make USE_PGXS=1 install
+make
+make install
 ```
 
 ### Uninstall `pg_stat_monitor`
