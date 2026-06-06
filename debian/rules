@@ -6,8 +6,6 @@
 # Using pg_buildext
 include /usr/share/postgresql-common/pgxs_debian_control.mk
 
-export USE_PGXS=1
-
 %:
 	dh $@
 

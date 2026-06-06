@@ -43,12 +43,12 @@ It provides all the features of pg_stat_statment plus its own feature set.
 	source /opt/rh/gcc-toolset-14/enable
 %endif
 sed -i 's:PG_CONFIG ?= pg_config:PG_CONFIG = /usr/pgsql-%{pgrel}/bin/pg_config:' Makefile
-%{__make} USE_PGXS=1 %{?_smp_mflags}
+%{__make} %{?_smp_mflags}
 
 
 %install
 %{__rm} -rf %{buildroot}
-%{__make} USE_PGXS=1 %{?_smp_mflags} install DESTDIR=%{buildroot}
+%{__make} %{?_smp_mflags} install DESTDIR=%{buildroot}
 %{__install} -d %{buildroot}%{pginstdir}/share/extension
 %{__install} -m 755 README.md %{buildroot}%{pginstdir}/share/extension/README-pg_stat_monitor
 
