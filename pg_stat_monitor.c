@@ -1935,10 +1935,10 @@ pgsm_store(pgsmEntry *entry)
 
 				disable_error_capture = true;
 				ereport(WARNING,
-						(errcode(ERRCODE_OUT_OF_MEMORY),
-						 errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
-						 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
-								   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+						errcode(ERRCODE_OUT_OF_MEMORY),
+						errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
+						errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+								  "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max."));
 				disable_error_capture = false;
 			}
 
@@ -2003,8 +2003,8 @@ pg_stat_monitor_reset(PG_FUNCTION_ARGS)
 	/* Safety check... */
 	if (!IsSystemInitialized())
 		ereport(ERROR,
-				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-				 errmsg("pg_stat_monitor: must be loaded via shared_preload_libraries")));
+				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				errmsg("pg_stat_monitor: must be loaded via shared_preload_libraries"));
 
 	pgsm = pgsm_get_ss();
 	pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
@@ -2100,40 +2100,40 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			break;
 		default:
 			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Unknown API version")));
+					errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+					errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Unknown API version"));
 	}
 
 	/* Disallow old api usage */
 	if (api_version < PGSM_V2_0)
 		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: API version not supported."),
-				 errhint("Upgrade pg_stat_monitor extension")));
+				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("[pg_stat_monitor] pg_stat_monitor_internal: API version not supported."),
+				errhint("Upgrade pg_stat_monitor extension"));
 	/* Safety check... */
 	if (!IsSystemInitialized())
 		ereport(ERROR,
-				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Must be loaded via shared_preload_libraries.")));
+				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Must be loaded via shared_preload_libraries."));
 
 	/* Out of memory? */
 	if (IsSystemOOM())
 		ereport(WARNING,
-				(errcode(ERRCODE_OUT_OF_MEMORY),
-				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Hash table is out of memory and can no longer store queries!"),
-				 errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
-						   "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max.")));
+				errcode(ERRCODE_OUT_OF_MEMORY),
+				errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Hash table is out of memory and can no longer store queries!"),
+				errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+						  "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max."));
 
 	/* check to see if caller supports us returning a tuplestore */
 	if (rsinfo == NULL || !IsA(rsinfo, ReturnSetInfo))
 		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Set-valued function called in context that cannot accept a set.")));
+				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Set-valued function called in context that cannot accept a set."));
 	if (!(rsinfo->allowedModes & SFRM_Materialize))
 		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Materialize mode required, but it is not " \
-						"allowed in this context.")));
+				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Materialize mode required, but it is not "
+					   "allowed in this context."));
 
 	/* Switch into long-lived context to construct returned data structures */
 	per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
@@ -3094,9 +3094,9 @@ set_histogram_bucket_timings(void)
 
 		if (b_count != hist_bucket_count_user)
 			ereport(WARNING,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("pg_stat_monitor: Histogram buckets are overlapping."),
-					 errdetail("Histogram bucket size is set to %d [not including outlier buckets].", hist_bucket_count_user)));
+					errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					errmsg("pg_stat_monitor: Histogram buckets are overlapping."),
+					errdetail("Histogram bucket size is set to %d [not including outlier buckets].", hist_bucket_count_user));
 	}
 
 	/*
