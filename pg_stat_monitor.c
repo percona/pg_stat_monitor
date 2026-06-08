@@ -1707,8 +1707,6 @@ pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info)
 	int			sec_ctx;
 	bool		found_client_addr = false;
 	MemoryContext oldctx;
-	char	   *datname = NULL;
-	char	   *username = NULL;
 
 	/* Create an entry in the pgsm memory context */
 	oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
@@ -1746,21 +1744,6 @@ pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info)
 #else
 	entry->key.toplevel = ((nesting_level + plan_nested_level) == 0);
 #endif
-
-	if (IsTransactionState())
-	{
-		datname = get_database_name(entry->key.dbid);
-		username = GetUserNameFromId(entry->key.userid, true);
-
-		snprintf(entry->datname, sizeof(entry->datname), "%s", datname);
-		snprintf(entry->username, sizeof(entry->username), "%s", username);
-
-		if (datname)
-			pfree(datname);
-
-		if (username)
-			pfree(username);
-	}
 
 	MemoryContextSwitchTo(oldctx);
 
@@ -1814,6 +1797,23 @@ pgsm_store(pgsmEntry *entry)
 	/* Let's do all the leg work here before we acquire any locks */
 	extract_query_comments(query, comments, sizeof(comments));
 	comments_len = strlen(comments);
+
+	if (IsTransactionState() && strlen(entry->datname) == 0)
+	{
+		char	   *datname = get_database_name(entry->key.dbid);
+
+		snprintf(entry->datname, sizeof(entry->datname), "%s", datname);
+		if (datname)
+			pfree(datname);
+	}
+	if (IsTransactionState() && strlen(entry->username) == 0)
+	{
+		char	   *username = GetUserNameFromId(entry->key.userid, true);
+
+		snprintf(entry->username, sizeof(entry->username), "%s", username);
+		if (username)
+			pfree(username);
+	}
 
 	/* bufusage */
 	bufusage.shared_blks_hit = entry->counters.blocks.shared_blks_hit;
