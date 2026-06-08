@@ -17,7 +17,7 @@
 #include <storage/shmem.h>
 #include <utils/memutils.h>
 
-#include "pg_stat_monitor.h"
+#include "hash_query.h"
 
 typedef struct pgsmLocalState
 {

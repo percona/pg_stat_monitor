@@ -13,7 +13,9 @@
  */
 #include <postgres.h>
 
-#include "pg_stat_monitor.h"
+#include <limits.h>
+
+#include "guc.h"
 
 /* GUC variables */
 int			pgsm_max;
@@ -33,6 +35,14 @@ bool		pgsm_track_utility;
 bool		pgsm_track_application_names;
 bool		pgsm_enable_pgsm_query_id;
 int			pgsm_track;
+
+static const struct config_enum_entry track_options[] =
+{
+	{"none", PSGM_TRACK_NONE, false},
+	{"top", PGSM_TRACK_TOP, false},
+	{"all", PGSM_TRACK_ALL, false},
+	{NULL, 0, false}
+};
 
 /* Check hooks to ensure histogram_min < histogram_max */
 static bool check_histogram_min(double *newval, void **extra, GucSource source);

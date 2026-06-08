@@ -53,6 +53,8 @@
 #endif
 
 #include "pg_stat_monitor.h"
+#include "guc.h"
+#include "hash_query.h"
 
  /*
   * Extension version number, for supporting older extension versions' objects
