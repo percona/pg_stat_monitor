@@ -80,8 +80,6 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V2_3    73
 #define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_3	/* maximum of above */
 
-#define PGUNSIXBIT(val) (((val) & 0x3F) + '0')
-
 #define pgsm_enabled(level) \
     (!IsParallelWorker() && \
     (pgsm_track == PGSM_TRACK_ALL || \
@@ -3045,22 +3043,6 @@ time_diff(struct timeval end, struct timeval start)
 	mend = ((double) end.tv_sec * 1000.0 + (double) end.tv_usec / 1000.0);
 	mstart = ((double) start.tv_sec * 1000.0 + (double) start.tv_usec / 1000.0);
 	return mend - mstart;
-}
-
-char *
-unpack_sql_state(int sql_state)
-{
-	static char buf[12];
-	int			i;
-
-	for (i = 0; i < 5; i++)
-	{
-		buf[i] = PGUNSIXBIT(sql_state);
-		sql_state >>= 6;
-	}
-
-	buf[i] = '\0';
-	return buf;
 }
 
 /* Validate histogram values and find the max number of histogram buckets that can be created */
