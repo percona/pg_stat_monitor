@@ -1491,19 +1491,18 @@ pgsm_update_entry(pgsmEntry *entry,
 #endif
 
 #if PG_VERSION_NUM >= 170000
-		memcpy((void *) &entry->counters.blocks.instr_shared_blk_read_time, &bufusage->shared_blk_read_time, sizeof(instr_time));
-		memcpy((void *) &entry->counters.blocks.instr_shared_blk_write_time, &bufusage->shared_blk_write_time, sizeof(instr_time));
-		memcpy((void *) &entry->counters.blocks.instr_local_blk_write_time, &bufusage->local_blk_write_time, sizeof(instr_time));
-		memcpy((void *) &entry->counters.blocks.instr_local_blk_write_time, &bufusage->local_blk_write_time, sizeof(instr_time));
+		entry->counters.blocks.instr_shared_blk_read_time = bufusage->shared_blk_read_time;
+		entry->counters.blocks.instr_shared_blk_write_time = bufusage->shared_blk_write_time;
+		entry->counters.blocks.instr_local_blk_write_time = bufusage->local_blk_write_time;
+		entry->counters.blocks.instr_local_blk_write_time = bufusage->local_blk_write_time;
 #else
-		memcpy((void *) &entry->counters.blocks.instr_shared_blk_read_time, &bufusage->blk_read_time, sizeof(instr_time));
-		memcpy((void *) &entry->counters.blocks.instr_shared_blk_write_time, &bufusage->blk_write_time, sizeof(instr_time));
+		entry->counters.blocks.instr_shared_blk_read_time = bufusage->blk_read_time;
+		entry->counters.blocks.instr_shared_blk_write_time = bufusage->blk_write_time;
 #endif
 
-
 #if PG_VERSION_NUM >= 150000
-		memcpy((void *) &entry->counters.blocks.instr_temp_blk_read_time, &bufusage->temp_blk_read_time, sizeof(bufusage->temp_blk_read_time));
-		memcpy((void *) &entry->counters.blocks.instr_temp_blk_write_time, &bufusage->temp_blk_write_time, sizeof(bufusage->temp_blk_write_time));
+		entry->counters.blocks.instr_temp_blk_read_time = bufusage->temp_blk_read_time;
+		entry->counters.blocks.instr_temp_blk_write_time = bufusage->temp_blk_write_time;
 #endif
 	}
 
@@ -1549,13 +1548,13 @@ pgsm_update_entry(pgsmEntry *entry,
 		/* Only do this for local storage scenarios */
 		if (kind != PGSM_STORE)
 		{
-			memcpy((void *) &entry->counters.jitinfo.instr_generation_counter, &jitusage->generation_counter, sizeof(instr_time));
-			memcpy((void *) &entry->counters.jitinfo.instr_inlining_counter, &jitusage->inlining_counter, sizeof(instr_time));
-			memcpy((void *) &entry->counters.jitinfo.instr_optimization_counter, &jitusage->optimization_counter, sizeof(instr_time));
-			memcpy((void *) &entry->counters.jitinfo.instr_emission_counter, &jitusage->emission_counter, sizeof(instr_time));
+			entry->counters.jitinfo.instr_generation_counter = jitusage->generation_counter;
+			entry->counters.jitinfo.instr_inlining_counter = jitusage->inlining_counter;
+			entry->counters.jitinfo.instr_optimization_counter = jitusage->optimization_counter;
+			entry->counters.jitinfo.instr_emission_counter = jitusage->emission_counter;
 
 #if PG_VERSION_NUM >= 170000
-			memcpy((void *) &entry->counters.jitinfo.instr_deform_counter, &jitusage->deform_counter, sizeof(instr_time));
+			entry->counters.jitinfo.instr_deform_counter = jitusage->deform_counter;
 #endif
 		}
 	}
@@ -1828,18 +1827,18 @@ pgsm_store(pgsmEntry *entry)
 	bufusage.temp_blks_written = entry->counters.blocks.temp_blks_written;
 
 #if PG_VERSION_NUM >= 170000
-	memcpy(&bufusage.shared_blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.shared_blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
-	memcpy(&bufusage.local_blk_read_time, &entry->counters.blocks.instr_local_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.local_blk_write_time, &entry->counters.blocks.instr_local_blk_write_time, sizeof(instr_time));
+	bufusage.shared_blk_read_time = entry->counters.blocks.instr_shared_blk_read_time;
+	bufusage.shared_blk_write_time = entry->counters.blocks.instr_shared_blk_write_time;
+	bufusage.local_blk_read_time = entry->counters.blocks.instr_local_blk_read_time;
+	bufusage.local_blk_write_time = entry->counters.blocks.instr_local_blk_write_time;
 #else
-	memcpy(&bufusage.blk_read_time, &entry->counters.blocks.instr_shared_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.blk_write_time, &entry->counters.blocks.instr_shared_blk_write_time, sizeof(instr_time));
+	bufusage.blk_read_time = entry->counters.blocks.instr_shared_blk_read_time;
+	bufusage.blk_write_time = entry->counters.blocks.instr_shared_blk_write_time;
 #endif
 
 #if PG_VERSION_NUM >= 150000
-	memcpy(&bufusage.temp_blk_read_time, &entry->counters.blocks.instr_temp_blk_read_time, sizeof(instr_time));
-	memcpy(&bufusage.temp_blk_write_time, &entry->counters.blocks.instr_temp_blk_write_time, sizeof(instr_time));
+	bufusage.temp_blk_read_time = entry->counters.blocks.instr_temp_blk_read_time;
+	bufusage.temp_blk_write_time = entry->counters.blocks.instr_temp_blk_write_time;
 #endif
 
 	/* walusage */
@@ -1853,11 +1852,14 @@ pgsm_store(pgsmEntry *entry)
 
 	/* jit */
 	jitusage.created_functions = entry->counters.jitinfo.jit_functions;
-	memcpy(&jitusage.generation_counter, &entry->counters.jitinfo.instr_generation_counter, sizeof(instr_time));
-	memcpy(&jitusage.inlining_counter, &entry->counters.jitinfo.instr_inlining_counter, sizeof(instr_time));
-	memcpy(&jitusage.optimization_counter, &entry->counters.jitinfo.instr_optimization_counter, sizeof(instr_time));
-	memcpy(&jitusage.emission_counter, &entry->counters.jitinfo.instr_emission_counter, sizeof(instr_time));
+	jitusage.generation_counter = entry->counters.jitinfo.instr_generation_counter;
+	jitusage.inlining_counter = entry->counters.jitinfo.instr_inlining_counter;
+	jitusage.optimization_counter = entry->counters.jitinfo.instr_optimization_counter;
+	jitusage.emission_counter = entry->counters.jitinfo.instr_emission_counter;
 
+#if PG_VERSION_NUM >= 170000
+	jitusage.deform_counter = entry->counters.jitinfo.instr_deform_counter;
+#endif
 
 	/* Update parent id if needed */
 	if (pgsm_track == PGSM_TRACK_ALL && nesting_level > 0 && nesting_level < max_stack_depth)
@@ -1868,10 +1870,6 @@ pgsm_store(pgsmEntry *entry)
 	{
 		entry->key.parentid = INT64CONST(0);
 	}
-
-#if PG_VERSION_NUM >= 170000
-	memcpy(&jitusage.deform_counter, &entry->counters.jitinfo.instr_deform_counter, sizeof(instr_time));
-#endif
 
 	/*
 	 * Acquire a share lock to start with. We'd have to acquire exclusive if
