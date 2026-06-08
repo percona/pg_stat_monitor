@@ -3034,15 +3034,13 @@ IsSystemInitialized(void)
 	return (system_init && IsHashInitialize());
 }
 
+/*
+ * Calculate the time difference in milliseconds.
+ */
 static double
 time_diff(struct timeval end, struct timeval start)
 {
-	double		mstart;
-	double		mend;
-
-	mend = ((double) end.tv_sec * 1000.0 + (double) end.tv_usec / 1000.0);
-	mstart = ((double) start.tv_sec * 1000.0 + (double) start.tv_usec / 1000.0);
-	return mend - mstart;
+	return (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_usec - start.tv_usec) / 1000.0;
 }
 
 /* Validate histogram values and find the max number of histogram buckets that can be created */
