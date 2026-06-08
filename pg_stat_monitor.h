@@ -36,9 +36,8 @@
 #define INVALID_BUCKET_ID	-1
 #define ERROR_MESSAGE_LEN	100
 #define REL_LST				10
-#define REL_LEN				132 /* NAMEDATALEN * 2 (relname + schema) + 1
-								 * (view indication) + 1 and dot and string
-								 * terminator */
+/* schema + dot + relname + view indication + string terminator */
+#define REL_LEN				(NAMEDATALEN + 1 + NAMEDATALEN + 1 + 1)
 #define APPLICATIONNAME_LEN	NAMEDATALEN
 #define COMMENTS_LEN        256
 #define PLAN_TEXT_LEN		1024
