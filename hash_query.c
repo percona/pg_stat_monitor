@@ -32,6 +32,8 @@ typedef struct pgsmLocalState
 static pgsmLocalState pgsmStateLocal;
 
 static void pgsm_attach_shmem(void);
+static void *pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
+static void pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key);
 static void pgsm_shmem_shutdown(int code, Datum arg);
 static PGSM_HASH_TABLE_HANDLE pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa);
 static Size pgsm_get_shared_area_size(void);
@@ -406,7 +408,7 @@ IsSystemOOM(void)
  * API and call the appropriate hash table function based on USE_DYNAMIC_HASH
  */
 
-void *
+static void *
 pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found)
 {
 #if USE_DYNAMIC_HASH
@@ -457,7 +459,7 @@ pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat)
 #endif
 }
 
-void
+static void
 pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key)
 {
 #if USE_DYNAMIC_HASH

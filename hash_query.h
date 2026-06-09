@@ -293,11 +293,9 @@ pgsmSharedState *pgsm_get_ss(void);
 void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
 pgsmEntry  *hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding);
 
-void	   *pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
 void	   *pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
 void		pgsm_hash_seq_init(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, bool lock);
 void	   *pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS * hstat);
 void		pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat);
-void		pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key);
 
 #endif							/* __PGSM_HASH_QUERY_H__ */
