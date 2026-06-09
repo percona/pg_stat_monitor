@@ -163,10 +163,6 @@ pgsm_startup(void)
 															ALLOCSET_DEFAULT_SIZES);
 	}
 
-#ifdef BENCHMARK
-	init_hook_stats();
-#endif
-
 	LWLockRelease(AddinShmemInitLock);
 
 	/*
