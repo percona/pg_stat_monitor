@@ -1,5 +1,5 @@
 MODULE_big = pg_stat_monitor
-OBJS = hash_query.o guc.o pg_stat_monitor.o $(WIN32RES)
+OBJS = src/hash_query.o src/guc.o src/pg_stat_monitor.o $(WIN32RES)
 
 EXTENSION = pg_stat_monitor
 DATA = pg_stat_monitor--2.0.sql \
