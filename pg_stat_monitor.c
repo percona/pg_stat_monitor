@@ -681,12 +681,9 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		 */
 		oldctx = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
 
-		rv = snprintf(plan_info.plan_text, PLAN_TEXT_LEN, "%s", pgsm_explain(queryDesc));
+		rv = strlcpy(plan_info.plan_text, pgsm_explain(queryDesc), PLAN_TEXT_LEN);
 
-		/*
-		 * If snprint didn't write anything or there was an error, let's keep
-		 * planinfo as NULL.
-		 */
+		/* If strlcpy didn't write anything let's keep planinfo as NULL */
 		if (rv > 0)
 		{
 			plan_info.plan_len = (rv < PLAN_TEXT_LEN) ? rv : PLAN_TEXT_LEN - 1;
@@ -1247,15 +1244,15 @@ pg_get_application_name(char *name, int buff_size)
 
 	/* Try to read application name from GUC directly */
 	if (application_name && *application_name)
-		snprintf(name, buff_size, "%s", application_name);
+		strlcpy(name, application_name, buff_size);
 	else
 	{
 		beentry = pg_get_backend_status();
 
 		if (!beentry)
-			snprintf(name, buff_size, "%s", "unknown");
+			strlcpy(name, "unknown", buff_size);
 		else
-			snprintf(name, buff_size, "%s", beentry->st_appname);
+			strlcpy(name, beentry->st_appname, buff_size);
 	}
 
 	/* Return length so that others don't have to calculate */
@@ -1587,8 +1584,8 @@ pgsm_store_error(const char *query, ErrorData *edata)
 	entry->pgsm_query_id = get_pgsm_query_id_hash(query, len);
 
 	entry->counters.error.elevel = edata->elevel;
-	snprintf(entry->counters.error.message, ERROR_MESSAGE_LEN, "%s", edata->message);
-	snprintf(entry->counters.error.sqlcode, SQLCODE_LEN, "%s", unpack_sql_state(edata->sqlerrcode));
+	strlcpy(entry->counters.error.message, edata->message, ERROR_MESSAGE_LEN);
+	strlcpy(entry->counters.error.sqlcode, unpack_sql_state(edata->sqlerrcode), SQLCODE_LEN);
 
 	pgsm_store(entry);
 }
@@ -1751,8 +1748,8 @@ pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info)
 		datname = get_database_name(entry->key.dbid);
 		username = GetUserNameFromId(entry->key.userid, true);
 
-		snprintf(entry->datname, sizeof(entry->datname), "%s", datname);
-		snprintf(entry->username, sizeof(entry->username), "%s", username);
+		strlcpy(entry->datname, datname, sizeof(entry->datname));
+		strlcpy(entry->username, username, sizeof(entry->username));
 
 		if (datname)
 			pfree(datname);
@@ -1963,8 +1960,8 @@ pgsm_store(pgsmEntry *entry)
 		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
 		shared_hash_entry->counters.info.parent_query = InvalidDsaPointer;
 
-		snprintf(shared_hash_entry->datname, sizeof(shared_hash_entry->datname), "%s", entry->datname);
-		snprintf(shared_hash_entry->username, sizeof(shared_hash_entry->username), "%s", entry->username);
+		strlcpy(shared_hash_entry->datname, entry->datname, sizeof(shared_hash_entry->datname));
+		strlcpy(shared_hash_entry->username, entry->username, sizeof(shared_hash_entry->username));
 	}
 
 	pgsm_update_entry(shared_hash_entry,	/* entry */
