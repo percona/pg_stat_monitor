@@ -12,6 +12,7 @@
  *
  *-------------------------------------------------------------------------
  */
+
 #ifndef __PGSM_HASH_QUERY_H__
 #define __PGSM_HASH_QUERY_H__
 
@@ -36,10 +37,10 @@
 #define COMMENTS_LEN		256
 #define PLAN_TEXT_LEN		1024
 
-#define MAX_QUERY_BUF						((int64)pgsm_query_shared_buffer * 1024 * 1024)
-#define MAX_BUCKETS_MEM 					((int64)pgsm_max * 1024 * 1024)
+#define MAX_QUERY_BUF						((int64) pgsm_query_shared_buffer * 1024 * 1024)
+#define MAX_BUCKETS_MEM 					((int64) pgsm_max * 1024 * 1024)
 #define MAX_BUCKET_ENTRIES 					(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
-#define SQLCODE_LEN						20
+#define SQLCODE_LEN							20
 #define TOTAL_RELS_LENGTH					(REL_LST * REL_LEN)
 
 /*
@@ -82,7 +83,6 @@ typedef struct CallTime
 	double		mean_time;		/* mean execution time in msec */
 	double		sum_var_time;	/* sum of variances in execution time in msec */
 } CallTime;
-
 
 typedef struct PlanInfo
 {
@@ -131,7 +131,6 @@ typedef struct Calls
 	int64		rows;			/* total # of retrieved or affected rows */
 	double		usage;			/* usage factor */
 } Calls;
-
 
 typedef struct Blocks
 {

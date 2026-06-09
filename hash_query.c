@@ -11,6 +11,7 @@
  *
  *-------------------------------------------------------------------------
  */
+
 #include <postgres.h>
 
 #include <storage/ipc.h>
@@ -26,10 +27,10 @@ typedef struct pgsmLocalState
 								 * dsa area created by postmaster at startup. */
 	PGSM_HASH_TABLE *shared_hash;
 	MemoryContext pgsm_mem_cxt;
-
 } pgsmLocalState;
 
 static pgsmLocalState pgsmStateLocal;
+
 static void pgsm_attach_shmem(void);
 static void pgsm_shmem_shutdown(int code, Datum arg);
 static PGSM_HASH_TABLE_HANDLE pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa);
@@ -277,7 +278,6 @@ pgsm_get_ss(void)
 	pgsm_attach_shmem();
 	return pgsmStateLocal.shared_pgsmState;
 }
-
 
 /*
  * shmem_shutdown hook: Dump statistics into file.
