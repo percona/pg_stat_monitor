@@ -16,8 +16,6 @@
 
 #include <postgres.h>
 
-#include <utils/guc.h>
-
 #define HISTOGRAM_MAX_TIME		50000000
 #define MAX_RESPONSE_BUCKET		50
 
