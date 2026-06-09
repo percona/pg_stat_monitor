@@ -2440,15 +2440,16 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		/* cpu_sys_time at column number 51 */
 		values[i++] = Float8GetDatumFast(tmp.sysinfo.stime);
+
+		/* wal_records at column number 52 */
+		values[i++] = Int64GetDatumFast(tmp.walusage.wal_records);
+
+		/* wal_fpi at column number 53 */
+		values[i++] = Int64GetDatumFast(tmp.walusage.wal_fpi);
+
 		{
 			char		buf[256];
 			Datum		wal_bytes;
-
-			/* wal_records at column number 52 */
-			values[i++] = Int64GetDatumFast(tmp.walusage.wal_records);
-
-			/* wal_fpi at column number 53 */
-			values[i++] = Int64GetDatumFast(tmp.walusage.wal_fpi);
 
 			snprintf(buf, sizeof buf, UINT64_FORMAT, tmp.walusage.wal_bytes);
 
@@ -2459,34 +2460,34 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 											Int32GetDatum(-1));
 			/* wal_bytes at column number 54 */
 			values[i++] = wal_bytes;
+		}
 
-			if (api_version >= PGSM_V2_3)
-			{
-				/* wal_buffers_full at column number 55 */
-				values[i++] = Int64GetDatumFast(tmp.walusage.wal_buffers_full);
-			}
+		if (api_version >= PGSM_V2_3)
+		{
+			/* wal_buffers_full at column number 55 */
+			values[i++] = Int64GetDatumFast(tmp.walusage.wal_buffers_full);
+		}
 
-			/* application_name at column number 56 */
-			if (strlen(tmp.info.comments) > 0)
-				values[i++] = CStringGetTextDatum(tmp.info.comments);
-			else
-				nulls[i++] = true;
+		/* application_name at column number 56 */
+		if (strlen(tmp.info.comments) > 0)
+			values[i++] = CStringGetTextDatum(tmp.info.comments);
+		else
+			nulls[i++] = true;
 
-			/* blocks are from column number 57 - 64 */
-			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
-			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
-			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
-			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_inlining_time);
-			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_optimization_count);
-			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_optimization_time);
-			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
-			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
-			if (api_version >= PGSM_V2_1)
-			{
-				/* at column number 65 */
-				values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_deform_count);
-				values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_deform_time);
-			}
+		/* blocks are from column number 57 - 64 */
+		values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_functions);
+		values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_generation_time);
+		values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_inlining_count);
+		values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_inlining_time);
+		values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_optimization_count);
+		values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_optimization_time);
+		values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_emission_count);
+		values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_emission_time);
+		if (api_version >= PGSM_V2_1)
+		{
+			/* at column number 65 */
+			values[i++] = Int64GetDatumFast(tmp.jitinfo.jit_deform_count);
+			values[i++] = Float8GetDatumFast(tmp.jitinfo.jit_deform_time);
 		}
 
 		if (api_version >= PGSM_V2_3)
