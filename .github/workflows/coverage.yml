@@ -45,16 +45,12 @@ jobs:
       - name: Run tests
         run: .github/scripts/test.sh
 
-      - name: Collect coverage data
-        run: find . -type f -name '*.c' | xargs -t gcov -abcfu
-
       - name: Upload coverage data to codecov.io
         uses: codecov/codecov-action@v7
         with:
           verbose: true
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: "**/*.c.gcov"
 
       - name: Report on test fail
         uses: actions/upload-artifact@v4
