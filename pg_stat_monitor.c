@@ -2309,28 +2309,19 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* relations at column number 14 */
 		if (tmp.info.num_relations > 0)
 		{
-			int			j;
-			char	   *text_str = palloc0(TOTAL_RELS_LENGTH);
-			char	   *tmp_str = palloc0(TOTAL_RELS_LENGTH);
-			bool		first = true;
+			StringInfoData buf;
 
-			/*
-			 * Need to calculate the actual size, and avoid unnessary memory
-			 * usage
-			 */
-			for (j = 0; j < tmp.info.num_relations; j++)
+			initStringInfo(&buf);
+
+			for (int j = 0; j < tmp.info.num_relations; j++)
 			{
-				if (first)
-				{
-					snprintf(text_str, 1024, "%s", tmp.info.relations[j]);
-					first = false;
-					continue;
-				}
-				snprintf(tmp_str, 1024, "%s,%s", text_str, tmp.info.relations[j]);
-				snprintf(text_str, 1024, "%s", tmp_str);
+				if (j > 0)
+					appendStringInfoChar(&buf, ',');
+				appendStringInfoString(&buf, tmp.info.relations[j]);
 			}
-			pfree(tmp_str);
-			values[i++] = CStringGetTextDatum(text_str);
+
+			values[i++] = CStringGetTextDatum(buf.data);
+			pfree(buf.data);
 		}
 		else
 			nulls[i++] = true;
