@@ -11,6 +11,7 @@
  *
  *-------------------------------------------------------------------------
  */
+
 #include <postgres.h>
 
 #include <limits.h>
@@ -275,7 +276,6 @@ init_guc(void)
 							 NULL,	/* assign_hook */
 							 NULL	/* show_hook */
 		);
-
 }
 
 /* Maximum value must be greater or equal to minimum + 1.0 */

@@ -132,7 +132,6 @@ static struct rusage rusage_end;
 static char app_name[APPLICATIONNAME_LEN];
 static int	app_name_len;
 
-
 /* Query buffer, store queries' text. */
 static char *pgsm_explain(QueryDesc *queryDesc);
 
@@ -202,7 +201,6 @@ static uint pg_get_client_addr(bool *ok);
 static int	pg_get_application_name(char *name, int buff_size);
 static PgBackendStatus *pg_get_backend_status(void);
 static Datum intarray_get_datum(int32 arr[], int len);
-
 
 static int64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
@@ -550,7 +548,6 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		}
 	}
 }
-
 
 /*
  * ExecutorRun hook: all we need do is track nesting depth
@@ -1208,7 +1205,6 @@ pgsm_hash_string(const char *str, int len)
 static PgBackendStatus *
 pg_get_backend_status(void)
 {
-
 #if PG_VERSION_NUM >= 170000
 	return pgstat_get_beentry_by_proc_number(MyProcPid);
 #elif PG_VERSION_NUM >= 160000
@@ -1232,7 +1228,6 @@ pg_get_backend_status(void)
 			return beentry;
 	}
 	return NULL;
-
 #endif
 }
 
@@ -1766,7 +1761,6 @@ pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info)
 	return entry;
 }
 
-
 /*
  * Store some statistics for a statement.
  *
@@ -2083,7 +2077,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	PGSM_HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
-
 	int			expected_columns;
 
 	switch (api_version)
@@ -2178,7 +2171,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		char	   *query_ptr;
 		char	   *query_txt = NULL;
 		char	   *parent_query_txt = NULL;
-
 		bool		toplevel = entry->key.toplevel;
 		bool		is_allowed_role = is_member_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS);
 
@@ -2996,13 +2988,11 @@ intarray_get_datum(int32 arr[], int len)
 	return datum;
 }
 
-
 Datum
 pg_stat_monitor_hook_stats(PG_FUNCTION_ARGS)
 {
 	return (Datum) 0;
 }
-
 
 void
 pgsm_emit_log_hook(ErrorData *edata)
@@ -3203,7 +3193,6 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 
 	return CStringGetTextDatum(buf.data);
 }
-
 
 static bool
 append_comment_char(char *comments, size_t max_len, size_t *idx, char c)
