@@ -303,7 +303,7 @@ pgsm_shmem_shutdown(int code, Datum arg)
 }
 
 pgsmEntry *
-hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding)
+hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key)
 {
 	pgsmEntry  *entry = NULL;
 	bool		found = false;
@@ -325,8 +325,6 @@ hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key, int encoding)
 		/* set the appropriate initial usage count */
 		/* re-initialize the mutex each time ... we assume no one using it */
 		SpinLockInit(&entry->mutex);
-		/* ... and don't forget the query text metadata */
-		entry->encoding = encoding;
 	}
 #if USE_DYNAMIC_HASH
 	if (entry)

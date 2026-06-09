@@ -246,7 +246,7 @@ static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 									 bool showtext);
 
 static char *generate_normalized_query(JumbleState *jstate, const char *query,
-									   int query_loc, int *query_len_p, int encoding);
+									   int query_loc, int *query_len_p);
 static void fill_in_constant_lengths(JumbleState *jstate, const char *query, int query_loc);
 static int	comp_location(const void *a, const void *b);
 
@@ -454,8 +454,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 		norm_query = generate_normalized_query(jstate,
 											   query_text,	/* query */
 											   location,	/* query location */
-											   &norm_query_len,
-											   GetDatabaseEncoding());
+											   &norm_query_len);
 
 		Assert(norm_query);
 	}
@@ -1901,7 +1900,7 @@ pgsm_store(pgsmEntry *entry)
 		/* OK to create a new hashtable entry */
 		PG_TRY();
 		{
-			shared_hash_entry = hash_entry_alloc(pgsm, &entry->key, GetDatabaseEncoding());
+			shared_hash_entry = hash_entry_alloc(pgsm, &entry->key);
 		}
 		PG_CATCH();
 		{
@@ -1950,7 +1949,6 @@ pgsm_store(pgsmEntry *entry)
 			shared_hash_entry->query_text.query_pos = dsa_query_pointer;
 
 		shared_hash_entry->pgsm_query_id = entry->pgsm_query_id;
-		shared_hash_entry->encoding = entry->encoding;
 		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
 		shared_hash_entry->counters.info.parent_query = InvalidDsaPointer;
 
@@ -2254,13 +2252,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		{
 			if (showtext)
 			{
-				char	   *enc;
-
 				/* query at column number 8 */
-				enc = pg_any_to_server(query_txt, strlen(query_txt), GetDatabaseEncoding());
-				values[i++] = CStringGetTextDatum(enc);
-				if (enc != query_txt)
-					pfree(enc);
+				values[i++] = CStringGetTextDatum(query_txt);
 				/* plan at column number 9 */
 				if (planid && tmp.planinfo.plan_text[0])
 					values[i++] = CStringGetTextDatum(tmp.planinfo.plan_text);
@@ -2702,7 +2695,7 @@ get_pgsm_query_id_hash(const char *norm_query, int norm_len)
  */
 static char *
 generate_normalized_query(JumbleState *jstate, const char *query,
-						  int query_loc, int *query_len_p, int encoding)
+						  int query_loc, int *query_len_p)
 {
 	char	   *norm_query;
 	int			query_len = *query_len_p;
