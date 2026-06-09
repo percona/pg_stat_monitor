@@ -183,16 +183,14 @@ InitializeSharedState(pgsmSharedState *pgsm)
 	pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
 }
 
-
 /*
  * Create the classic or dshash hash table for storing the query statistics.
  */
 static PGSM_HASH_TABLE_HANDLE
 pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa)
 {
-	PGSM_HASH_TABLE_HANDLE bucket_hash;
-
 #if USE_DYNAMIC_HASH
+	dshash_table_handle bucket_hash;
 	dshash_table *dsh;
 
 	pgsm->hash_tranche_id = LWLockNewTrancheId();
@@ -200,15 +198,15 @@ pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa)
 	dsh = dshash_create(dsa, &dsh_params, 0);
 	bucket_hash = dshash_get_hash_table_handle(dsh);
 	dshash_detach(dsh);
-#else
-	HASHCTL		info;
-
-	memset(&info, 0, sizeof(info));
-	info.keysize = sizeof(pgsmHashKey);
-	info.entrysize = sizeof(pgsmEntry);
-	bucket_hash = ShmemInitHash("pg_stat_monitor: bucket hashtable", MAX_BUCKET_ENTRIES, MAX_BUCKET_ENTRIES, &info, HASH_ELEM | HASH_BLOBS);
-#endif
 	return bucket_hash;
+#else
+	HASHCTL		info = {
+		.keysize = sizeof(pgsmHashKey),
+		.entrysize = sizeof(pgsmEntry),
+	};
+
+	return ShmemInitHash("pg_stat_monitor: bucket hashtable", MAX_BUCKET_ENTRIES, MAX_BUCKET_ENTRIES, &info, HASH_ELEM | HASH_BLOBS);
+#endif
 }
 
 /*
