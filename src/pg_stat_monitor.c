@@ -1999,8 +1999,7 @@ pg_stat_monitor_reset(PG_FUNCTION_ARGS)
 
 	pgsm = pgsm_get_ss();
 	pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
-	hash_entry_dealloc(INVALID_BUCKET_ID, INVALID_BUCKET_ID, NULL);
-
+	hash_entry_dealloc(INVALID_BUCKET_ID, INVALID_BUCKET_ID);
 	pgsm_lock_release(pgsm);
 	PG_RETURN_VOID();
 }
@@ -2563,7 +2562,7 @@ get_next_wbucket(pgsmSharedState *pgsm)
 		prev_bucket_id = pg_atomic_exchange_u64(&pgsm->current_wbucket, new_bucket_id);
 
 		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
-		hash_entry_dealloc(new_bucket_id, prev_bucket_id, NULL);
+		hash_entry_dealloc(new_bucket_id, prev_bucket_id);
 
 		pgsm_lock_release(pgsm);
 

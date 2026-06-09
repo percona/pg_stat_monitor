@@ -334,14 +334,12 @@ hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key)
  *      state is PGSM_EXEC or PGSM_ERROR).
  *    - Clear query buffer for new_bucket_id.
  *    - If old_bucket_id != -1, move all pending hash table entries in
- *      old_bucket_id to the new bucket id, also move pending queries from the
- *      previous query buffer (query_buffer[old_bucket_id]) to the new one
- *      (query_buffer[new_bucket_id]).
+ *      old_bucket_id to the new bucket id.
  *
  * Caller must hold an exclusive lock on pgsm->lock.
  */
 void
-hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer)
+hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 {
 	PGSM_HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry = NULL;
