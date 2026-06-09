@@ -2596,7 +2596,7 @@ get_next_wbucket(pgsmSharedState *pgsm)
  * newline, tab, or any other type. Trailing and leading spaces
  * are also removed before calculating the hash.
  */
-int64
+static int64
 get_pgsm_query_id_hash(const char *norm_query, int norm_len)
 {
 	char	   *query;
@@ -2983,7 +2983,7 @@ pg_stat_monitor_hook_stats(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
-void
+static void
 pgsm_emit_log_hook(ErrorData *edata)
 {
 	if (!IsSystemInitialized() || edata == NULL)
@@ -3007,7 +3007,7 @@ exit:
 		prev_emit_log_hook(edata);
 }
 
-bool
+static bool
 IsSystemInitialized(void)
 {
 	return (system_init && IsHashInitialize());
