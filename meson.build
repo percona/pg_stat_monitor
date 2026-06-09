@@ -1,7 +1,9 @@
 # Copyright (c) 2022-2023, PostgreSQL Global Development Group
 
 pg_stat_monitor_sources = files(
-  'pg_stat_monitor.c',
+  'src/pg_stat_monitor.c',
+  'src/hash_query.c',
+  'src/guc.c',
 )
 
 pg_stat_monitor = shared_module('pg_stat_monitor',
@@ -35,13 +37,13 @@ tests += {
       'cmd_type',
       'counters',
       'database',
-      'different_parent_queries'
+      'different_parent_queries',
       'error_insert',
       'error',
       'functions',
       'guc',
       'histogram',
-      'level_tracking'
+      'level_tracking',
       'parallel',
       'pgsqm_query_id',
       'relations',
