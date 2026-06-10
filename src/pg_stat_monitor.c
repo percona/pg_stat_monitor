@@ -1904,8 +1904,7 @@ pgsm_store(pgsmEntry *entry)
 		{
 			pgsm_lock_release(pgsm);
 
-			if (DsaPointerIsValid(dsa_query_pointer))
-				dsa_free(query_dsa_area, dsa_query_pointer);
+			dsa_free(query_dsa_area, dsa_query_pointer);
 
 			/*
 			 * Out of memory; report only if the state has changed now.
