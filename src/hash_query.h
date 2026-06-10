@@ -19,7 +19,6 @@
 #include <postgres.h>
 
 #include <executor/instrument.h>
-#include <lib/dshash.h>
 #include <nodes/nodes.h>
 #include <storage/lwlock.h>
 #include <storage/spin.h>
@@ -42,37 +41,6 @@
 #define MAX_BUCKET_ENTRIES 					(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
 #define SQLCODE_LEN							20
 #define TOTAL_RELS_LENGTH					(REL_LST * REL_LEN)
-
-/*
- * pg_stat_monitor uses the hash structure to store all query statistics
- * except the query text, which gets stored out of line in the raw DSA area.
- * Enabling USE_DYNAMIC_HASH uses the dshash for storing the query statistics
- * that get created in the DSA area and can grow to any size.
- *
- * The only issue with using the dshash is that the newly created hash entries
- * are explicitly locked by dshash, and its caller is required to release the lock.
- * That works well as long as we do not want to swallow the errors thrown from
- * dshash function. Since the lightweight locks acquired internally by dshash
- * automatically get released by error.
- * But throwing an error from pg_stat_monitor would mean erroring out the user query,
- * which is not acceptable for any stat collector extension.
- *
- * Moreover, some of the pg_stat_monitor functions perform the sequence scan on the
- * hash table, while the sequence scan support for dshash table is only available
- * for PG 15 and onwards.
- * So until we figure out the way to release the locks acquired internally by dshash
- * in case of an error while ignoring the error at the same time, we will keep using
- * the classic shared memory hash table.
- */
-#ifdef USE_DYNAMIC_HASH
-#define	PGSM_HASH_TABLE	dshash_table
-#define	PGSM_HASH_TABLE_HANDLE	dshash_table_handle
-#define	PGSM_HASH_SEQ_STATUS	dshash_seq_status
-#else
-#define	PGSM_HASH_TABLE	HTAB
-#define	PGSM_HASH_TABLE_HANDLE	HTAB*
-#define	PGSM_HASH_SEQ_STATUS	HASH_SEQ_STATUS
-#endif
 
 /* shared memory storage for the query */
 typedef struct CallTime
@@ -265,16 +233,8 @@ typedef struct pgsmSharedState
 	slock_t		mutex;			/* protects following fields only: */
 	pg_atomic_uint64 current_wbucket;
 	pg_atomic_uint64 prev_bucket_sec;
-	int			hash_tranche_id;
-	void	   *raw_dsa_area;	/* DSA area pointer to store query texts.
-								 * dshash also lives in this memory when
-								 * USE_DYNAMIC_HASH is enabled */
-
-	/*
-	 * hash table handle. can be either classic shared memory hash or dshash
-	 * (if we are using USE_DYNAMIC_HASH)
-	 */
-	PGSM_HASH_TABLE_HANDLE hash_handle;
+	void	   *raw_dsa_area;	/* DSA area pointer to store query texts */
+	HTAB	   *hash_handle;
 
 	bool		pgsm_oom;
 	TimestampTz bucket_start_time[];	/* start time of the bucket */
@@ -284,17 +244,12 @@ typedef struct pgsmSharedState
 void		pgsm_startup(void);
 MemoryContext GetPgsmMemoryContext(void);
 dsa_area   *get_dsa_area_for_query_text(void);
-PGSM_HASH_TABLE *get_pgsmHash(void);
+HTAB	   *get_pgsmHash(void);
 bool		IsHashInitialize(void);
 bool		IsSystemOOM(void);
 Size		pgsm_ShmemSize(void);
 pgsmSharedState *pgsm_get_ss(void);
 void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id, unsigned char *query_buffer);
 pgsmEntry  *hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key);
-
-void	   *pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
-void		pgsm_hash_seq_init(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, bool lock);
-void	   *pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS * hstat);
-void		pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat);
 
 #endif							/* __PGSM_HASH_QUERY_H__ */

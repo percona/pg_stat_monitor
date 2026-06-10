@@ -1866,7 +1866,7 @@ pgsm_store(pgsmEntry *entry)
 	 * we need to create the entry.
 	 */
 	pgsm_lock_aquire(pgsm, LW_SHARED);
-	shared_hash_entry = (pgsmEntry *) pgsm_hash_find(get_pgsmHash(), &entry->key, &found);
+	shared_hash_entry = (pgsmEntry *) hash_search(get_pgsmHash(), &entry->key, HASH_FIND, &found);
 
 	if (!shared_hash_entry)
 	{
@@ -1898,17 +1898,7 @@ pgsm_store(pgsmEntry *entry)
 		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
 
 		/* OK to create a new hashtable entry */
-		PG_TRY();
-		{
-			shared_hash_entry = hash_entry_alloc(pgsm, &entry->key);
-		}
-		PG_CATCH();
-		{
-			if (DsaPointerIsValid(dsa_query_pointer))
-				dsa_free(query_dsa_area, dsa_query_pointer);
-			PG_RE_THROW();
-		}
-		PG_END_TRY();
+		shared_hash_entry = hash_entry_alloc(pgsm, &entry->key);
 
 		if (shared_hash_entry == NULL)
 		{
@@ -2069,7 +2059,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	Tuplestorestate *tupstore;
 	MemoryContext per_query_ctx;
 	MemoryContext oldcontext;
-	PGSM_HASH_SEQ_STATUS hstat;
+	HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
 	int			expected_columns;
@@ -2145,9 +2135,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 	pgsm = pgsm_get_ss();
 	pgsm_lock_aquire(pgsm, LW_SHARED);
-	pgsm_hash_seq_init(&hstat, get_pgsmHash(), false);
+	hash_seq_init(&hstat, get_pgsmHash());
 
-	while ((entry = pgsm_hash_seq_next(&hstat)) != NULL)
+	while ((entry = hash_seq_search(&hstat)) != NULL)
 	{
 		Datum		values[PG_STAT_MONITOR_COLS] = {0};
 		bool		nulls[PG_STAT_MONITOR_COLS] = {0};
@@ -2512,7 +2502,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			pfree(parent_query_txt);
 	}
 	/* clean up and return the tuplestore */
-	pgsm_hash_seq_term(&hstat);
 	pgsm_lock_release(pgsm);
 }
 
