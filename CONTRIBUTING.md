@@ -13,7 +13,6 @@ You can contribute in one of the following ways:
 
 By contributing, you agree to the [Percona Community code of conduct](https://github.com/percona/community/blob/main/content/contribute/coc.md).
 
-
 ## Submit a bug report or a feature request
 
 All bug reports, enhancements and feature requests are tracked in [Jira issue tracker](https://jira.percona.com/projects/PG). If you would like to suggest a new feature / an improvement or you found a bug in `pg_stat_monitor`, please submit the report to the [PG project](https://jira.percona.com/projects/PG/issues).
@@ -85,7 +84,6 @@ To build `pg_stat_monitor` from source code, you require the following:
 
 Refer to the [Building from source code](https://github.com/percona/pg_stat_monitor#installing-from-source-code) section for guidelines.
 
-
 ### Running tests
 
 When you work, you should periodically run tests to check that your changes don’t break existing code.
@@ -105,16 +103,15 @@ You can find the tests in the `regression` directory.
         make installcheck
         ```
 
-
     2. If you installed PostgreSQL server  from Percona Distribution for PostgreSQL, use the following command:
 
         ```sh
         sudo su postgres bash -c 'make installcheck'
         ```
+
 #### Run automatically
 
 The tests are run automatically with GitHub actions once you commit and push your changes. Make sure all tests are successfully passed before you proceed.
-
 
 ## Contributing to documentation
 
