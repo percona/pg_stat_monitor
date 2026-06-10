@@ -25,48 +25,28 @@ typedef struct pgsmLocalState
 	pgsmSharedState *shared_pgsmState;
 	dsa_area   *dsa;			/* local dsa area for backend attached to the
 								 * dsa area created by postmaster at startup. */
-	PGSM_HASH_TABLE *shared_hash;
+	HTAB	   *shared_hash;
 	MemoryContext pgsm_mem_cxt;
 } pgsmLocalState;
 
 static pgsmLocalState pgsmStateLocal;
 
 static void pgsm_attach_shmem(void);
-static void *pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found);
-static void pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key);
 static void pgsm_shmem_shutdown(int code, Datum arg);
-static PGSM_HASH_TABLE_HANDLE pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa);
+static HTAB *pgsm_create_bucket_hash(void);
 static Size pgsm_get_shared_area_size(void);
 static void InitializeSharedState(pgsmSharedState *pgsm);
 
 #define PGSM_BUCKET_INFO_SIZE	(sizeof(TimestampTz) * pgsm_max_buckets)
 #define PGSM_SHARED_STATE_SIZE	(sizeof(pgsmSharedState) + PGSM_BUCKET_INFO_SIZE)
 
-#if USE_DYNAMIC_HASH
-/* parameter for the shared hash */
-static dshash_parameters dsh_params = {
-	sizeof(pgsmHashKey),
-	sizeof(pgsmEntry),
-	dshash_memcmp,
-	dshash_memhash
-};
-#endif
-
 /*
- * Returns the shared memory area size for storing the query texts.
- * USE_DYNAMIC_HASH also creates the hash table in the same memory space,
- * so add the required bucket memory size to the query text area size
+ * Returns the shared memory area size for storing the query texts
  */
-
 static Size
 pgsm_query_area_size(void)
 {
-	Size		sz = MAX_QUERY_BUF;
-#if USE_DYNAMIC_HASH
-	/* Dynamic hash also lives DSA area */
-	sz = add_size(sz, MAX_BUCKETS_MEM);
-#endif
-	return MAXALIGN(sz);
+	return MAXALIGN(MAX_QUERY_BUF);
 }
 
 /*
@@ -78,30 +58,20 @@ pgsm_ShmemSize(void)
 	Size		sz = MAXALIGN(PGSM_SHARED_STATE_SIZE);
 
 	sz = add_size(sz, MAX_QUERY_BUF);
-#if USE_DYNAMIC_HASH
-	sz = add_size(sz, MAX_BUCKETS_MEM);
-#else
 	sz = add_size(sz, hash_estimate_size(MAX_BUCKET_ENTRIES, sizeof(pgsmEntry)));
-#endif
 	return MAXALIGN(sz);
 }
 
 /*
  * Returns the shared memory area size for storing the query texts and pgsm
- * shared state structure,
- * Moreover, for USE_DYNAMIC_HASH, both the hash table and raw query text area
- * get allocated as a single shared memory chunk.
+ * shared state structure
  */
 static Size
 pgsm_get_shared_area_size(void)
 {
-	Size		sz;
-#if USE_DYNAMIC_HASH
-	sz = pgsm_ShmemSize();
-#else
-	sz = MAXALIGN(sizeof(pgsmSharedState));
+	Size		sz = MAXALIGN(PGSM_SHARED_STATE_SIZE);
+
 	sz = add_size(sz, pgsm_query_area_size());
-#endif
 	return sz;
 }
 
@@ -141,7 +111,7 @@ pgsm_startup(void)
 		dsa_pin(dsa);
 		dsa_set_size_limit(dsa, pgsm_query_area_size());
 
-		pgsm->hash_handle = pgsm_create_bucket_hash(pgsm, dsa);
+		pgsm->hash_handle = pgsm_create_bucket_hash();
 
 		/*
 		 * If overflow is enabled, set the DSA size to unlimited, and allow
@@ -180,39 +150,24 @@ InitializeSharedState(pgsmSharedState *pgsm)
 }
 
 /*
- * Create the classic or dshash hash table for storing the query statistics.
+ * Create hash table for storing the query statistics.
  */
-static PGSM_HASH_TABLE_HANDLE
-pgsm_create_bucket_hash(pgsmSharedState *pgsm, dsa_area *dsa)
+static HTAB *
+pgsm_create_bucket_hash(void)
 {
-#if USE_DYNAMIC_HASH
-	dshash_table_handle bucket_hash;
-	dshash_table *dsh;
-
-	pgsm->hash_tranche_id = LWLockNewTrancheId();
-	dsh_params.tranche_id = pgsm->hash_tranche_id;
-	dsh = dshash_create(dsa, &dsh_params, 0);
-	bucket_hash = dshash_get_hash_table_handle(dsh);
-	dshash_detach(dsh);
-	return bucket_hash;
-#else
 	HASHCTL		info = {
 		.keysize = sizeof(pgsmHashKey),
 		.entrysize = sizeof(pgsmEntry),
 	};
 
 	return ShmemInitHash("pg_stat_monitor: bucket hashtable", MAX_BUCKET_ENTRIES, MAX_BUCKET_ENTRIES, &info, HASH_ELEM | HASH_BLOBS);
-#endif
 }
 
 /*
- * Attach to a DSA area created by the postmaster, in the case of
- * USE_DYNAMIC_HASH, also attach the local dshash handle to
- * the dshash created by the postmaster.
+ * Attach to the DSA area created by the postmaster.
  *
- * Note: The dsa area and dshash for the process may be mapped at a
- * different virtual address in this process.
- *
+ * Note: The dsa area for the process may be mapped at a different virtual
+ * address in this process.
  */
 static void
 pgsm_attach_shmem(void)
@@ -236,15 +191,7 @@ pgsm_attach_shmem(void)
 	 * explicit detach.
 	 */
 	dsa_pin_mapping(pgsmStateLocal.dsa);
-
-#if USE_DYNAMIC_HASH
-	dsh_params.tranche_id = pgsmStateLocal.shared_pgsmState->hash_tranche_id;
-	pgsmStateLocal.shared_hash = dshash_attach(pgsmStateLocal.dsa, &dsh_params,
-											   pgsmStateLocal.shared_pgsmState->hash_handle, 0);
-#else
 	pgsmStateLocal.shared_hash = pgsmStateLocal.shared_pgsmState->hash_handle;
-#endif
-
 	MemoryContextSwitchTo(oldcontext);
 }
 
@@ -261,7 +208,7 @@ get_dsa_area_for_query_text(void)
 	return pgsmStateLocal.dsa;
 }
 
-PGSM_HASH_TABLE *
+HTAB *
 get_pgsmHash(void)
 {
 	pgsm_attach_shmem();
@@ -303,7 +250,7 @@ hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key)
 	bool		found = false;
 
 	/* Find or create an entry with desired hash code */
-	entry = (pgsmEntry *) pgsm_hash_find_or_insert(pgsmStateLocal.shared_hash, key, &found);
+	entry = (pgsmEntry *) hash_search(pgsmStateLocal.shared_hash, key, HASH_ENTER_NULL, &found);
 	if (entry == NULL)
 		elog(DEBUG1, "[pg_stat_monitor] hash_entry_alloc: OUT OF MEMORY.");
 	else if (!found)
@@ -320,11 +267,6 @@ hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key)
 		/* re-initialize the mutex each time ... we assume no one using it */
 		SpinLockInit(&entry->mutex);
 	}
-#if USE_DYNAMIC_HASH
-	if (entry)
-		dshash_release_lock(pgsmStateLocal.shared_hash, entry);
-#endif
-
 	return entry;
 }
 
@@ -341,7 +283,7 @@ hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key)
 void
 hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 {
-	PGSM_HASH_SEQ_STATUS hstat;
+	HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry = NULL;
 
 	/* Store pending query ids from the previous bucket. */
@@ -350,9 +292,9 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 		return;
 
 	/* Iterate over the hash table. */
-	pgsm_hash_seq_init(&hstat, pgsmStateLocal.shared_hash, true);
+	hash_seq_init(&hstat, pgsmStateLocal.shared_hash);
 
-	while ((entry = pgsm_hash_seq_next(&hstat)) != NULL)
+	while ((entry = hash_seq_search(&hstat)) != NULL)
 	{
 		dsa_pointer pdsa;
 
@@ -367,7 +309,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 
 			pdsa = entry->query_text.query_pos;
 
-			pgsm_hash_delete_current(&hstat, pgsmStateLocal.shared_hash, &entry->key);
+			hash_search(pgsmStateLocal.shared_hash, &entry->key, HASH_REMOVE, NULL);
 
 			if (DsaPointerIsValid(pdsa))
 				dsa_free(pgsmStateLocal.dsa, pdsa);
@@ -378,7 +320,6 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 			pgsmStateLocal.shared_pgsmState->pgsm_oom = false;
 		}
 	}
-	pgsm_hash_seq_term(&hstat);
 }
 
 bool
@@ -391,70 +332,4 @@ bool
 IsSystemOOM(void)
 {
 	return (IsHashInitialize() && pgsmStateLocal.shared_pgsmState->pgsm_oom);
-}
-
-/*
- * pgsm_* functions are just wrapper functions over the hash table standard
- * API and call the appropriate hash table function based on USE_DYNAMIC_HASH
- */
-
-static void *
-pgsm_hash_find_or_insert(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found)
-{
-#if USE_DYNAMIC_HASH
-	void	   *entry;
-
-	entry = dshash_find_or_insert(shared_hash, key, found);
-	return entry;
-#else
-	return hash_search(shared_hash, key, HASH_ENTER_NULL, found);
-#endif
-}
-
-void *
-pgsm_hash_find(PGSM_HASH_TABLE * shared_hash, pgsmHashKey *key, bool *found)
-{
-#if USE_DYNAMIC_HASH
-	return dshash_find(shared_hash, key, false);
-#else
-	return hash_search(shared_hash, key, HASH_FIND, found);
-#endif
-}
-
-void
-pgsm_hash_seq_init(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, bool lock)
-{
-#if USE_DYNAMIC_HASH
-	dshash_seq_init(hstat, shared_hash, lock);
-#else
-	hash_seq_init(hstat, shared_hash);
-#endif
-}
-
-void *
-pgsm_hash_seq_next(PGSM_HASH_SEQ_STATUS * hstat)
-{
-#if USE_DYNAMIC_HASH
-	return dshash_seq_next(hstat);
-#else
-	return hash_seq_search(hstat);
-#endif
-}
-
-void
-pgsm_hash_seq_term(PGSM_HASH_SEQ_STATUS * hstat)
-{
-#if USE_DYNAMIC_HASH
-	dshash_seq_term(hstat);
-#endif
-}
-
-static void
-pgsm_hash_delete_current(PGSM_HASH_SEQ_STATUS * hstat, PGSM_HASH_TABLE * shared_hash, void *key)
-{
-#if USE_DYNAMIC_HASH
-	dshash_delete_current(hstat);
-#else
-	hash_search(shared_hash, key, HASH_REMOVE, NULL);
-#endif
 }
