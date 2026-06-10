@@ -32,7 +32,6 @@ typedef struct pgsmLocalState
 static pgsmLocalState pgsmStateLocal;
 
 static void pgsm_attach_shmem(void);
-static void pgsm_shmem_shutdown(int code, Datum arg);
 static HTAB *pgsm_create_bucket_hash(void);
 static Size pgsm_get_shared_area_size(void);
 static void InitializeSharedState(pgsmSharedState *pgsm);
@@ -134,12 +133,6 @@ pgsm_startup(void)
 	}
 
 	LWLockRelease(AddinShmemInitLock);
-
-	/*
-	 * If we're in the postmaster (or a standalone backend...), set up a shmem
-	 * exit hook to dump the statistics to disk.
-	 */
-	on_shmem_exit(pgsm_shmem_shutdown, (Datum) 0);
 }
 
 static void
@@ -220,27 +213,6 @@ pgsm_get_ss(void)
 {
 	pgsm_attach_shmem();
 	return pgsmStateLocal.shared_pgsmState;
-}
-
-/*
- * shmem_shutdown hook: Dump statistics into file.
- *
- * Note: we don't bother with acquiring lock, because there should be no
- * other processes running when this is called.
- */
-static void
-pgsm_shmem_shutdown(int code, Datum arg)
-{
-	/* Don't try to dump during a crash. */
-	elog(LOG, "[pg_stat_monitor] pgsm_shmem_shutdown: Shutdown initiated.");
-
-	if (code)
-		return;
-
-	pgsmStateLocal.shared_pgsmState = NULL;
-	/* Safety check ... shouldn't get here unless shmem is set up. */
-	if (!IsHashInitialize())
-		return;
 }
 
 pgsmEntry *
