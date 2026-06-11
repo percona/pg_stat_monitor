@@ -130,7 +130,6 @@ static struct rusage rusage_end;
 
 /* Application name and length; set each time when an entry is created locally */
 static char app_name[APPLICATIONNAME_LEN];
-static int	app_name_len;
 
 /* Query buffer, store queries' text. */
 static char *pgsm_explain(QueryDesc *queryDesc);
@@ -1400,7 +1399,7 @@ pgsm_update_entry(pgsmEntry *entry,
 	/* Only should process this once when storing the data */
 	if (kind == PGSM_STORE)
 	{
-		if (pgsm_track_application_names && app_name_len > 0 && !entry->counters.info.application_name[0])
+		if (pgsm_track_application_names && app_name[0] != '\0' && !entry->counters.info.application_name[0])
 			strlcpy(entry->counters.info.application_name, app_name, APPLICATIONNAME_LEN);
 
 		entry->counters.info.num_relations = num_relations;
@@ -1712,9 +1711,9 @@ pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info)
 
 	if (pgsm_track_application_names)
 	{
-		/* Get the application name and set appid */
-		app_name_len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
-		entry->key.appid = pgsm_hash_string((const char *) app_name, app_name_len);
+		int			len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
+
+		entry->key.appid = pgsm_hash_string(app_name, len);
 	}
 
 	/* client address */
