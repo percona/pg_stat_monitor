@@ -92,9 +92,6 @@ PG_MODULE_MAGIC;
 #define pgsm_client_ip_is_valid() \
 	(pgsm_client_ip != PGSM_INVALID_IP_MASK)
 
-/*---- Initialization Function Declarations ----*/
-void		_PG_init(void);
-
 /* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
 static int	nesting_level = 0;
 
@@ -203,7 +200,6 @@ static PgBackendStatus *pg_get_backend_status(void);
 static Datum intarray_get_datum(int32 arr[], int len);
 
 static int64 pgsm_hash_string(const char *str, int len);
-char	   *unpack_sql_state(int sql_state);
 
 static pgsmEntry *pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info);
 static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
