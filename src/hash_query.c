@@ -295,13 +295,7 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 }
 
 bool
-IsHashInitialize(void)
-{
-	return (pgsmStateLocal.shared_pgsmState != NULL);
-}
-
-bool
 IsSystemOOM(void)
 {
-	return (IsHashInitialize() && pgsmStateLocal.shared_pgsmState->pgsm_oom);
+	return pgsmStateLocal.shared_pgsmState && pgsmStateLocal.shared_pgsmState->pgsm_oom;
 }

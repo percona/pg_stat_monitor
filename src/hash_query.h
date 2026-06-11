@@ -247,7 +247,6 @@ void		pgsm_startup(void);
 MemoryContext GetPgsmMemoryContext(void);
 dsa_area   *get_dsa_area_for_query_text(void);
 HTAB	   *get_pgsmHash(void);
-bool		IsHashInitialize(void);
 bool		IsSystemOOM(void);
 Size		pgsm_ShmemSize(void);
 pgsmSharedState *pgsm_get_ss(void);
