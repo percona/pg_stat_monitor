@@ -344,8 +344,6 @@ _PG_init(void)
 
 	nested_queryids = (int64 *) malloc(sizeof(int64) * max_stack_depth);
 	nested_query_txts = (char **) calloc(max_stack_depth, sizeof(char *));
-
-	system_init = true;
 }
 
 /*
@@ -361,6 +359,8 @@ pgsm_shmem_startup(void)
 		prev_shmem_startup_hook();
 
 	pgsm_startup();
+
+	system_init = true;
 }
 
 static void
@@ -1927,7 +1927,7 @@ pgsm_store(pgsmEntry *entry)
 			 * Out of memory; report only if the state has changed now.
 			 * Otherwise we risk filling up the log file with these message.
 			 */
-			if (!IsSystemOOM())
+			if (!pgsm->pgsm_oom)
 			{
 				pgsm->pgsm_oom = true;
 
@@ -2993,7 +2993,7 @@ pgsm_emit_log_hook(ErrorData *edata)
 	if (MyProc == NULL)
 		goto exit;
 
-	if (edata->elevel >= WARNING && !disable_error_capture && IsSystemOOM() == false)
+	if (edata->elevel >= WARNING && !disable_error_capture && !IsSystemOOM())
 		pgsm_store_error(debug_query_string ? debug_query_string : "", edata);
 
 	/* We need to make sure we re-enable error capture if query was aborted */
@@ -3007,7 +3007,7 @@ exit:
 static bool
 IsSystemInitialized(void)
 {
-	return (system_init && IsHashInitialize());
+	return system_init;
 }
 
 /*
