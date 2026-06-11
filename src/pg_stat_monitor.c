@@ -87,10 +87,7 @@ PG_MODULE_MAGIC;
     (pgsm_track == PGSM_TRACK_ALL || \
     (pgsm_track == PGSM_TRACK_TOP && (level) == 0)))
 
-#define PGSM_INVALID_IP_MASK	0xFFFFFFFF
-
-#define pgsm_client_ip_is_valid() \
-	(pgsm_client_ip != PGSM_INVALID_IP_MASK)
+#define PGSM_INVALID_IP 0xFFFFFFFF
 
 /*---- Initialization Function Declarations ----*/
 void		_PG_init(void);
@@ -114,7 +111,7 @@ static struct
 static int	hist_bucket_count_user;
 static int	hist_bucket_count_total;
 
-static uint32 pgsm_client_ip = PGSM_INVALID_IP_MASK;
+static uint32 pgsm_client_ip = PGSM_INVALID_IP;
 
 /* The array to store outer layer query id */
 static int64 *nested_queryids;
@@ -1716,8 +1713,8 @@ pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info)
 		entry->key.appid = pgsm_hash_string(app_name, len);
 	}
 
-	/* client address */
-	if (!pgsm_client_ip_is_valid())
+	/* Fetch client address only once */
+	if (pgsm_client_ip == PGSM_INVALID_IP)
 		pgsm_client_ip = pg_get_client_addr(&found_client_addr);
 
 	entry->key.ip = pgsm_client_ip;
