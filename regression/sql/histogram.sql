@@ -29,19 +29,19 @@ $$ LANGUAGE 'plpgsql' STRICT;
 
 CREATE OR REPLACE FUNCTION wait_for_new_bucket() RETURNS VOID AS $$
 DECLARE
-    bucket_left_time int;
+    bucket_left_time numeric;
 BEGIN
     -- This test works correctly only if the bucket duration is default (60 seconds).
     SELECT 60 - EXTRACT(
         SECOND FROM(
             SELECT CURRENT_TIMESTAMP(0) bucket_start_time FROM pg_stat_monitor ORDER BY bucket_start_time DESC LIMIT 1
         )
-    )::int INTO bucket_left_time; 
+    ) INTO bucket_left_time;
 
-    -- If the bucket lifetime is less than 10 seconds, we would not fit.
-    IF bucket_left_time <= 4 THEN
+    -- If the bucket lifetime is less than 8 seconds, we would not fit.
+    IF bucket_left_time < 8 THEN
         -- RAISE NOTICE 'Bucket lifetime comes to an end → sleeping 4 seconds...';
-        PERFORM pg_sleep(4);
+        PERFORM pg_sleep(8);
     END IF;
 END;
 $$ LANGUAGE plpgsql;
