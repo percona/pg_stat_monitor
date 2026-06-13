@@ -68,8 +68,8 @@ dkms.conf
 typedefs*.list
 
 # test files
-/regression.diffs
-/regression.out
-/results/
+/regression/regression.diffs
+/regression/regression.out
+/regression/results/
 /t/results/
 /tmp_check/

@@ -23,7 +23,7 @@ CREATE FUNCTION add(integer, integer) RETURNS integer
     IMMUTABLE
     RETURNS NULL ON NULL INPUT;
 
-\c contrib_regression
+\c pgsm_regression
 SELECT pg_stat_monitor_reset();
 \c db1
 SELECT * FROM t1;
@@ -48,7 +48,7 @@ set pg_stat_monitor.pgsm_enable_pgsm_query_id = on;
 SELECT * FROM t3 where c = 20;
 
 
-\c contrib_regression
+\c pgsm_regression
 SELECT datname, pgsm_query_id, query, calls FROM pg_stat_monitor ORDER BY pgsm_query_id, query, datname;
 SELECT pg_stat_monitor_reset();
 
@@ -62,7 +62,7 @@ DROP TABLE t1;
 DROP TABLE t3;
 DROP FUNCTION ADD;
 
-\c contrib_regression
+\c pgsm_regression
 DROP DATABASE db1;
 DROP DATABASE db2;
 DROP EXTENSION pg_stat_monitor;
