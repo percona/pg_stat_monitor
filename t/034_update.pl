@@ -21,14 +21,14 @@ $node->append_conf('postgresql.conf',
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 # Create EXTENSION version 2.0
 my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor VERSION "2.0";',
 	extra_params => ['-a']);
-ok($cmdret == 0, "Create PGSM EXTENSION");
+is($cmdret, 0, "Create PGSM EXTENSION");
 PGSM::append_to_debug_file($stdout);
 
 # Check that we have some results for version 2.0
@@ -36,7 +36,7 @@ PGSM::append_to_debug_file($stdout);
 	'postgres',
 	"SELECT * FROM pg_stat_monitor;",
 	extra_params => ['-a']);
-ok($cmdret == 0, "Check PGSM returns some results for version 2.0");
+is($cmdret, 0, "Check PGSM returns some results for version 2.0");
 PGSM::append_to_debug_file($stdout);
 
 # Update EXTENSION to new version 2.1
@@ -44,7 +44,7 @@ PGSM::append_to_debug_file($stdout);
 	'postgres',
 	'ALTER EXTENSION pg_stat_monitor UPDATE TO "2.1";',
 	extra_params => ['-a']);
-ok($cmdret == 0, "Update PGSM EXTENSION to new version");
+is($cmdret, 0, "Update PGSM EXTENSION to new version");
 PGSM::append_to_debug_file($stdout);
 
 # Check that we have some results for version 2.1
@@ -52,7 +52,7 @@ PGSM::append_to_debug_file($stdout);
 	'postgres',
 	"SELECT * FROM pg_stat_monitor;",
 	extra_params => ['-a']);
-ok($cmdret == 0, "Check PGSM returns some results for version 2.1");
+is($cmdret, 0, "Check PGSM returns some results for version 2.1");
 PGSM::append_to_debug_file($stdout);
 
 # DROP EXTENSION
@@ -60,7 +60,7 @@ $stdout = $node->safe_psql(
 	'postgres',
 	'DROP EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "DROP PGSM EXTENSION");
+is($cmdret, 0, "DROP PGSM EXTENSION");
 PGSM::append_to_debug_file($stdout);
 
 # Stop the server

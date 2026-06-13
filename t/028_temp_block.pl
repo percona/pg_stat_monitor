@@ -33,14 +33,14 @@ $node->append_conf('postgresql.conf',
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 # CREATE EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE EXTENSION pg_stat_statements;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "CREATE PGSS EXTENSION");
+is($cmdret, 0, "CREATE PGSS EXTENSION");
 PGSM::append_to_file($stdout);
 
 # CREATE EXTENSION and change out file permissions
@@ -48,7 +48,7 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "CREATE PGSM EXTENSION");
+is($cmdret, 0, "CREATE PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Run required commands/queries and dump output to out file.
@@ -56,7 +56,7 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	'SELECT pg_stat_monitor_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSM EXTENSION");
+is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Run 'SELECT ***' two times and dump output to out file
@@ -64,40 +64,40 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name LIKE '%pg_stat_monitor%';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Print PGSM EXTENSION Settings");
+is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	' CREATE TABLE t1(a int);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "CREATE Table t1");
+is($cmdret, 0, "CREATE Table t1");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE INDEX idx_t1_a on t1(a);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "CREATE index.");
+is($cmdret, 0, "CREATE index.");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'INSERT INTO t1 VALUES(generate_series(1,1000000));',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "INSERT 10000 records.");
+is($cmdret, 0, "INSERT 10000 records.");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'ANALYZE t1;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Analyze t1.");
+is($cmdret, 0, "Analyze t1.");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'SELECT * FROM t1 AS XX INNER JOIN t1 AS TT ON XX.a = TT.a;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "SELECT * FROM t1.");
+is($cmdret, 0, "SELECT * FROM t1.");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -149,7 +149,7 @@ $stdout = $node->safe_psql(
 	'postgres',
 	'DROP EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "DROP PGSM EXTENSION");
+is($cmdret, 0, "DROP PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Stop the server

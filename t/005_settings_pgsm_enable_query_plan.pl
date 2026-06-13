@@ -25,14 +25,14 @@ close $conf;
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 # CREATE EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "CREATE PGSM EXTENSION");
+is($cmdret, 0, "CREATE PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Run required commands/queries and dump output to out file.
@@ -40,14 +40,14 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	'SELECT pg_stat_monitor_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSM EXTENSION");
+is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_enable_query_plan';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Print PGSM EXTENSION Settings");
+is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -110,14 +110,14 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	'SELECT pg_stat_monitor_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSM EXTENSION");
+is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_enable_query_plan';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Print PGSM EXTENSION Settings");
+is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -163,14 +163,14 @@ PGSM::append_to_file($stdout);
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
 is($stdout, '', "Test: planid should be empty");
-ok(length($stdout) == 0, 'Length of planid is 0');
+is(length($stdout), 0, 'Length of planid is 0');
 
 # DROP EXTENSION
 $stdout = $node->safe_psql(
 	'postgres',
 	'DROP EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "DROP PGSM EXTENSION");
+is($cmdret, 0, "DROP PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Stop the server

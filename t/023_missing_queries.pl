@@ -54,34 +54,34 @@ $node->append_conf('postgresql.conf',
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "CREATE PGSM EXTENSION");
+is($cmdret, 0, "CREATE PGSM EXTENSION");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'SELECT pg_stat_monitor_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSM EXTENSION");
+is($cmdret, 0, "Reset PGSM EXTENSION");
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT pg_sleep(5)");
-ok($cmdret == 0, "1 - SELECT pg_sleep(5)");
+is($cmdret, 0, "1 - SELECT pg_sleep(5)");
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT pg_sleep(5)");
-ok($cmdret == 0, "2 - SELECT pg_sleep(5)");
+is($cmdret, 0, "2 - SELECT pg_sleep(5)");
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT pg_sleep(5)");
-ok($cmdret == 0, "3 - SELECT pg_sleep(5)");
+is($cmdret, 0, "3 - SELECT pg_sleep(5)");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'SELECT bucket, queryid, calls, query FROM pg_stat_monitor;',
 	extra_params => [ '-a', '-Pformat=aligned' ]);
-ok($cmdret == 0, "Query pg_stat_monitor view");
+is($cmdret, 0, "Query pg_stat_monitor view");
 
 sub trim { my $s = shift; $s =~ s/^\s+|\s+$//g; return $s }
 

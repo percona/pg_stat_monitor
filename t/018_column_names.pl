@@ -100,14 +100,14 @@ my %pg_versions_pgsm_columns = (
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 # CREATE EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "CREATE PGSM EXTENSION");
+is($cmdret, 0, "CREATE PGSM EXTENSION");
 PGSM::append_to_file($stdout . "\n");
 
 # Get PGSM columns names FROM PGSM installation in server
@@ -115,13 +115,13 @@ PGSM::append_to_file($stdout . "\n");
 	'postgres',
 	"SELECT column_name  FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = 'pg_stat_monitor' ORDER BY column_name;",
 	extra_params => [ '-A', '-R,', '-Ptuples_only=on' ]);
-ok( $cmdret == 0,
+is($cmdret, 0,
 	"Get columns names in PGSM installation for PG version $PGSM::PG_MAJOR_VERSION"
 );
 PGSM::append_to_file($stdout . "\n");
 
 # Compare PGSM column names in installation to expected column names
-ok( $stdout eq $pg_versions_pgsm_columns{$PGSM::PG_MAJOR_VERSION},
+is($stdout, $pg_versions_pgsm_columns{$PGSM::PG_MAJOR_VERSION},
 	"Compare supported columns names for PG version $PGSM::PG_MAJOR_VERSION against expected"
 );
 
@@ -130,7 +130,7 @@ ok( $stdout eq $pg_versions_pgsm_columns{$PGSM::PG_MAJOR_VERSION},
 	'postgres',
 	"SELECT $pg_versions_pgsm_columns{$PGSM::PG_MAJOR_VERSION} FROM pg_stat_monitor;",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "SELECT statement against expected column names");
+is($cmdret, 0, "SELECT statement against expected column names");
 PGSM::append_to_file($stdout);
 
 # DROP EXTENSION
@@ -138,7 +138,7 @@ $stdout = $node->safe_psql(
 	'postgres',
 	'DROP EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "DROP PGSM EXTENSION");
+is($cmdret, 0, "DROP PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Stop the server
