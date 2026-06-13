@@ -38,7 +38,7 @@ $node->append_conf('postgresql.conf',
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 my $col_shared_blk_read_time = "shared_blk_read_time";
 my $col_shared_blk_write_time = "shared_blk_write_time";
@@ -54,7 +54,7 @@ my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE EXTENSION pg_stat_statements;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "CREATE PGSS EXTENSION");
+is($cmdret, 0, "CREATE PGSS EXTENSION");
 PGSM::append_to_file($stdout);
 
 # CREATE EXTENSION and change out file permissions
@@ -62,7 +62,7 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "CREATE PGSM EXTENSION");
+is($cmdret, 0, "CREATE PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Run required commands/queries and dump output to out file.
@@ -70,7 +70,7 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	'SELECT pg_stat_monitor_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSM EXTENSION");
+is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Run required commands/queries and dump output to out file.
@@ -78,7 +78,7 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	'SELECT pg_stat_statements_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSS EXTENSION");
+is($cmdret, 0, "Reset PGSS EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Run 'SELECT ****' two times and dump output to out file
@@ -86,21 +86,21 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name LIKE '%pg_stat_monitor%';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Print PGSM EXTENSION Settings");
+is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 # CREATE example database and run pgbench init
 # ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'CREATE database example;', extra_params => ['-a']);
-# ok($cmdret == 0, "CREATE Database example");
+# is($cmdret, 0, "CREATE Database example");
 # PGSM::append_to_file($stdout);
 
 my $port = $node->port;
 
 my $out = system("pgbench -i -s 20 -p $port postgres");
-ok($cmdret == 0, "Perform pgbench init");
+is($cmdret, 0, "Perform pgbench init");
 
 $out = system("pgbench -c 10 -j 2 -t 2000 -p $port postgres");
-ok($cmdret == 0, "Run pgbench");
+is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
@@ -262,7 +262,7 @@ $stdout = $node->safe_psql(
 	'postgres',
 	'DROP EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "DROP PGSM EXTENSION");
+is($cmdret, 0, "DROP PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Stop the server

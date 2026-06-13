@@ -24,7 +24,7 @@ close $conf;
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 my $col_total_time = "total_exec_time";
 my $col_min_time = "min_exec_time";
@@ -37,7 +37,7 @@ my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "CREATE PGSM EXTENSION");
+is($cmdret, 0, "CREATE PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Run required commands/queries and dump output to out file.
@@ -45,7 +45,7 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	'SELECT pg_stat_monitor_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSM EXTENSION");
+is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Run 'SELECT *** ' two times and dump output to out file
@@ -53,21 +53,21 @@ PGSM::append_to_file($stdout);
 	'postgres',
 	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name LIKE '%pg_stat_monitor%';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Print PGSM EXTENSION Settings");
+is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name LIKE '%pg_stat_monitor%';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Print PGSM EXTENSION Settings");
+is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	"SELECT query, calls, ${col_total_time}, ${col_min_time}, ${col_max_time}, ${col_mean_time}, ${col_stddev_time} FROM pg_stat_monitor;",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "SELECT FROM PGSM view");
+is($cmdret, 0, "SELECT FROM PGSM view");
 PGSM::append_to_file($stdout);
 
 # Test: ${col_total_time} is not 0
@@ -139,7 +139,7 @@ PGSM::append_to_debug_file($stdout);
 	'postgres',
 	'SELECT pg_stat_monitor_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSM EXTENSION");
+is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # DROP EXTENSION
@@ -147,7 +147,7 @@ $stdout = $node->safe_psql(
 	'postgres',
 	'DROP EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "DROP PGSM EXTENSION");
+is($cmdret, 0, "DROP PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Stop the server

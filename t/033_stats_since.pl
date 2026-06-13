@@ -35,14 +35,14 @@ $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'");
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 # Create EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "Create PGSM EXTENSION");
+is($cmdret, 0, "Create PGSM EXTENSION");
 PGSM::append_to_debug_file($stdout);
 
 # Run 'SELECT pg_stat_monitor settings' and dump output to out file
@@ -50,7 +50,7 @@ PGSM::append_to_debug_file($stdout);
 	'postgres',
 	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name LIKE '%pg_stat_monitor%';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Print PGSM EXTENSION Settings");
+is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_debug_file($stdout);
 
 # Run required commands/queries and dump output to out file.
@@ -58,28 +58,28 @@ PGSM::append_to_debug_file($stdout);
 	'postgres',
 	'SELECT pg_stat_monitor_reset();',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "Reset PGSM EXTENSION");
+is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_debug_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'SELECT pg_sleep(1);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "1 - Run pg_sleep(1)");
+is($cmdret, 0, "1 - Run pg_sleep(1)");
 PGSM::append_to_debug_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'SELECT pg_sleep(1);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "2 - Run pg_sleep(1)");
+is($cmdret, 0, "2 - Run pg_sleep(1)");
 PGSM::append_to_debug_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'SELECT pg_sleep(1);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($cmdret == 0, "3 - Run pg_sleep(1)");
+is($cmdret, 0, "3 - Run pg_sleep(1)");
 PGSM::append_to_debug_file($stdout);
 
 # Check that we have more than one bucket
@@ -104,7 +104,7 @@ is($stdout, 't', "Check: for every bucket stats_since should be unique");
 	"SELECT COUNT(*) AS ST FROM pg_stat_monitor WHERE query LIKE '%sleep%' AND stats_since != minmax_stats_since;",
 	extra_params => [ '-t', '-Pformat=aligned', '-Ptuples_only=on' ]);
 trim($stdout);
-ok($stdout == 0, "Check: minmax_stats_since always match stats_since");
+is($stdout, 0, "Check: minmax_stats_since always match stats_since");
 PGSM::append_to_debug_file($stdout);
 
 # DROP EXTENSION
@@ -112,7 +112,7 @@ $stdout = $node->safe_psql(
 	'postgres',
 	'DROP EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "DROP PGSM EXTENSION");
+is($cmdret, 0, "DROP PGSM EXTENSION");
 PGSM::append_to_debug_file($stdout);
 
 # Stop the server

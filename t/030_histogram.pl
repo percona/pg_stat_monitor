@@ -85,7 +85,7 @@ sub generate_histogram_with_configurations
 		'postgres',
 		"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name LIKE 'pg_stat_monitor%histogram%';",
 		extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-	ok($cmdret == 0,
+	is($cmdret, 0,
 		"Scenario $scenario_number : Print PGSM EXTENSION Settings");
 	PGSM::append_to_debug_file($stdout);
 
@@ -93,7 +93,7 @@ sub generate_histogram_with_configurations
 		'postgres',
 		'SELECT pg_stat_monitor_reset();',
 		extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-	ok($cmdret == 0, "Scenario $scenario_number : Reset PGSM Extension");
+	is($cmdret, 0, "Scenario $scenario_number : Reset PGSM Extension");
 	PGSM::append_to_debug_file($stdout);
 
 	if ($use_pg_sleep == 1)
@@ -103,7 +103,7 @@ sub generate_histogram_with_configurations
 			'SELECT run_pg_sleep(10);',
 			extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]
 		);
-		ok( $cmdret == 0,
+		is($cmdret, 0,
 			"Scenario $scenario_number : Run run_pg_sleep(10) to generate data for histogram testing"
 		);
 		PGSM::append_to_debug_file($stdout);
@@ -117,7 +117,7 @@ sub generate_histogram_with_configurations
 				'SELECT 1 AS a;',
 				extra_params =>
 				  [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-			ok($cmdret == 0, "Scenario $scenario_number : SELECT 1 AS a");
+			is($cmdret, 0, "Scenario $scenario_number : SELECT 1 AS a");
 			PGSM::append_to_debug_file($stdout);
 		}
 	}
@@ -126,7 +126,7 @@ sub generate_histogram_with_configurations
 		'postgres',
 		'SELECT bucket, queryid, query, calls, resp_calls FROM pg_stat_monitor ORDER BY calls desc;',
 		extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-	ok($cmdret == 0,
+	is($cmdret, 0,
 		"Scenario $scenario_number : Print what is in pg_stat_monitor view");
 	PGSM::append_to_debug_file($stdout);
 
@@ -134,8 +134,8 @@ sub generate_histogram_with_configurations
 		'postgres',
 		'SELECT calls FROM pg_stat_monitor ORDER BY calls desc LIMIT 1;',
 		extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
-	ok($cmdret == 0, "Scenario $scenario_number : Get calls into a variable");
-	ok($stdout == $expected_calls_count,
+	is($cmdret, 0, "Scenario $scenario_number : Get calls into a variable");
+	is($stdout, $expected_calls_count,
 		"Scenario $scenario_number : Calls are $expected_calls_count");
 	my $calls_count = trim($stdout);
 	PGSM::append_to_debug_file(
@@ -145,9 +145,9 @@ sub generate_histogram_with_configurations
 		'postgres',
 		'SELECT resp_calls FROM pg_stat_monitor ORDER BY calls desc LIMIT 1;',
 		extra_params => [ '-Pformat=aligned', '-Ptuples_only=on' ]);
-	ok($cmdret == 0,
+	is($cmdret, 0,
 		"Scenario $scenario_number : Get resp_calls into a variable");
-	ok(trim($stdout) eq "$expected_resp_calls",
+	is(trim($stdout), "$expected_resp_calls",
 		"Scenario $scenario_number : resp_calls is $expected_resp_calls");
 	my $resp_calls = trim($stdout);
 	PGSM::append_to_debug_file(
@@ -157,7 +157,7 @@ sub generate_histogram_with_configurations
 		'postgres',
 		'SELECT * from generate_histogram();',
 		extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-	ok($cmdret == 0,
+	is($cmdret, 0,
 		"Scenario $scenario_number : Generate Histogram for Select 1");
 	PGSM::append_to_debug_file($stdout);
 	like(
@@ -182,20 +182,20 @@ $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'");
 
 # Start server
 my $rt_value = $node->start;
-ok($rt_value == 1, "Start Server");
+is($rt_value, 1, "Start Server");
 
 # Create functions required for testing
 my ($cmdret, $stdout, $stderr) =
   $node->psql('postgres', "$run_pg_sleep_function_sql",
 	extra_params => ['-a']);
-ok($cmdret == 0, "Create run_pg_sleep(INTEGER) function");
+is($cmdret, 0, "Create run_pg_sleep(INTEGER) function");
 PGSM::append_to_debug_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	"$generate_histogram_function_sql",
 	extra_params => ['-a']);
-ok($cmdret == 0, "Create generate_histogram() function");
+is($cmdret, 0, "Create generate_histogram() function");
 PGSM::append_to_debug_file($stdout);
 
 # Create extension and change out file permissions
@@ -203,7 +203,7 @@ PGSM::append_to_debug_file($stdout);
 	'postgres',
 	'CREATE EXTENSION pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "Create PGSM Extension");
+is($cmdret, 0, "Create PGSM Extension");
 PGSM::append_to_debug_file($stdout);
 
 # Following parameters are required for function 'generate_histogram_with_configurations' to generate and test a histogram
@@ -272,7 +272,7 @@ $stdout = $node->safe_psql(
 	'postgres',
 	'Drop extension pg_stat_monitor;',
 	extra_params => ['-a']);
-ok($cmdret == 0, "Drop PGSM  Extension");
+is($cmdret, 0, "Drop PGSM  Extension");
 PGSM::append_to_debug_file($stdout);
 
 # Stop the server
