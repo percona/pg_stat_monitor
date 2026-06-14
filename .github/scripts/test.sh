@@ -7,8 +7,6 @@ PG_BIN_DIR=$(pg_config --bindir)
 
 cd "$SCRIPT_DIR/../../"
 
-PG_VERSION=$(pg_config --version | sed -n 's/PostgreSQL \([0-9]*\).*/\1/p')
-
 OPTS='-c shared_preload_libraries=pg_stat_monitor'
 
 if [ "$1" = sanitize ]; then
