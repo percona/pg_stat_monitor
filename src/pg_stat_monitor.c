@@ -196,19 +196,19 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
 static uint pg_get_client_addr(bool *ok);
 static int	pg_get_application_name(char *name, int buff_size);
 static PgBackendStatus *pg_get_backend_status(void);
-static Datum intarray_get_datum(int32 arr[], int len);
+static Datum intarray_get_datum(const int32 *arr, int len);
 
 static int64 pgsm_hash_string(const char *str, int len);
 char	   *unpack_sql_state(int sql_state);
 
-static pgsmEntry *pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info);
-static void pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len);
+static pgsmEntry *pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info);
+static void pgsm_add_to_list(pgsmEntry *entry, const char *query_text, int query_len);
 static void pgsm_delete_entry(uint64 queryid);
-static pgsmEntry *pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
+static pgsmEntry *pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
-static void pgsm_store_error(const char *query, ErrorData *edata);
+static void pgsm_store_error(const char *query, const ErrorData *edata);
 
 /*---- Local variables ----*/
 static MemoryContextCallback mem_cxt_reset_callback =
@@ -220,16 +220,16 @@ static volatile bool callback_setup = false;
 
 static void pgsm_update_entry(pgsmEntry *entry,
 							  const char *query,
-							  char *comments,
+							  const char *comments,
 							  int comments_len,
-							  PlanInfo *plan_info,
-							  SysInfo *sys_info,
-							  ErrorInfo *error_info,
+							  const PlanInfo *plan_info,
+							  const SysInfo *sys_info,
+							  const ErrorInfo *error_info,
 							  double plan_total_time,
 							  double exec_total_time,
 							  uint64 rows,
-							  BufferUsage *bufusage,
-							  WalUsage *walusage,
+							  const BufferUsage *bufusage,
+							  const WalUsage *walusage,
 							  const struct JitInstrumentation *jitusage,
 							  int parallel_workers_to_launch,
 							  int parallel_workers_launched,
@@ -484,7 +484,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 		pgsm_add_to_list(entry, norm_query, norm_query_len);
 	else
 	{
-		pgsm_add_to_list(entry, (char *) query_text, query_len);
+		pgsm_add_to_list(entry, query_text, query_len);
 	}
 
 	/* Check that we've not exceeded max_stack_depth */
@@ -1020,7 +1020,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		!IsA(parsetree, PrepareStmt) &&
 		!IsA(parsetree, DeallocateStmt))
 	{
-		char	   *query_text;
+		const char *query_text;
 		int			location;
 		int			query_len;
 		instr_time	start;
@@ -1094,7 +1094,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		location = pstmt->stmt_location;
 		query_len = pstmt->stmt_len;
-		query_text = (char *) CleanQuerytext(queryString, &location, &query_len);
+		query_text = CleanQuerytext(queryString, &location, &query_len);
 
 		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
 		entry->counters.info.cmd_type = pstmt->commandType;
@@ -1106,7 +1106,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		/* The plan details are captured when the query finishes */
 		pgsm_update_entry(entry,	/* entry */
-						  (char *) query_text,	/* query */
+						  query_text,	/* query */
 						  NULL, /* comments */
 						  0,	/* comments length */
 						  NULL, /* PlanInfo */
@@ -1280,16 +1280,16 @@ pg_get_client_addr(bool *ok)
 static void
 pgsm_update_entry(pgsmEntry *entry,
 				  const char *query,
-				  char *comments,
+				  const char *comments,
 				  int comments_len,
-				  PlanInfo *plan_info,
-				  SysInfo *sys_info,
-				  ErrorInfo *error_info,
+				  const PlanInfo *plan_info,
+				  const SysInfo *sys_info,
+				  const ErrorInfo *error_info,
 				  double plan_total_time,
 				  double exec_total_time,
 				  uint64 rows,
-				  BufferUsage *bufusage,
-				  WalUsage *walusage,
+				  const BufferUsage *bufusage,
+				  const WalUsage *walusage,
 				  const struct JitInstrumentation *jitusage,
 				  int parallel_workers_to_launch,
 				  int parallel_workers_launched,
@@ -1555,7 +1555,7 @@ pgsm_update_entry(pgsmEntry *entry,
 }
 
 static void
-pgsm_store_error(const char *query, ErrorData *edata)
+pgsm_store_error(const char *query, const ErrorData *edata)
 {
 	pgsmEntry  *entry;
 	int64		queryid = 0;
@@ -1581,7 +1581,7 @@ pgsm_store_error(const char *query, ErrorData *edata)
 }
 
 static void
-pgsm_add_to_list(pgsmEntry *entry, char *query_text, int query_len)
+pgsm_add_to_list(pgsmEntry *entry, const char *query_text, int query_len)
 {
 	/* Switch to pgsm memory context */
 	MemoryContext oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
@@ -1629,7 +1629,7 @@ pgsm_delete_entry(uint64 queryid)
 }
 
 static pgsmEntry *
-pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type)
+pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type)
 {
 	pgsmEntry  *entry = NULL;
 	ListCell   *lc = NULL;
@@ -1667,7 +1667,7 @@ pgsm_get_entry_for_query(int64 queryid, PlanInfo *plan_info, const char *query_t
 		 */
 		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
 		entry->counters.info.cmd_type = cmd_type;
-		pgsm_add_to_list(entry, (char *) query_text, query_len);
+		pgsm_add_to_list(entry, query_text, query_len);
 	}
 
 	return entry;
@@ -1687,7 +1687,7 @@ pgsm_cleanup_callback(void *arg)
  * Function encapsulating some external calls for filling up the hash key data structure.
  */
 static pgsmEntry *
-pgsm_create_hash_entry(int64 queryid, PlanInfo *plan_info)
+pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 {
 	pgsmEntry  *entry;
 	int			sec_ctx;
@@ -2577,7 +2577,7 @@ get_pgsm_query_id_hash(const char *norm_query, int norm_len)
 {
 	char	   *query;
 	char	   *q_iter;
-	char	   *norm_q_iter = (char *) norm_query;
+	const char *norm_q_iter = norm_query;
 	int64		pgsm_query_id = 0;
 
 	if (!pgsm_enable_pgsm_query_id)
@@ -2933,7 +2933,7 @@ comp_location(const void *a, const void *b)
 
 /* Convert array of integers into Text datum */
 static Datum
-intarray_get_datum(int32 arr[], int len)
+intarray_get_datum(const int32 *arr, int len)
 {
 	StringInfoData str;
 	Datum		datum;

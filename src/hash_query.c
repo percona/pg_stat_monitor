@@ -216,7 +216,7 @@ pgsm_get_ss(void)
 }
 
 pgsmEntry *
-hash_entry_alloc(pgsmSharedState *pgsm, pgsmHashKey *key)
+hash_entry_alloc(pgsmSharedState *pgsm, const pgsmHashKey *key)
 {
 	pgsmEntry  *entry = NULL;
 	bool		found = false;
