@@ -12,12 +12,12 @@ BEGIN;
 INSERT INTO t VALUES (1);
 COMMIT;
 SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
-             query              | username |      datname       
---------------------------------+----------+--------------------
- BEGIN                          | u        | contrib_regression
- COMMIT                         | u        | contrib_regression
- INSERT INTO t VALUES (1)       | u        | contrib_regression
- SELECT pg_stat_monitor_reset() | u        | contrib_regression
+             query              | username |     datname     
+--------------------------------+----------+-----------------
+ BEGIN                          | u        | pgsm_regression
+ COMMIT                         | u        | pgsm_regression
+ INSERT INTO t VALUES (1)       | u        | pgsm_regression
+ SELECT pg_stat_monitor_reset() | u        | pgsm_regression
 (4 rows)
 
 SELECT pg_stat_monitor_reset();
@@ -31,12 +31,12 @@ BEGIN;
 INSERT INTO t VALUES (2);
 ROLLBACK;
 SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
-             query              | username |      datname       
---------------------------------+----------+--------------------
- BEGIN                          | u        | contrib_regression
- INSERT INTO t VALUES (2)       | u        | contrib_regression
- ROLLBACK                       | u        | contrib_regression
- SELECT pg_stat_monitor_reset() | u        | contrib_regression
+             query              | username |     datname     
+--------------------------------+----------+-----------------
+ BEGIN                          | u        | pgsm_regression
+ INSERT INTO t VALUES (2)       | u        | pgsm_regression
+ ROLLBACK                       | u        | pgsm_regression
+ SELECT pg_stat_monitor_reset() | u        | pgsm_regression
 (4 rows)
 
 SELECT pg_stat_monitor_reset();
@@ -52,12 +52,12 @@ ERROR:  duplicate key value violates unique constraint "t_pkey"
 DETAIL:  Key (a)=(1) already exists.
 ROLLBACK;
 SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
-             query              | username |      datname       
---------------------------------+----------+--------------------
- BEGIN                          | u        | contrib_regression
- INSERT INTO t VALUES (1);      | u        | contrib_regression
+             query              | username |     datname     
+--------------------------------+----------+-----------------
+ BEGIN                          | u        | pgsm_regression
+ INSERT INTO t VALUES (1);      | u        | pgsm_regression
  ROLLBACK                       |          | 
- SELECT pg_stat_monitor_reset() | u        | contrib_regression
+ SELECT pg_stat_monitor_reset() | u        | pgsm_regression
 (4 rows)
 
 SELECT pg_stat_monitor_reset();
