@@ -6,8 +6,7 @@ CREATE OR REPLACE FUNCTION decode_error_level(elevel int)
 RETURNS text
 PARALLEL SAFE
 LANGUAGE sql
-AS $$
-SELECT CASE
+RETURN CASE
     WHEN elevel = 0 THEN ''
     WHEN elevel = 10 THEN 'DEBUG5'
     WHEN elevel = 11 THEN 'DEBUG4'
@@ -24,7 +23,28 @@ SELECT CASE
     WHEN elevel = 22 THEN 'FATAL'
     WHEN elevel = 23 THEN 'PANIC'
 END;
-$$;
+
+CREATE OR REPLACE FUNCTION get_cmd_type(cmd_type int)
+RETURNS text
+PARALLEL SAFE
+LANGUAGE sql
+RETURN CASE
+    WHEN cmd_type = 0 THEN ''
+    WHEN cmd_type = 1 THEN 'SELECT'
+    WHEN cmd_type = 2 THEN 'UPDATE'
+    WHEN cmd_type = 3 THEN 'INSERT'
+    WHEN cmd_type = 4 THEN 'DELETE'
+    WHEN cmd_type = 5 AND current_setting('server_version_num')::int >= 150000 THEN 'MERGE'
+    WHEN cmd_type = 5 AND current_setting('server_version_num')::int < 150000 THEN 'UTILITY'
+    WHEN cmd_type = 6 AND current_setting('server_version_num')::int >= 150000 THEN 'UTILITY'
+    WHEN cmd_type = 6 AND current_setting('server_version_num')::int < 150000 THEN 'NOTHING'
+    WHEN cmd_type = 7 THEN 'NOTHING'
+END;
+
+CREATE OR REPLACE FUNCTION range()
+RETURNS text[]
+LANGUAGE sql
+RETURN string_to_array(get_histogram_timings(), ',');
 
 DROP FUNCTION pgsm_create_13_view();
 DROP VIEW pg_stat_monitor;
