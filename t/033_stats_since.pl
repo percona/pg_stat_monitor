@@ -102,8 +102,9 @@ is($stdout, 't', "Check: for every bucket stats_since should be unique");
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	"SELECT COUNT(*) AS ST FROM pg_stat_monitor WHERE query LIKE '%sleep%' AND stats_since != minmax_stats_since;",
-	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-ok($stdout == 0, "Compare: Calls count is 1");
+	extra_params => [ '-t', '-Pformat=aligned', '-Ptuples_only=on' ]);
+trim($stdout);
+ok($stdout == 0, "Check: minmax_stats_since always match stats_since");
 PGSM::append_to_debug_file($stdout);
 
 # DROP EXTENSION
