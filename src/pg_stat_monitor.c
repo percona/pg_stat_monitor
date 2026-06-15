@@ -656,10 +656,8 @@ static void
 pgsm_ExecutorEnd(QueryDesc *queryDesc)
 {
 	int64		queryId = queryDesc->plannedstmt->queryId;
-	SysInfo		sys_info;
 	PlanInfo	plan_info;
 	PlanInfo   *plan_ptr = NULL;
-	pgsmEntry  *entry = NULL;
 
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
@@ -689,6 +687,9 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 
 	if (queryId != INT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
 	{
+		pgsmEntry  *entry = NULL;
+		SysInfo		sys_info;
+
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true, queryDesc->operation);
 		if (!entry)
 		{
@@ -1202,12 +1203,11 @@ pg_get_backend_status(void)
 #elif PG_VERSION_NUM >= 160000
 	return &(pgstat_get_local_beentry_by_backend_id(MyBackendId)->backendStatus);
 #else
-	LocalPgBackendStatus *local_beentry;
 	int			num_backends = pgstat_fetch_stat_numbackends();
-	int			i;
 
-	for (i = 1; i <= num_backends; i++)
+	for (int i = 1; i <= num_backends; i++)
 	{
+		LocalPgBackendStatus *local_beentry;
 		PgBackendStatus *beentry;
 
 		local_beentry = pgstat_fetch_stat_local_beentry(i);
@@ -1230,13 +1230,13 @@ pg_get_backend_status(void)
 static int
 pg_get_application_name(char *name, int buff_size)
 {
-	PgBackendStatus *beentry;
-
 	/* Try to read application name from GUC directly */
 	if (application_name && *application_name)
 		strlcpy(name, application_name, buff_size);
 	else
 	{
+		PgBackendStatus *beentry;
+
 		beentry = pg_get_backend_status();
 
 		if (!beentry)
@@ -1297,7 +1297,6 @@ pgsm_update_entry(pgsmEntry *entry,
 				  pgsmStoreKind kind)
 {
 	int			index;
-	double		old_mean;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
 	/*
@@ -1338,9 +1337,9 @@ pgsm_update_entry(pgsmEntry *entry,
 		}
 		else
 		{
-			/* Increment the counts, except when jstate is not NULL */
-			old_mean = entry->counters.plantime.mean_time;
+			double		old_mean = entry->counters.plantime.mean_time;
 
+			/* Increment the counts, except when jstate is not NULL */
 			entry->counters.plantime.mean_time += (plan_total_time - old_mean) / entry->counters.plancalls.calls;
 			entry->counters.plantime.sum_var_time += (plan_total_time - old_mean) * (plan_total_time - entry->counters.plantime.mean_time);
 
@@ -1369,8 +1368,9 @@ pgsm_update_entry(pgsmEntry *entry,
 		}
 		else
 		{
+			double		old_mean = entry->counters.time.mean_time;
+
 			/* Increment the counts, except when jstate is not NULL */
-			old_mean = entry->counters.time.mean_time;
 			entry->counters.time.mean_time += (exec_total_time - old_mean) / entry->counters.calls.calls;
 			entry->counters.time.sum_var_time += (exec_total_time - old_mean) * (exec_total_time - entry->counters.time.mean_time);
 
@@ -1632,7 +1632,6 @@ static pgsmEntry *
 pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type)
 {
 	pgsmEntry  *entry = NULL;
-	ListCell   *lc = NULL;
 
 	/* First bet is on the last entry */
 	if (lentries == NIL && !create)
@@ -1640,6 +1639,8 @@ pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *q
 
 	if (lentries)
 	{
+		ListCell   *lc = NULL;
+
 		entry = (pgsmEntry *) llast(lentries);
 		if (entry->key.queryid == queryid)
 			return entry;
@@ -1693,8 +1694,6 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 	int			sec_ctx;
 	bool		found_client_addr = false;
 	MemoryContext oldctx;
-	char	   *datname = NULL;
-	char	   *username = NULL;
 
 	/* Create an entry in the pgsm memory context */
 	oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
@@ -1735,6 +1734,9 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 
 	if (IsTransactionState())
 	{
+		char	   *datname = NULL;
+		char	   *username = NULL;
+
 		datname = get_database_name(entry->key.dbid);
 		username = GetUserNameFromId(entry->key.userid, true);
 
@@ -2504,8 +2506,6 @@ get_next_wbucket(pgsmSharedState *pgsm)
 {
 	struct timeval tv;
 	uint64		current_bucket_sec;
-	uint64		new_bucket_id;
-	uint64		prev_bucket_id;
 	bool		update_bucket = false;
 
 	gettimeofday(&tv, NULL);
@@ -2539,6 +2539,8 @@ get_next_wbucket(pgsmSharedState *pgsm)
 
 	if (update_bucket)
 	{
+		uint64		new_bucket_id;
+		uint64		prev_bucket_id;
 
 		new_bucket_id = (tv.tv_sec / pgsm_bucket_time) % pgsm_max_buckets;
 
