@@ -216,7 +216,7 @@ static MemoryContextCallback mem_cxt_reset_callback =
 	.func = pgsm_cleanup_callback,
 	.arg = NULL
 };
-static volatile bool callback_setup = false;
+static bool callback_setup = false;
 
 static void pgsm_update_entry(pgsmEntry *entry,
 							  const char *query,
