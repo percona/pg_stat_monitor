@@ -1559,9 +1559,9 @@ pgsm_store_error(const char *query, ErrorData *edata)
 {
 	pgsmEntry  *entry;
 	int64		queryid = 0;
-	int			len = strlen(query);
+	int			len;
 
-	if (!query || len == 0)
+	if (!query || query[0] == '\0')
 		return;
 
 	len = strlen(query);
