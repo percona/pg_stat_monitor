@@ -42,6 +42,8 @@
 #define SQLCODE_LEN							20
 #define TOTAL_RELS_LENGTH					(REL_LST * REL_LEN)
 
+#define INVALID_BUCKET_ID	-1
+
 /* shared memory storage for the query */
 typedef struct CallTime
 {

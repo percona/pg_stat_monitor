@@ -274,8 +274,8 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 		 * Remove all entries if new_bucket_id == -1. Otherwise remove entry
 		 * in new_bucket_id if it has finished already.
 		 */
-		if (new_bucket_id < 0 ||
-			(entry->key.bucket_id == new_bucket_id))
+		if (new_bucket_id == INVALID_BUCKET_ID ||
+			entry->key.bucket_id == new_bucket_id)
 		{
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
 

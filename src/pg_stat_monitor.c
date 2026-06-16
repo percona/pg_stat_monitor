@@ -52,20 +52,8 @@
 #include <commands/explain_format.h>
 #endif
 
-#include "pg_stat_monitor.h"
 #include "guc.h"
 #include "hash_query.h"
-
- /*
-  * Extension version number, for supporting older extension versions' objects
-  */
-typedef enum pgsmVersion
-{
-	PGSM_V1_0 = 0,
-	PGSM_V2_0,
-	PGSM_V2_1,
-	PGSM_V2_3,
-} pgsmVersion;
 
 #define BUILD_VERSION                   "2.4.0"
 
@@ -88,6 +76,37 @@ PG_MODULE_MAGIC;
     (pgsm_track == PGSM_TRACK_TOP && (level) == 0)))
 
 #define PGSM_INVALID_IP 0xFFFFFFFF
+
+/* XXX: Should USAGE_EXEC reflect execution time and/or buffer usage? */
+#define USAGE_EXEC(duration)	1.0
+#define USAGE_INIT				1.0 /* including initial planning */
+
+ /*
+  * Extension version number, for supporting older extension versions' objects
+  */
+typedef enum pgsmVersion
+{
+	PGSM_V1_0 = 0,
+	PGSM_V2_0,
+	PGSM_V2_1,
+	PGSM_V2_3,
+} pgsmVersion;
+
+typedef enum pgsmStoreKind
+{
+	PGSM_INVALID = -1,
+
+	/*
+	 * PGSM_PLAN and PGSM_EXEC must be respectively 0 and 1 as they're used to
+	 * reference the underlying values in the arrays in the Counters struct,
+	 * and this order is required in pg_stat_monitor_internal().
+	 */
+	PGSM_PARSE = 0,
+	PGSM_PLAN,
+	PGSM_EXEC,
+	PGSM_STORE,
+	PGSM_ERROR,
+} pgsmStoreKind;
 
 /*---- Initialization Function Declarations ----*/
 void		_PG_init(void);
