@@ -1716,7 +1716,7 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 
 	/* Create an entry in the pgsm memory context */
 	oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
-	entry = palloc0(sizeof(pgsmEntry));
+	entry = palloc0_object(pgsmEntry);
 
 	/*
 	 * Get the user ID. Let's use this instead of GetUserID as this won't
