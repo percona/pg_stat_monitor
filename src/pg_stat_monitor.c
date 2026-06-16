@@ -240,7 +240,6 @@ static bool callback_setup = false;
 static void pgsm_update_entry(pgsmEntry *entry,
 							  const char *query,
 							  const char *comments,
-							  int comments_len,
 							  const PlanInfo *plan_info,
 							  const SysInfo *sys_info,
 							  const ErrorInfo *error_info,
@@ -741,7 +740,6 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		pgsm_update_entry(entry,	/* entry */
 						  NULL, /* query */
 						  NULL, /* comments */
-						  0,	/* comments length */
 						  plan_ptr, /* PlanInfo */
 						  &sys_info,	/* SysInfo */
 						  NULL, /* ErrorInfo */
@@ -937,7 +935,6 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 			pgsm_update_entry(entry,	/* entry */
 							  NULL, /* query */
 							  NULL, /* comments */
-							  0,	/* comments length */
 							  NULL, /* PlanInfo */
 							  NULL, /* SysInfo */
 							  NULL, /* ErrorInfo */
@@ -1128,7 +1125,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		pgsm_update_entry(entry,	/* entry */
 						  query_text,	/* query */
 						  NULL, /* comments */
-						  0,	/* comments length */
 						  NULL, /* PlanInfo */
 						  &sys_info,	/* SysInfo */
 						  NULL, /* ErrorInfo */
@@ -1300,7 +1296,6 @@ static void
 pgsm_update_entry(pgsmEntry *entry,
 				  const char *query,
 				  const char *comments,
-				  int comments_len,
 				  const PlanInfo *plan_info,
 				  const SysInfo *sys_info,
 				  const ErrorInfo *error_info,
@@ -1337,7 +1332,7 @@ pgsm_update_entry(pgsmEntry *entry,
 	 * or without error
 	 */
 	if (pgsm_extract_comments && kind == PGSM_STORE
-		&& !entry->counters.info.comments[0] && comments_len > 0)
+		&& !entry->counters.info.comments[0] && comments && comments[0])
 		strlcpy(entry->counters.info.comments, comments, COMMENTS_LEN);
 
 	if (kind == PGSM_PLAN || kind == PGSM_STORE)
@@ -1799,7 +1794,6 @@ pgsm_store(pgsmEntry *entry)
 	WalUsage	walusage;
 	JitInstrumentation jitusage;
 	char		comments[COMMENTS_LEN] = {0};
-	int			comments_len;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1819,7 +1813,6 @@ pgsm_store(pgsmEntry *entry)
 
 	/* Let's do all the leg work here before we acquire any locks */
 	extract_query_comments(query, comments, sizeof(comments));
-	comments_len = strlen(comments);
 
 	/* bufusage */
 	bufusage.shared_blks_hit = entry->counters.blocks.shared_blks_hit;
@@ -1965,7 +1958,6 @@ pgsm_store(pgsmEntry *entry)
 	pgsm_update_entry(shared_hash_entry,	/* entry */
 					  query,	/* query */
 					  comments, /* comments */
-					  comments_len, /* comments length */
 					  &entry->counters.planinfo,	/* PlanInfo */
 					  &entry->counters.sysinfo, /* SysInfo */
 					  &entry->counters.error,	/* ErrorInfo */
