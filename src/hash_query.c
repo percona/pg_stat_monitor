@@ -218,7 +218,7 @@ pgsm_get_ss(void)
 pgsmEntry *
 hash_entry_alloc(pgsmSharedState *pgsm, const pgsmHashKey *key)
 {
-	pgsmEntry  *entry = NULL;
+	pgsmEntry  *entry;
 	bool		found = false;
 
 	/* Find or create an entry with desired hash code */
@@ -256,7 +256,7 @@ void
 hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 {
 	HASH_SEQ_STATUS hstat;
-	pgsmEntry  *entry = NULL;
+	pgsmEntry  *entry;
 
 	/* Store pending query ids from the previous bucket. */
 
