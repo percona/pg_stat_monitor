@@ -67,39 +67,39 @@ PGSM::append_to_file($stdout);
 # Test: total_plan_time is not 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (total_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT total_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 'f', "Compare: total_plan_time is not 0).");
+isnt($stdout, '0', "Compare: total_plan_time is not 0).");
 
 # Test: min_plan_time is not 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (min_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT min_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 'f', "Compare: min_plan_time is not 0).");
+isnt($stdout, '0', "Compare: min_plan_time is not 0).");
 
 # Test: max_plan_time is not 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (max_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT max_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 'f', "Compare: max_plan_time is not 0).");
+isnt($stdout, '0', "Compare: max_plan_time is not 0).");
 
 # Test: mean_plan_time is not 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (mean_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT mean_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 'f', "Compare: mean_plan_time is not 0).");
+isnt($stdout, '0', "Compare: mean_plan_time is not 0).");
 
 # Test: stddev_plan_time is not 0
-#($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT (stddev_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+#($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT stddev_plan_time FROM pg_stat_monitor WHERE calls = 2;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 #trim($stdout);
-#is($stdout,'f',"Compare: stddev_plan_time is not 0).");
+#isnt($stdout, '0', "Compare: stddev_plan_time is not 0).");
 
 # Test: total_plan_time  =  min_plan_time + max_plan_time
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -166,42 +166,42 @@ PGSM::append_to_file($stdout);
 # Test: total_plan_time is 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (total_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT total_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 't', "Compare: total_plan_time is 0).");
+is($stdout, '0', "Compare: total_plan_time is 0).");
 
 # Test: min_plan_time is 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (min_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT min_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 't', "Compare: min_plan_time is 0).");
+is($stdout, '0', "Compare: min_plan_time is 0).");
 
 # Test: max_plan_time is 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (max_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT max_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 't', "Compare: max_plan_time is 0).");
+is($stdout, '0', "Compare: max_plan_time is 0).");
 
 # Test: mean_plan_time is 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (mean_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT mean_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 't', "Compare: mean_plan_time is 0).");
+is($stdout, '0', "Compare: mean_plan_time is 0).");
 
 # Test: stddev_plan_time is 0
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT (stddev_plan_time = 0) FROM pg_stat_monitor WHERE calls = 2;',
+	'SELECT stddev_plan_time FROM pg_stat_monitor WHERE calls = 2;',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
-is($stdout, 't', "Compare: stddev_plan_time is 0).");
+is($stdout, '0', "Compare: stddev_plan_time is 0).");
 
 # Dump output to out file
 ($cmdret, $stdout, $stderr) = $node->psql(
