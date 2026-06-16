@@ -53,23 +53,20 @@ CREATE OR REPLACE FUNCTION pgsm_create_view()
 RETURNS int
 LANGUAGE plpgsql
 AS $$
-    DECLARE ver integer;
-    BEGIN
-        SELECT current_setting('server_version_num') INTO ver;
-    IF (ver >= 180000) THEN
-        return pgsm_create_18_view();
-    END IF;
-    IF (ver >= 170000) THEN
-        return pgsm_create_17_view();
-    END IF;
-    IF (ver >= 150000) THEN
-        return pgsm_create_15_view();
-    END IF;
-    IF (ver >= 140000) THEN
-        return pgsm_create_14_view();
+DECLARE
+    version int := current_setting('server_version_num');
+BEGIN
+    IF version >= 180000 THEN
+        RETURN pgsm_create_18_view();
+    ELSEIF version >= 170000 THEN
+        RETURN pgsm_create_17_view();
+    ELSEIF version >= 150000 THEN
+        RETURN pgsm_create_15_view();
+    ELSEIF version >= 140000 THEN
+        RETURN pgsm_create_14_view();
     END IF;
     RETURN 0;
-    END;
+END;
 $$;
 
 SELECT pgsm_create_view();
