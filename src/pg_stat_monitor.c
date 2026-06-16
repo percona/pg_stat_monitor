@@ -77,10 +77,6 @@ PG_MODULE_MAGIC;
 
 #define PGSM_INVALID_IP 0xFFFFFFFF
 
-/* XXX: Should USAGE_EXEC reflect execution time and/or buffer usage? */
-#define USAGE_EXEC(duration)	1.0
-#define USAGE_INIT				1.0 /* including initial planning */
-
  /*
   * Extension version number, for supporting older extension versions' objects
   */
@@ -1337,9 +1333,6 @@ pgsm_update_entry(pgsmEntry *entry,
 
 	if (kind == PGSM_PLAN || kind == PGSM_STORE)
 	{
-		if (entry->counters.plancalls.calls == 0)
-			entry->counters.plancalls.usage = USAGE_INIT;
-
 		entry->counters.plancalls.calls += 1;
 		entry->counters.plantime.total_time += plan_total_time;
 
@@ -1368,9 +1361,6 @@ pgsm_update_entry(pgsmEntry *entry,
 
 	if (kind == PGSM_EXEC || kind == PGSM_STORE)
 	{
-		if (entry->counters.calls.calls == 0)
-			entry->counters.calls.usage = USAGE_INIT;
-
 		entry->counters.calls.calls += 1;
 		entry->counters.time.total_time += exec_total_time;
 
@@ -1506,8 +1496,6 @@ pgsm_update_entry(pgsmEntry *entry,
 		entry->counters.blocks.instr_temp_blk_write_time = bufusage->temp_blk_write_time;
 #endif
 	}
-
-	entry->counters.calls.usage += USAGE_EXEC(exec_total_time + plan_total_time);
 
 	if (sys_info)
 	{

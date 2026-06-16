@@ -99,7 +99,6 @@ typedef struct Calls
 {
 	int64		calls;			/* # of times executed */
 	int64		rows;			/* total # of retrieved or affected rows */
-	double		usage;			/* usage factor */
 } Calls;
 
 typedef struct Blocks
