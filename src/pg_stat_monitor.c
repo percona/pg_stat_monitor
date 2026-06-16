@@ -706,7 +706,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 
 	if (queryId != INT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
 	{
-		pgsmEntry  *entry = NULL;
+		pgsmEntry  *entry;
 		SysInfo		sys_info;
 
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true, queryDesc->operation);
@@ -1577,7 +1577,7 @@ static void
 pgsm_store_error(const char *query, const ErrorData *edata)
 {
 	pgsmEntry  *entry;
-	int64		queryid = 0;
+	int64		queryid;
 	int			len;
 
 	if (!query || query[0] == '\0')
@@ -1613,8 +1613,8 @@ pgsm_add_to_list(pgsmEntry *entry, const char *query_text, int query_len)
 static void
 pgsm_delete_entry(uint64 queryid)
 {
-	pgsmEntry  *entry = NULL;
-	ListCell   *lc = NULL;
+	pgsmEntry  *entry;
+	ListCell   *lc;
 
 	if (lentries == NIL)
 		return;
@@ -1658,7 +1658,7 @@ pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *q
 
 	if (lentries)
 	{
-		ListCell   *lc = NULL;
+		ListCell   *lc;
 
 		entry = (pgsmEntry *) llast(lentries);
 		if (entry->key.queryid == queryid)
@@ -1753,8 +1753,8 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 
 	if (IsTransactionState())
 	{
-		char	   *datname = NULL;
-		char	   *username = NULL;
+		char	   *datname;
+		char	   *username;
 
 		datname = get_database_name(entry->key.dbid);
 		username = GetUserNameFromId(entry->key.userid, true);
@@ -2169,7 +2169,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		int64		pgsm_query_id = entry->pgsm_query_id;
 		dsa_area   *query_dsa_area;
 		char	   *query_ptr;
-		char	   *query_txt = NULL;
+		char	   *query_txt;
 		char	   *parent_query_txt = NULL;
 		bool		toplevel = entry->key.toplevel;
 		bool		is_allowed_role = is_member_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS);
@@ -3122,7 +3122,7 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 static int
 get_histogram_bucket(double q_time)
 {
-	int			index = 0;
+	int			index;
 	double		exec_time = q_time;
 
 	for (index = 0; index < hist_bucket_count_total; index++)
