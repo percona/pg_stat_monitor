@@ -223,7 +223,7 @@ char	   *unpack_sql_state(int sql_state);
 static pgsmEntry *pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info);
 static void pgsm_add_to_list(pgsmEntry *entry, const char *query_text, int query_len);
 static void pgsm_delete_entry(uint64 queryid);
-static pgsmEntry *pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type);
+static pgsmEntry *pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *query_text, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
@@ -708,7 +708,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		pgsmEntry  *entry;
 		SysInfo		sys_info;
 
-		entry = pgsm_get_entry_for_query(queryId, plan_ptr, (char *) queryDesc->sourceText, strlen(queryDesc->sourceText), true, queryDesc->operation);
+		entry = pgsm_get_entry_for_query(queryId, plan_ptr, queryDesc->sourceText, queryDesc->operation);
 		if (!entry)
 		{
 			elog(DEBUG2, "[pg_stat_monitor] pgsm_ExecutorEnd: Failed to find entry for [" INT64_FORMAT "] %s.", queryId, queryDesc->sourceText);
@@ -888,7 +888,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		INSTR_TIME_SET_CURRENT(start);
 
 		if (MemoryContextIsValid(MessageContext))
-			entry = pgsm_get_entry_for_query(queryId, NULL, query_string, strlen(query_string), true, parse->commandType);
+			entry = pgsm_get_entry_for_query(queryId, NULL, query_string, parse->commandType);
 
 #if PG_VERSION_NUM >= 170000
 		nesting_level++;
@@ -1643,18 +1643,18 @@ pgsm_delete_entry(uint64 queryid)
 }
 
 static pgsmEntry *
-pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *query_text, int query_len, bool create, CmdType cmd_type)
+pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *query_text, CmdType cmd_type)
 {
-	pgsmEntry  *entry = NULL;
+	pgsmEntry  *entry;
+	int			query_len;
 
-	/* First bet is on the last entry */
-	if (lentries == NIL && !create)
-		return NULL;
+	Assert(query_text != NULL);
 
-	if (lentries)
+	if (lentries != NIL)
 	{
 		ListCell   *lc;
 
+		/* First bet is on the last entry */
 		entry = (pgsmEntry *) llast(lentries);
 		if (entry->key.queryid == queryid)
 			return entry;
@@ -1666,24 +1666,23 @@ pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *q
 				return entry;
 		}
 	}
-	if (create && query_text)
-	{
-		/*
-		 * At this point, we don't know which bucket this query will land in,
-		 * so passing 0. The store function MUST later update it based on the
-		 * current bucket value. The correct bucket value will be needed then
-		 * to search the hash table, or create the appropriate entry.
-		 */
-		entry = pgsm_create_hash_entry(queryid, plan_info);
 
-		/*
-		 * Update other member that are not counters, so that we don't have to
-		 * worry about these.
-		 */
-		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
-		entry->counters.info.cmd_type = cmd_type;
-		pgsm_add_to_list(entry, query_text, query_len);
-	}
+	/*
+	 * At this point, we don't know which bucket this query will land in, so
+	 * passing 0. The store function MUST later update it based on the current
+	 * bucket value. The correct bucket value will be needed then  to search
+	 * the hash table, or create the appropriate entry.
+	 */
+	entry = pgsm_create_hash_entry(queryid, plan_info);
+
+	/*
+	 * Update other member that are not counters, so that we don't have to
+	 * worry about these.
+	 */
+	query_len = strlen(query_text);
+	entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
+	entry->counters.info.cmd_type = cmd_type;
+	pgsm_add_to_list(entry, query_text, query_len);
 
 	return entry;
 }
