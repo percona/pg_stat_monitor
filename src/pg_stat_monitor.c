@@ -1667,12 +1667,6 @@ pgsm_get_entry_for_query(int64 queryid, const PlanInfo *plan_info, const char *q
 		}
 	}
 
-	/*
-	 * At this point, we don't know which bucket this query will land in, so
-	 * passing 0. The store function MUST later update it based on the current
-	 * bucket value. The correct bucket value will be needed then  to search
-	 * the hash table, or create the appropriate entry.
-	 */
 	entry = pgsm_create_hash_entry(queryid, plan_info);
 
 	/*
