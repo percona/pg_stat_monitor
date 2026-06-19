@@ -99,7 +99,6 @@ pgsm_startup(void)
 
 		pgsm->pgsm_oom = false;
 		pgsm->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
-		SpinLockInit(&pgsm->mutex);
 		InitializeSharedState(pgsm);
 		/* the allocation of pgsmSharedState itself */
 		p += MAXALIGN(PGSM_SHARED_STATE_SIZE);
