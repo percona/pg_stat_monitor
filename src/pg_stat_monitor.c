@@ -1191,7 +1191,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 static int64
 pgsm_hash_string(const char *str, int len)
 {
-	return DatumGetInt64(hash_any_extended((const unsigned char *) str, len, 0));
+	return (int64) hash_bytes_extended((const unsigned char *) str, len, 0);
 }
 
 /*
