@@ -406,7 +406,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	if (!IsSystemInitialized())
 		return;
 
-	if (callback_setup == false)
+	if (!callback_setup)
 	{
 		/*
 		 * If MessageContext is valid setup a callback to cleanup our local
@@ -639,7 +639,6 @@ pgsm_ExecutorFinish(QueryDesc *queryDesc)
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
-
 }
 
 static char *
@@ -711,7 +710,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		}
 
 		if (entry->key.planid == 0)
-			entry->key.planid = (plan_ptr) ? plan_ptr->planid : 0;
+			entry->key.planid = plan_ptr ? plan_ptr->planid : 0;
 
 		/*
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
@@ -792,7 +791,7 @@ pgsm_ExecutorCheckPerms(List *rangeTable, bool ereport_on_violation)
 
 		if (rte->rtekind != RTE_RELATION
 #if PG_VERSION_NUM >= 160000
-			&& (rte->rtekind != RTE_SUBQUERY && rte->relkind != RELKIND_VIEW)
+			&& rte->rtekind != RTE_SUBQUERY && rte->relkind != RELKIND_VIEW
 #endif
 			)
 			continue;
@@ -1677,9 +1676,9 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 	entry->key.parentid = 0;
 
 #if PG_VERSION_NUM >= 170000
-	entry->key.toplevel = ((nesting_level) == 0);
+	entry->key.toplevel = (nesting_level == 0);
 #else
-	entry->key.toplevel = ((nesting_level + plan_nested_level) == 0);
+	entry->key.toplevel = (nesting_level + plan_nested_level == 0);
 #endif
 
 	if (IsTransactionState())
@@ -2114,12 +2113,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 																 * Just a safety check */
 
 		/* copy counters to a local variable to keep locking time short */
-		{
-			SpinLockAcquire(&entry->mutex);
-			tmp = entry->counters;
-			tmpkey = entry->key;
-			SpinLockRelease(&entry->mutex);
-		}
+		SpinLockAcquire(&entry->mutex);
+		tmp = entry->counters;
+		tmpkey = entry->key;
+		SpinLockRelease(&entry->mutex);
 
 		/*
 		 * In case that query plan is enabled, there is no need to show 0
@@ -2129,9 +2126,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			continue;
 
 		if (!IsBucketValid(bucketid))
-		{
 			continue;
-		}
 
 		/* read the parent query text if any */
 		if (tmpkey.parentid != INT64CONST(0))
@@ -2145,6 +2140,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			else
 				parent_query_txt = pstrdup("parent query text not available");
 		}
+
 		/* bucketid at column number 0 */
 		values[i++] = Int64GetDatumFast(bucketid);
 
@@ -2174,13 +2170,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		/* planid at column number 7 */
 		if (planid)
-		{
 			values[i++] = Int64GetDatum(planid);
-		}
 		else
-		{
 			nulls[i++] = true;
-		}
+
 		if (is_allowed_role || userid == GetUserId())
 		{
 			if (showtext)
@@ -2377,7 +2370,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			char		buf[256];
 			Datum		wal_bytes;
 
-			snprintf(buf, sizeof buf, UINT64_FORMAT, tmp.walusage.wal_bytes);
+			snprintf(buf, sizeof(buf), UINT64_FORMAT, tmp.walusage.wal_bytes);
 
 			/* Convert to numeric */
 			wal_bytes = DirectFunctionCall3(numeric_in,
@@ -2535,7 +2528,7 @@ get_pgsm_query_id_hash(const char *norm_query, int norm_len)
 	query = palloc(norm_len + 1);
 	q_iter = query;
 
-	while (norm_q_iter && *norm_q_iter && norm_q_iter < (norm_query + norm_len))
+	while (norm_q_iter && *norm_q_iter && norm_q_iter < norm_query + norm_len)
 	{
 		/*
 		 * Skip multiline comments, + 1 is safe even if we've reach end of
@@ -2992,7 +2985,7 @@ set_histogram_bucket_timings(void)
 	 * must add 1 for max outlier queries. However, for min, bucket should
 	 * only be added if the minimum value provided by user is greater than 0
 	 */
-	hist_bucket_count_total = (hist_bucket_count_user + (int) (hist_bucket_max < HISTOGRAM_MAX_TIME) + (int) (hist_bucket_min > 0));
+	hist_bucket_count_total = hist_bucket_count_user + (int) (hist_bucket_max < HISTOGRAM_MAX_TIME) + (int) (hist_bucket_min > 0);
 
 	for (b_count = 0; b_count < hist_bucket_count_total; b_count++)
 	{
@@ -3022,7 +3015,7 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 		*b_end = q_min;
 		return;
 	}
-	else if (index == (b_count - 1) && q_max < HISTOGRAM_MAX_TIME)
+	else if (index == b_count - 1 && q_max < HISTOGRAM_MAX_TIME)
 	{
 		*b_start = q_max;
 		*b_end = -1;

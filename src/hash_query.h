@@ -36,11 +36,11 @@
 #define COMMENTS_LEN		256
 #define PLAN_TEXT_LEN		1024
 
-#define MAX_QUERY_BUF						((int64) pgsm_query_shared_buffer * 1024 * 1024)
-#define MAX_BUCKETS_MEM 					((int64) pgsm_max * 1024 * 1024)
-#define MAX_BUCKET_ENTRIES 					(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
-#define SQLCODE_LEN							20
-#define TOTAL_RELS_LENGTH					(REL_LST * REL_LEN)
+#define MAX_QUERY_BUF		((int64) pgsm_query_shared_buffer * 1024 * 1024)
+#define MAX_BUCKETS_MEM 	((int64) pgsm_max * 1024 * 1024)
+#define MAX_BUCKET_ENTRIES 	(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
+#define SQLCODE_LEN			20
+#define TOTAL_RELS_LENGTH	(REL_LST * REL_LEN)
 
 #define INVALID_BUCKET_ID	-1
 
