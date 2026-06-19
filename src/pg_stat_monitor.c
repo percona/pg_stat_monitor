@@ -208,7 +208,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(get_histogram_timings);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
 
-static uint pg_get_client_addr(bool *ok);
+static uint pg_get_client_addr(void);
 static int	pg_get_application_name(char *name, int buff_size);
 static PgBackendStatus *pg_get_backend_status(void);
 static Datum intarray_get_datum(const int32 *arr, int len);
@@ -1261,18 +1261,14 @@ pg_get_application_name(char *name, int buff_size)
 }
 
 static uint
-pg_get_client_addr(bool *ok)
+pg_get_client_addr(void)
 {
 	PgBackendStatus *beentry = pg_get_backend_status();
 	char		remote_host[NI_MAXHOST];
 	int			ret;
 
-	remote_host[0] = '\0';
-
 	if (!beentry)
 		return ntohl(inet_addr("127.0.0.1"));
-
-	*ok = true;
 
 	ret = pg_getnameinfo_all(&beentry->st_clientaddr.addr,
 							 beentry->st_clientaddr.salen,
@@ -1687,7 +1683,6 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 {
 	pgsmEntry  *entry;
 	int			sec_ctx;
-	bool		found_client_addr = false;
 	MemoryContext oldctx;
 
 	/* Create an entry in the pgsm memory context */
@@ -1709,7 +1704,7 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 
 	/* Fetch client address only once */
 	if (pgsm_client_ip == PGSM_INVALID_IP)
-		pgsm_client_ip = pg_get_client_addr(&found_client_addr);
+		pgsm_client_ip = pg_get_client_addr();
 
 	entry->key.ip = pgsm_client_ip;
 
