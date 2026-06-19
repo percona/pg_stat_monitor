@@ -90,18 +90,9 @@ typedef enum pgsmVersion
 
 typedef enum pgsmStoreKind
 {
-	PGSM_INVALID = -1,
-
-	/*
-	 * PGSM_PLAN and PGSM_EXEC must be respectively 0 and 1 as they're used to
-	 * reference the underlying values in the arrays in the Counters struct,
-	 * and this order is required in pg_stat_monitor_internal().
-	 */
-	PGSM_PARSE = 0,
 	PGSM_PLAN,
 	PGSM_EXEC,
 	PGSM_STORE,
-	PGSM_ERROR,
 } pgsmStoreKind;
 
 /*---- Initialization Function Declarations ----*/
