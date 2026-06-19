@@ -22,7 +22,7 @@ print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
 print $conf "pg_stat_monitor.pgsm_bucket_time = 360000\n";
 print $conf
   "pg_stat_monitor.pgsm_query_shared_buffer = 1\n";    # Min possible value
-print $conf "pg_stat_monitor.pgsm_normalized_query = 'yes'\n";
+print $conf "pg_stat_monitor.pgsm_normalized_query = on\n";
 close $conf;
 
 # Start server

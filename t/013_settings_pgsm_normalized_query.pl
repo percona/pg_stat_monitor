@@ -87,7 +87,7 @@ is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
 
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_normalized_query = 'yes'\n");
+	"pg_stat_monitor.pgsm_normalized_query = on\n");
 $node->restart();
 
 # Run required commands/queries and dump output to out file.

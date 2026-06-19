@@ -1,5 +1,5 @@
 CREATE EXTENSION pg_stat_monitor;
-Set pg_stat_monitor.pgsm_extract_comments = 'yes'; 
+Set pg_stat_monitor.pgsm_extract_comments = on;
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------
