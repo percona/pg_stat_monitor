@@ -204,7 +204,6 @@ static int	pg_get_application_name(char *name, int buff_size);
 static Datum intarray_get_datum(const int32 *arr, int len);
 
 static int64 pgsm_hash_string(const char *str, int len);
-char	   *unpack_sql_state(int sql_state);
 
 static pgsmEntry *pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info);
 static void pgsm_add_to_list(pgsmEntry *entry, const char *query_text, int query_len);
