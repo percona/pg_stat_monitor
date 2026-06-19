@@ -2,9 +2,9 @@
 
 set -e
 
-SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
-INSTALL_DIR="$SCRIPT_DIR/../../pginst"
-cd "$SCRIPT_DIR/../../"
+SCRIPT_DIR=$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)
+INSTALL_DIR=$SCRIPT_DIR/../../pginst
+cd "$SCRIPT_DIR/../.."
 
 if ! test -f typedefs-full.list; then
   echo "typedefs-full.list doesn't exists, run dump-typedefs.sh first"

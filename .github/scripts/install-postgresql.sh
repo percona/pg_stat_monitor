@@ -1,10 +1,11 @@
+#!/bin/bash
+
 set -e
 
 if [ -z "$2" ]; then
     echo "Error: The second argument (PostgreSQL version) must be provided."
     exit 1
 fi
-
 
 case "$1" in
     pgdg)

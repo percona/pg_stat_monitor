@@ -4,8 +4,8 @@ set -e
 
 ARGS=
 
-SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
-PSP_DIR="$SCRIPT_DIR/../../../postgres"
+SCRIPT_DIR=$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)
+PSP_DIR=$SCRIPT_DIR/../../../postgres
 
 case "$1" in
     debug)
@@ -50,5 +50,5 @@ cd "$PSP_DIR"
    --enable-tap-tests \
    $ARGS
 
-sudo make install-world -j $NCPU
+sudo make install-world -j "$NCPU"
 echo "/usr/local/pgsql/bin" >> $GITHUB_PATH
