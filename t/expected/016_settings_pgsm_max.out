@@ -5,7 +5,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_max';
+SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_max';
            name           | setting | unit |  context   | vartype |       source       | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
 --------------------------+---------+------+------------+---------+--------------------+---------+---------+----------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_max | 2048    | MB   | postmaster | integer | configuration file | 10      | 10240   |          | 256      | 2048      | f
@@ -17,7 +17,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_max';
+SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_max';
            name           | setting | unit |  context   | vartype |       source       | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
 --------------------------+---------+------+------------+---------+--------------------+---------+---------+----------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_max | 500     | MB   | postmaster | integer | configuration file | 10      | 10240   |          | 256      | 500       | f
@@ -29,7 +29,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_max';
+SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_max';
            name           | setting | unit |  context   | vartype |       source       | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
 --------------------------+---------+------+------------+---------+--------------------+---------+---------+----------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_max | 100     | MB   | postmaster | integer | configuration file | 10      | 10240   |          | 256      | 100       | f
@@ -41,7 +41,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_max';
+SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_max';
            name           | setting | unit |  context   | vartype |       source       | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
 --------------------------+---------+------+------------+---------+--------------------+---------+---------+----------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_max | 10      | MB   | postmaster | integer | configuration file | 10      | 10240   |          | 256      | 10        | f
@@ -53,7 +53,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_max';
+SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_max';
            name           | setting | unit |  context   | vartype | source  | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
 --------------------------+---------+------+------------+---------+---------+---------+---------+----------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_max | 256     | MB   | postmaster | integer | default | 10      | 10240   |          | 256      | 256       | f

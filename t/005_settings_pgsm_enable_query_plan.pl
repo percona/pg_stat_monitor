@@ -45,44 +45,44 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_enable_query_plan';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_enable_query_plan';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'CREATE TABLE TBL_0(key text primary key, txt_0 text, value_0 int);',
+	'CREATE TABLE tbl_0 (key text PRIMARY KEY, txt_0 text, value_0 int);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"INSERT INTO TBL_0(key, txt_0, value_0) VALUES('000000', '846930886', 1804289383);",
+	"INSERT INTO tbl_0 (key, txt_0, value_0) VALUES ('000000', '846930886', 1804289383);",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT key, txt_0, value_0 FROM TBL_0;',
+	'SELECT key, txt_0, value_0 FROM tbl_0;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT key, txt_0, value_0 FROM TBL_0;',
+	'SELECT key, txt_0, value_0 FROM tbl_0;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'UPDATE TBL_0 SET value_0 = 1681692777;',
+	'UPDATE tbl_0 SET value_0 = 1681692777;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT substr(query, 0,50) AS query, calls, query_plan FROM pg_stat_monitor ORDER BY query,calls;',
+	'SELECT substr(query, 0, 50) AS query, calls, query_plan FROM pg_stat_monitor ORDER BY query, calls;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
@@ -96,13 +96,13 @@ isnt($stdout, '', "Test: planid should not be empty");
 ok(length($stdout) > 0, 'Length of planid is > 0');
 
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_enable_query_plan = 'no'\n");
+	"pg_stat_monitor.pgsm_enable_query_plan = off\n");
 $node->restart();
 
 # Run required commands/queries and dump output to out file.
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'DROP TABLE TBL_0;',
+	'DROP TABLE tbl_0;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
@@ -115,44 +115,44 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_enable_query_plan';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_enable_query_plan';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'CREATE TABLE TBL_0(key text primary key, txt_0 text, value_0 int);',
+	'CREATE TABLE tbl_0 (key text PRIMARY KEY, txt_0 text, value_0 int);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"INSERT INTO TBL_0(key, txt_0, value_0) VALUES('000000', '846930886', 1804289383);",
+	"INSERT INTO tbl_0 (key, txt_0, value_0) VALUES ('000000', '846930886', 1804289383);",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT key, txt_0, value_0 FROM TBL_0;',
+	'SELECT key, txt_0, value_0 FROM tbl_0;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT key, txt_0, value_0 FROM TBL_0;',
+	'SELECT key, txt_0, value_0 FROM tbl_0;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'UPDATE TBL_0 SET value_0 = 1681692777;',
+	'UPDATE tbl_0 SET value_0 = 1681692777;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT substr(query, 0,50) AS query, calls, query_plan FROM pg_stat_monitor ORDER BY query,calls;',
+	'SELECT substr(query, 0, 50) AS query, calls, query_plan FROM pg_stat_monitor ORDER BY query, calls;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 

@@ -50,7 +50,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT datname, substr(query,0,100) AS query, calls FROM pg_stat_monitor ORDER BY datname, query, calls DESC Limit 20;',
+	'SELECT datname, substr(query, 0, 100) AS query, calls FROM pg_stat_monitor ORDER BY datname, query, calls DESC LIMIT 20;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);

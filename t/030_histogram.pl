@@ -18,34 +18,31 @@ my $node = PGSM->pgsm_init_pg();
 my $pgdata = $node->data_dir;
 
 my $run_pg_sleep_function_sql =
-  "CREATE OR REPLACE FUNCTION run_pg_sleep(INTEGER) RETURNS VOID AS \$\$
+  "CREATE FUNCTION run_pg_sleep(loops int) RETURNS void AS \$\$
 DECLARE
-   iterator real := 0.002;  -- we can init with 2 ms at declaration time
-   loops ALIAS FOR \$1;
+    iterator real := 0.002; -- we can init with 2 ms at declaration time
 BEGIN
-   WHILE iterator < loops
-   LOOP
-      RAISE INFO 'Current timestamp: %', timeofday()::TIMESTAMP;
-      RAISE INFO 'Sleep % seconds', iterator;
-	   PERFORM pg_sleep(iterator);
-      iterator := iterator + iterator;
-   END LOOP;
+    WHILE iterator < loops LOOP
+        RAISE INFO 'Current timestamp: %', timeofday()::timestamp;
+        RAISE INFO 'Sleep % seconds', iterator;
+	    PERFORM pg_sleep(iterator);
+        iterator := iterator + iterator;
+    END LOOP;
 END;
-\$\$ LANGUAGE 'plpgsql' STRICT;";
+\$\$ LANGUAGE plpgsql;";
 
-my $generate_histogram_function_sql =
-  "CREATE OR REPLACE FUNCTION generate_histogram()
+my $generate_histogram_function_sql = "CREATE FUNCTION generate_histogram()
     RETURNS TABLE (
-    range TEXT, freq INT, bar TEXT
-  )  AS \$\$
-Declare
-    bucket_id integer;
+    range text, freq int, bar text
+  ) AS \$\$
+DECLARE
+    bucket_id int;
     query_id bigint;
 BEGIN
-    select bucket into bucket_id from pg_stat_monitor order by calls desc limit 1;
-    select queryid into query_id from pg_stat_monitor order by calls desc limit 1;
-    return query
-    SELECT * FROM histogram(bucket_id, query_id) AS a(range TEXT, freq INT, bar TEXT);
+    SELECT bucket INTO bucket_id FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;
+    SELECT queryid INTO query_id FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;
+    RETURN query
+    SELECT * FROM histogram(bucket_id, query_id) AS a (range text, freq int, bar text);
 END;
 \$\$ LANGUAGE plpgsql;";
 
@@ -124,7 +121,7 @@ sub generate_histogram_with_configurations
 
 	($cmdret, $stdout, $stderr) = $node->psql(
 		'postgres',
-		'SELECT bucket, queryid, query, calls, resp_calls FROM pg_stat_monitor ORDER BY calls desc;',
+		'SELECT bucket, queryid, query, calls, resp_calls FROM pg_stat_monitor ORDER BY calls DESC;',
 		extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 	is($cmdret, 0,
 		"Scenario $scenario_number : Print what is in pg_stat_monitor view");
@@ -132,7 +129,7 @@ sub generate_histogram_with_configurations
 
 	($cmdret, $stdout, $stderr) = $node->psql(
 		'postgres',
-		'SELECT calls FROM pg_stat_monitor ORDER BY calls desc LIMIT 1;',
+		'SELECT calls FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;',
 		extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 	is($cmdret, 0, "Scenario $scenario_number : Get calls into a variable");
 	is($stdout, $expected_calls_count,
@@ -143,7 +140,7 @@ sub generate_histogram_with_configurations
 
 	($cmdret, $stdout, $stderr) = $node->psql(
 		'postgres',
-		'SELECT resp_calls FROM pg_stat_monitor ORDER BY calls desc LIMIT 1;',
+		'SELECT resp_calls FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;',
 		extra_params => [ '-Pformat=aligned', '-Ptuples_only=on' ]);
 	is($cmdret, 0,
 		"Scenario $scenario_number : Get resp_calls into a variable");
@@ -155,10 +152,10 @@ sub generate_histogram_with_configurations
 
 	($cmdret, $stdout, $stderr) = $node->psql(
 		'postgres',
-		'SELECT * from generate_histogram();',
+		'SELECT * FROM generate_histogram();',
 		extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 	is($cmdret, 0,
-		"Scenario $scenario_number : Generate Histogram for Select 1");
+		"Scenario $scenario_number : Generate Histogram for SELECT 1");
 	PGSM::append_to_debug_file($stdout);
 	like(
 		$stdout,
@@ -188,7 +185,7 @@ is($rt_value, 1, "Start Server");
 my ($cmdret, $stdout, $stderr) =
   $node->psql('postgres', "$run_pg_sleep_function_sql",
 	extra_params => ['-a']);
-is($cmdret, 0, "Create run_pg_sleep(INTEGER) function");
+is($cmdret, 0, "Create run_pg_sleep(int) function");
 PGSM::append_to_debug_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(

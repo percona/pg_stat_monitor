@@ -51,7 +51,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT 1 AS num /* First comment */, 'John' AS Name /* Second comment*/;",
+	"SELECT 1 AS num /* First comment */, 'John' AS name /* Second comment*/;",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
@@ -81,7 +81,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT 1 AS num /* First comment */, 'John' AS Name /* Second comment*/;",
+	"SELECT 1 AS num /* First comment */, 'John' AS name /* Second comment*/;",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 

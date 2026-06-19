@@ -27,7 +27,7 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_track_utility           | on      |      | user       | bool    | default |         |            |                | on       | on        | f
 (17 rows)
 
-SELECT datname, substr(query,0,100) AS query, calls FROM pg_stat_monitor ORDER BY datname, query, calls DESC Limit 20;
+SELECT datname, substr(query, 0, 100) AS query, calls FROM pg_stat_monitor ORDER BY datname, query, calls DESC LIMIT 20;
  datname  |                                                query                                                | calls 
 ----------+-----------------------------------------------------------------------------------------------------+-------
  postgres | SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_v |     1

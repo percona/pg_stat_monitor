@@ -5,7 +5,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_enable_overflow';
+SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_enable_overflow';
                  name                 | setting | unit |  context   | vartype |       source       | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
 --------------------------------------+---------+------+------------+---------+--------------------+---------+---------+----------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_enable_overflow | off     |      | postmaster | bool    | configuration file |         |         |          | on       | off       | f
@@ -17,7 +17,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_enable_overflow';
+SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_enable_overflow';
                  name                 | setting | unit |  context   | vartype |       source       | min_val | max_val | enumvals | boot_val | reset_val | pending_restart 
 --------------------------------------+---------+------+------------+---------+--------------------+---------+---------+----------+----------+-----------+-----------------
  pg_stat_monitor.pgsm_enable_overflow | on      |      | postmaster | bool    | configuration file |         |         |          | on       | on        | f
