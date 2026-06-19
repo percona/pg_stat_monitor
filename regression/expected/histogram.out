@@ -1,47 +1,29 @@
-CREATE OR REPLACE FUNCTION generate_histogram()
-    RETURNS TABLE (
-    RANGE TEXT, freq INT, bar TEXT
-  )  AS $$
+CREATE FUNCTION generate_histogram() RETURNS TABLE (range text, freq int, bar text) AS $$
 DECLARE
-    bucket_id integer;
+    bucket_id int;
     query_id int8;
 BEGIN
     SELECT bucket, queryid INTO bucket_id, query_id FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;
-    -- RAISE INFO 'bucket_id %', bucket_id;
-    -- RAISE INFO 'query_id %', query_id;
-    RETURN query
-    SELECT * FROM histogram(bucket_id, query_id) AS a(range TEXT, freq INT, bar TEXT);
-END;
+
+    RETURN QUERY SELECT * FROM histogram(bucket_id, query_id) AS a (range text, freq int, bar text);
+END
 $$ LANGUAGE plpgsql;
-CREATE OR REPLACE FUNCTION run_pg_sleep(INTEGER) RETURNS VOID AS $$
-DECLARE
-    loops ALIAS FOR $1;
+CREATE FUNCTION run_pg_sleep(loops int) RETURNS void AS $$
 BEGIN
     FOR i IN 1..loops LOOP
-	-- RAISE INFO 'Current timestamp: %', timeofday()::TIMESTAMP;
-    -- 0.4 seconds step used here to hit the same histogram buckets consistently.
-    -- See histogram buckets timing distribution.
-	PERFORM pg_sleep(0.4 * i);
+        -- 0.4 seconds step used here to hit the same histogram buckets consistently.
+        -- See histogram buckets timing distribution.
+	   PERFORM pg_sleep(0.4 * i);
     END LOOP;
-END;
-$$ LANGUAGE 'plpgsql' STRICT;
-CREATE OR REPLACE FUNCTION wait_for_new_bucket() RETURNS VOID AS $$
-DECLARE
-    bucket_left_time numeric;
+END
+$$ LANGUAGE plpgsql;
+CREATE FUNCTION wait_for_new_bucket() RETURNS void AS $$
 BEGIN
-    -- This test works correctly only if the bucket duration is default (60 seconds).
-    SELECT 60 - EXTRACT(
-        SECOND FROM(
-            SELECT CURRENT_TIMESTAMP(0) bucket_start_time FROM pg_stat_monitor ORDER BY bucket_start_time DESC LIMIT 1
-        )
-    ) INTO bucket_left_time;
-
     -- If the bucket lifetime is less than 8 seconds, we would not fit.
-    IF bucket_left_time < 8 THEN
-        -- RAISE NOTICE 'Bucket lifetime comes to an end → sleeping 4 seconds...';
-        PERFORM pg_sleep(8);
+    IF extract(SECOND FROM now()) > 52 THEN
+        PERFORM pg_sleep(60 - extract(SECOND FROM now()));
     END IF;
-END;
+END
 $$ LANGUAGE plpgsql;
 CREATE EXTENSION pg_stat_monitor;
 SELECT wait_for_new_bucket();
