@@ -23,10 +23,10 @@ print $conf "pg_stat_monitor.pgsm_enable_overflow = false\n";
 print $conf "pg_stat_monitor.pgsm_max = 1\n";
 print $conf "pg_stat_monitor.pgsm_query_shared_buffer = 1\n";
 print $conf "pg_stat_monitor.pgsm_query_max_len =10000\n";
-print $conf " pg_stat_monitor.pgsm_enable_query_plan = 'yes'\n";
-print $conf "pg_stat_monitor.pgsm_track_planning = 'yes'\n";
+print $conf " pg_stat_monitor.pgsm_enable_query_plan = on\n";
+print $conf "pg_stat_monitor.pgsm_track_planning = on\n";
 print $conf "pg_stat_monitor.pgsm_track = 'all'\n";
-print $conf "pg_stat_monitor.pgsm_extract_comments = 'yes'\n";
+print $conf "pg_stat_monitor.pgsm_extract_comments = on\n";
 close $conf;
 
 # Start server

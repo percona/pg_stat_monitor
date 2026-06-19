@@ -27,9 +27,9 @@ $node->append_conf('postgresql.conf',
 	"pg_stat_monitor.pgsm_bucket_time = 360000");
 $node->append_conf('postgresql.conf', "track_io_timing = on");
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_track_utility = no");
+	"pg_stat_monitor.pgsm_track_utility = off");
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_normalized_query = yes");
+	"pg_stat_monitor.pgsm_normalized_query = on");
 
 # Start server
 my $rt_value = $node->start;

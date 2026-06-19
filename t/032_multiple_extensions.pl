@@ -29,7 +29,7 @@ open my $conf, '>>', "$pgdata/postgresql.conf";
 print $conf
   "shared_preload_libraries = 'pg_stat_monitor, pgaudit, set_user, pg_repack'\n";
 print $conf "pg_stat_monitor.pgsm_bucket_time = 360000\n";
-print $conf "pg_stat_monitor.pgsm_normalized_query = 'yes'\n";
+print $conf "pg_stat_monitor.pgsm_normalized_query = on\n";
 close $conf;
 
 # Start server

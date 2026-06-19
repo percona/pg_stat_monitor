@@ -49,7 +49,7 @@ $$ LANGUAGE plpgsql;
 CREATE EXTENSION pg_stat_monitor;
 SELECT wait_for_new_bucket();
 SELECT pg_stat_monitor_reset();
-SET pg_stat_monitor.pgsm_track='all';
+SET pg_stat_monitor.pgsm_track = 'all';
 SELECT run_pg_sleep(5);
 
 SELECT substr(query, 0, 50) as query, calls, resp_calls FROM pg_stat_monitor ORDER BY query COLLATE "C";

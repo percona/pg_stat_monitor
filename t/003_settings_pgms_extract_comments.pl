@@ -19,7 +19,7 @@ my $pgdata = $node->data_dir;
 # UPDATE postgresql.conf to include/load pg_stat_monitor library
 open my $conf, '>>', "$pgdata/postgresql.conf";
 print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
-print $conf "pg_stat_monitor.pgsm_extract_comments = 'yes'\n";
+print $conf "pg_stat_monitor.pgsm_extract_comments = on\n";
 close $conf;
 
 # Start server
