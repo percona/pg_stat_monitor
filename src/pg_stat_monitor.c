@@ -1973,6 +1973,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 						 bool showtext)
 {
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
+	bool		may_read_all_stats;
 	TupleDesc	tupdesc;
 	Tuplestorestate *tupstore;
 	MemoryContext per_query_ctx;
@@ -1981,6 +1982,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
 	int			expected_columns;
+
+	may_read_all_stats = is_member_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS);
 
 	switch (api_version)
 	{
@@ -2075,7 +2078,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		char	   *query_txt;
 		char	   *parent_query_txt = NULL;
 		bool		toplevel = entry->key.toplevel;
-		bool		is_allowed_role = is_member_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS);
 
 		/* Load the query text from dsa area */
 		if (DsaPointerIsValid(entry->query_text.query_pos))
@@ -2136,7 +2138,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		 * ip address at column number 5, Superusers or members of
 		 * pg_read_all_stats members are allowed
 		 */
-		if (is_allowed_role || userid == GetUserId())
+		if (may_read_all_stats || userid == GetUserId())
 			values[i++] = UInt32GetDatum(ip);
 		else
 			nulls[i++] = true;
@@ -2150,7 +2152,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		else
 			nulls[i++] = true;
 
-		if (is_allowed_role || userid == GetUserId())
+		if (may_read_all_stats || userid == GetUserId())
 		{
 			if (showtext)
 			{
