@@ -44,7 +44,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_max_len';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_max_len';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -76,7 +76,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_max_len';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_max_len';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -94,7 +94,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_max_len';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_max_len';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -112,7 +112,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_max_len';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_max_len';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -130,7 +130,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_max_len';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_max_len';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);

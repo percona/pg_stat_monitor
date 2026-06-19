@@ -47,16 +47,16 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_shared_buffer';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_shared_buffer';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 # CREATE example database and run pgbench init
 ($cmdret, $stdout, $stderr) =
-  $node->psql('postgres', 'CREATE database example;', extra_params => ['-a']);
+  $node->psql('postgres', 'CREATE DATABASE example;', extra_params => ['-a']);
 print "cmdret $cmdret\n";
-is($cmdret, 0, "CREATE Database example");
+is($cmdret, 0, "CREATE DATABASE example");
 PGSM::append_to_file($stdout);
 
 my $port = $node->port;
@@ -72,7 +72,7 @@ is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC Limit 20;',
+	'SELECT datname, substr(query, 0, 150) AS query, sum(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC LIMIT 20;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
@@ -90,7 +90,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_shared_buffer';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_shared_buffer';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -105,7 +105,7 @@ is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC Limit 20;',
+	'SELECT datname, substr(query, 0, 150) AS query, sum(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC LIMIT 20;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
@@ -123,7 +123,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_shared_buffer';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_shared_buffer';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -138,7 +138,7 @@ is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC Limit 20;',
+	'SELECT datname, substr(query, 0, 150) AS query, sum(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC LIMIT 20;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
@@ -156,7 +156,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_query_shared_buffer';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_query_shared_buffer';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -171,7 +171,7 @@ is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT datname, substr(query,0,150) AS query, SUM(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC Limit 20;',
+	'SELECT datname, substr(query, 0, 150) AS query, sum(calls) AS calls FROM pg_stat_monitor GROUP BY datname, query ORDER BY datname, query, calls DESC LIMIT 20;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);

@@ -44,7 +44,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_track';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_track';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -60,7 +60,7 @@ $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_track';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_track';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
@@ -77,7 +77,7 @@ $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name='pg_stat_monitor.pgsm_track';",
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_track';",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);

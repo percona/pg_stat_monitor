@@ -76,33 +76,33 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'CREATE INDEX idx_t1_a on t1(a);',
+	'CREATE INDEX idx_t1_a ON t1 (a);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "CREATE index.");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'INSERT INTO t1 VALUES(generate_series(1,1000000));',
+	'INSERT INTO t1 SELECT generate_series(1, 1000000);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "INSERT 10000 records.");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'ANALYZE t1;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-is($cmdret, 0, "Analyze t1.");
+is($cmdret, 0, "ANALYZE t1.");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT * FROM t1 AS XX INNER JOIN t1 AS TT ON XX.a = TT.a;',
+	'SELECT * FROM t1 AS xx INNER JOIN t1 AS tt ON xx.a = tt.a;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "SELECT * FROM t1.");
 PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT substr(query,0,130) AS query, calls, rows_retrieved, cpu_user_time, cpu_sys_time, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, temp_blks_read, temp_blks_written FROM pg_stat_monitor WHERE query LIKE \'%t1%\' ORDER BY query,calls DESC;',
+	'SELECT substr(query, 0, 130) AS query, calls, rows_retrieved, cpu_user_time, cpu_sys_time, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, temp_blks_read, temp_blks_written FROM pg_stat_monitor WHERE query LIKE \'%t1%\' ORDER BY query, calls DESC;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_debug_file($stdout);
 
@@ -115,14 +115,14 @@ PGSM::append_to_debug_file($stdout);
 # Compare values for query 'SELECT * FROM t1'
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT PGSM.temp_blks_read != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%FROM t1%\';',
+	'SELECT pgsm.temp_blks_read <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
 is($stdout, 't', "Check: temp_blks_read should not be 0.");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	'SELECT PGSM.temp_blks_written != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%FROM t1%\';',
+	'SELECT pgsm.temp_blks_written <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';',
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
 is($stdout, 't', "Check: temp_blks_written should not be 0.");
@@ -131,14 +131,14 @@ if ($PGSM::PG_MAJOR_VERSION >= 15)
 {
 	($cmdret, $stdout, $stderr) = $node->psql(
 		'postgres',
-		'SELECT SUM(PGSM.temp_blk_read_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%FROM t1%\';',
+		'SELECT sum(pgsm.temp_blk_read_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';',
 		extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 	trim($stdout);
 	is($stdout, 't', "Check: temp_blk_read_time should not be 0.");
 
 	($cmdret, $stdout, $stderr) = $node->psql(
 		'postgres',
-		'SELECT SUM(PGSM.temp_blk_write_time) != 0 FROM pg_stat_monitor AS PGSM WHERE PGSM.query LIKE \'%FROM t1%\'',
+		'SELECT sum(pgsm.temp_blk_write_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\'',
 		extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 	trim($stdout);
 	is($stdout, 't', "Check: temp_blk_write_time should not be 0.");

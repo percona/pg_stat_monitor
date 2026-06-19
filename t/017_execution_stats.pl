@@ -110,27 +110,27 @@ isnt($stdout, '0', "Compare: ${col_mean_time} is not 0).");
 # Test: ${col_total_time}  =  ${col_min_time} + ${col_max_time}
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT (round(${col_total_time}::numeric,3) = round(${col_min_time}::numeric + ${col_max_time}::numeric,3)) FROM pg_stat_monitor WHERE calls = 2;",
+	"SELECT (round(${col_total_time}::numeric, 3) = round(${col_min_time}::numeric + ${col_max_time}::numeric, 3)) FROM pg_stat_monitor WHERE calls = 2;",
 	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
 trim($stdout);
 is($stdout, 't',
-	"Compare: (round(${col_total_time}::numeric,3) = round(${col_min_time}::numeric + ${col_max_time}::numeric,3))."
+	"Compare: (round(${col_total_time}::numeric, 3) = round(${col_min_time}::numeric + ${col_max_time}::numeric, 3))."
 );
 
 # Test: ${col_mean_time} = ${col_total_time}/2
-#($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT (round(${col_mean_time}::numeric,3) = round((${col_total_time}/2)::numeric,3)) FROM pg_stat_monitor WHERE calls = 2;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+#($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT (round(${col_mean_time}::numeric, 3) = round((${col_total_time} / 2)::numeric, 3)) FROM pg_stat_monitor WHERE calls = 2;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 #trim($stdout);
-#is($stdout,'t',"Compare ${col_mean_time}: (round(${col_mean_time}::numeric,3) = round((${col_total_time}/2)::numeric,3)).");
+#is($stdout,'t',"Compare ${col_mean_time}: round(${col_mean_time}::numeric, 3) = round((${col_total_time} / 2)::numeric, 3).");
 
 # Test: ${col_stddev_time} = ${col_mean_time} - ${col_min_time}
-#($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT (round(${col_stddev_time}::numeric,3) = round(${col_mean_time}::numeric - ${col_min_time}::numeric,3)) FROM pg_stat_monitor WHERE calls = 2;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+#($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT round(${col_stddev_time}::numeric, 3) = round(${col_mean_time}::numeric - ${col_min_time}::numeric, 3) FROM pg_stat_monitor WHERE calls = 2;', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
 #trim($stdout);
-#is($stdout,'t',"Compare ${col_mean_time}: (round(${col_stddev_time}::numeric,3) = round(${col_mean_time}::numeric - ${col_min_time}::numeric,3)).");
+#is($stdout,'t',"Compare ${col_mean_time}: round(${col_stddev_time}::numeric, 3) = round(${col_mean_time}::numeric - ${col_min_time}::numeric, 3)).");
 
 # Dump output to out file
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	"SELECT substr(query, 0,100) AS query, calls, ${col_total_time}, ${col_min_time},${col_max_time},${col_mean_time},${col_stddev_time} FROM pg_stat_monitor ORDER BY query;",
+	"SELECT substr(query, 0, 100) AS query, calls, ${col_total_time}, ${col_min_time}, ${col_max_time}, ${col_mean_time}, ${col_stddev_time} FROM pg_stat_monitor ORDER BY query;",
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_debug_file($stdout);
 
