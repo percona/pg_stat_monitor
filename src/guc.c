@@ -287,11 +287,11 @@ check_histogram_min(double *newval, void **extra, GucSource source)
 	 * During module initialization PGSM_HISTOGRAM_MIN is initialized before
 	 * PGSM_HISTOGRAM_MAX, in this case PGSM_HISTOGRAM_MAX will be zero.
 	 */
-	return (pgsm_histogram_max == 0 || (*newval + 1.0) <= pgsm_histogram_max);
+	return pgsm_histogram_max == 0 || (*newval + 1.0) <= pgsm_histogram_max;
 }
 
 static bool
 check_histogram_max(double *newval, void **extra, GucSource source)
 {
-	return (*newval >= (pgsm_histogram_min + 1.0));
+	return *newval >= (pgsm_histogram_min + 1.0);
 }
