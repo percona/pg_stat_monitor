@@ -1372,7 +1372,6 @@ pgsm_update_entry(pgsmEntry *entry,
 				/* If we have a parent query, store it in the raw dsa area */
 				if (parent_query_len > 0)
 				{
-					char	   *qry_buff;
 					dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
 
 					/*
@@ -1384,7 +1383,8 @@ pgsm_update_entry(pgsmEntry *entry,
 
 					if (DsaPointerIsValid(qry))
 					{
-						qry_buff = dsa_get_address(query_dsa_area, qry);
+						char	   *qry_buff = dsa_get_address(query_dsa_area, qry);
+
 						memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
 						qry_buff[parent_query_len] = 0;
 						/* store the dsa pointer for parent query text */
@@ -1724,7 +1724,6 @@ pgsm_store(pgsmEntry *entry)
 	uint64		prev_bucket_id;
 	bool		reset = false;	/* Only used in update function - HAMID */
 	char	   *query;
-	int			query_len;
 	BufferUsage bufusage;
 	WalUsage	walusage;
 	JitInstrumentation jitusage;
@@ -1744,7 +1743,6 @@ pgsm_store(pgsmEntry *entry)
 
 	entry->key.bucket_id = bucketid;
 	query = entry->query_text.query_pointer;
-	query_len = strlen(query);
 
 	/* Let's do all the leg work here before we acquire any locks */
 	extract_query_comments(query, comments, sizeof(comments));
@@ -1818,6 +1816,7 @@ pgsm_store(pgsmEntry *entry)
 		dsa_pointer dsa_query_pointer;
 		dsa_area   *query_dsa_area;
 		char	   *query_buff;
+		int			query_len = strlen(query);
 
 		/* New query, truncate length if necessary. */
 		if (query_len > pgsm_query_max_len)
@@ -3044,11 +3043,10 @@ static int
 get_histogram_bucket(double q_time)
 {
 	int			index;
-	double		exec_time = q_time;
 
 	for (index = 0; index < hist_bucket_count_total; index++)
 	{
-		if (exec_time >= hist_bucket_timings[index].start && exec_time <= hist_bucket_timings[index].end)
+		if (q_time >= hist_bucket_timings[index].start && q_time <= hist_bucket_timings[index].end)
 			return index;
 	}
 
