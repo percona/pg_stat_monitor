@@ -29,6 +29,7 @@
 #include <common/ip.h>
 #include <funcapi.h>
 #include <jit/jit.h>
+#include <libpq/libpq-be.h>
 #include <mb/pg_wchar.h>
 #include <miscadmin.h>
 #include <nodes/pg_list.h>
@@ -37,7 +38,6 @@
 #include <parser/parsetree.h>
 #include <parser/scanner.h>
 #include <parser/scansup.h>
-#include <pgstat.h>
 #include <storage/ipc.h>
 #include <storage/proc.h>
 #include <storage/shmem.h>
@@ -210,7 +210,6 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
 
 static uint pg_get_client_addr(void);
 static int	pg_get_application_name(char *name, int buff_size);
-static PgBackendStatus *pg_get_backend_status(void);
 static Datum intarray_get_datum(const int32 *arr, int len);
 
 static int64 pgsm_hash_string(const char *str, int len);
@@ -1206,34 +1205,6 @@ pgsm_hash_string(const char *str, int len)
 	return DatumGetInt64(hash_any_extended((const unsigned char *) str, len, 0));
 }
 
-static PgBackendStatus *
-pg_get_backend_status(void)
-{
-#if PG_VERSION_NUM >= 170000
-	return pgstat_get_beentry_by_proc_number(MyProcPid);
-#elif PG_VERSION_NUM >= 160000
-	return &(pgstat_get_local_beentry_by_backend_id(MyBackendId)->backendStatus);
-#else
-	int			num_backends = pgstat_fetch_stat_numbackends();
-
-	for (int i = 1; i <= num_backends; i++)
-	{
-		LocalPgBackendStatus *local_beentry;
-		PgBackendStatus *beentry;
-
-		local_beentry = pgstat_fetch_stat_local_beentry(i);
-		if (!local_beentry)
-			continue;
-
-		beentry = &local_beentry->backendStatus;
-
-		if (beentry->st_procpid == MyProcPid)
-			return beentry;
-	}
-	return NULL;
-#endif
-}
-
 /*
  * The caller should allocate max_len memory to name including terminating null.
  * The function returns the length of the string.
@@ -1241,20 +1212,10 @@ pg_get_backend_status(void)
 static int
 pg_get_application_name(char *name, int buff_size)
 {
-	/* Try to read application name from GUC directly */
 	if (application_name && *application_name)
 		strlcpy(name, application_name, buff_size);
 	else
-	{
-		PgBackendStatus *beentry;
-
-		beentry = pg_get_backend_status();
-
-		if (!beentry)
-			strlcpy(name, "unknown", buff_size);
-		else
-			strlcpy(name, beentry->st_appname, buff_size);
-	}
+		strlcpy(name, "unknown", buff_size);
 
 	/* Return length so that others don't have to calculate */
 	return strlen(name);
@@ -1263,15 +1224,14 @@ pg_get_application_name(char *name, int buff_size)
 static uint
 pg_get_client_addr(void)
 {
-	PgBackendStatus *beentry = pg_get_backend_status();
 	char		remote_host[NI_MAXHOST];
 	int			ret;
 
-	if (!beentry)
+	if (!MyProcPort)
 		return ntohl(inet_addr("127.0.0.1"));
 
-	ret = pg_getnameinfo_all(&beentry->st_clientaddr.addr,
-							 beentry->st_clientaddr.salen,
+	ret = pg_getnameinfo_all(&MyProcPort->raddr.addr,
+							 MyProcPort->raddr.salen,
 							 remote_host, sizeof(remote_host),
 							 NULL, 0,
 							 NI_NUMERICHOST | NI_NUMERICSERV);
