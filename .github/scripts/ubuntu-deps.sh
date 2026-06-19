@@ -8,6 +8,7 @@ DEPS=(
 
     # Build
     perl
+    libkrb5-dev
 
     # Test
     libipc-run-perl
@@ -29,7 +30,6 @@ case "$1" in
             gettext
             lcov
             libicu-dev
-            libkrb5-dev
             libldap2-dev
             liblz4-dev
             libpam0g-dev
