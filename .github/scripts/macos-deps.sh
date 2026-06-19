@@ -5,6 +5,7 @@ set -e
 DEPS=(
     # Setup
     wget
+
     # Build
     gnu-sed
 

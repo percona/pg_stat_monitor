@@ -2,7 +2,7 @@
 
 set -e
 
-SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
+SCRIPT_DIR=$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)
 PG_BIN_DIR=$(pg_config --bindir)
 
 cd "$SCRIPT_DIR/../../"
