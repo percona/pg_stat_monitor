@@ -3008,7 +3008,7 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 	else if (index == b_count - 1 && q_max < HISTOGRAM_MAX_TIME)
 	{
 		*b_start = q_max;
-		*b_end = -1;
+		*b_end = INFINITY;
 		return;
 	}
 
@@ -3033,17 +3033,14 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 static int
 get_histogram_bucket(double q_time)
 {
-	for (int index = 0; index < hist_bucket_count_total; index++)
+	for (int index = 0; index < hist_bucket_count_total - 1; index++)
 	{
 		if (q_time >= hist_bucket_timings[index].start && q_time <= hist_bucket_timings[index].end)
 			return index;
 	}
 
-	/*
-	 * So haven't found a histogram bucket for this query. That's only
-	 * possible for the last bucket as its end time is less than 0.
-	 */
-	return (hist_bucket_count_total - 1);
+	/* Given the uppermost bound is inifity we should never reach this */
+	return hist_bucket_count_total - 1;
 }
 
 /*
@@ -3068,7 +3065,7 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 
 		appendStringInfo(&buf, "%.3f - ", hist_bucket_timings[index].start);
 
-		if (hist_bucket_timings[index].end == -1)
+		if (hist_bucket_timings[index].end == INFINITY)
 			appendStringInfoString(&buf, "...");
 		else
 			appendStringInfo(&buf, "%.3f", hist_bucket_timings[index].end);
