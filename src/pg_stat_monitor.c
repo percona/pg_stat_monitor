@@ -1120,6 +1120,8 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 						  PGSM_EXEC);	/* kind */
 
 		pgsm_store(entry);
+
+		pgsm_delete_entry(queryId);
 	}
 	else
 	{
@@ -1176,7 +1178,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		PG_END_TRY();
 #endif
 	}
-	pgsm_delete_entry(pstmt->queryId);
 }
 
 /*
