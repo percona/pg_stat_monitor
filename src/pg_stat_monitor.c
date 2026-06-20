@@ -3008,7 +3008,7 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 	else if (index == b_count - 1 && q_max < HISTOGRAM_MAX_TIME)
 	{
 		*b_start = q_max;
-		*b_end = -1;
+		*b_end = INFINITY;
 		return;
 	}
 
@@ -3068,7 +3068,7 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 
 		appendStringInfo(&buf, "%.3f - ", hist_bucket_timings[index].start);
 
-		if (hist_bucket_timings[index].end == -1)
+		if (hist_bucket_timings[index].end == INFINITY)
 			appendStringInfoString(&buf, "...");
 		else
 			appendStringInfo(&buf, "%.3f", hist_bucket_timings[index].end);
