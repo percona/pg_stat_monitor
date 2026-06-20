@@ -1029,8 +1029,9 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		!IsA(parsetree, DeallocateStmt))
 	{
 		const char *query_text;
-		int			location;
-		int			query_len;
+		int			location = pstmt->stmt_location;
+		int			query_len = pstmt->stmt_len;
+		int			cmd_type = pstmt->commandType;
 		instr_time	start;
 		instr_time	duration;
 		uint64		rows;
@@ -1070,6 +1071,16 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		}
 		PG_END_TRY();
 
+		/*
+		 * CAUTION: do not access the *pstmt data structure again below here.
+		 * If it was a ROLLBACK or similar, that data structure may have been
+		 * freed.  We must copy everything we still need into local variables,
+		 * which we did above.
+		 *
+		 * For the same reason, we can't risk restoring pstmt->queryId to its
+		 * former value, which'd otherwise be a good idea.
+		 */
+
 		getrusage(RUSAGE_SELF, &rusage_end);
 		sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
 		sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
@@ -1092,12 +1103,10 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		memset(&bufusage, 0, sizeof(BufferUsage));
 		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
 
-		location = pstmt->stmt_location;
-		query_len = pstmt->stmt_len;
 		query_text = CleanQuerytext(queryString, &location, &query_len);
 
 		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
-		entry->counters.info.cmd_type = pstmt->commandType;
+		entry->counters.info.cmd_type = cmd_type;
 
 		pgsm_add_to_list(entry, query_text, query_len);
 
