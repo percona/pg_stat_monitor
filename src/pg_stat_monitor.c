@@ -3075,10 +3075,13 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 }
 
 static bool
-append_comment_char(char *comments, size_t max_len, size_t *idx, char c)
+append_comment_char(char *comments, size_t buf_len, size_t *idx, char c)
 {
-	if (*idx >= max_len)
+	if (*idx >= buf_len - 1)
+	{
+		comments[buf_len - 1] = '\0';
 		return false;
+	}
 
 	comments[*idx] = c;
 	(*idx)++;
@@ -3087,14 +3090,14 @@ append_comment_char(char *comments, size_t max_len, size_t *idx, char c)
 }
 
 static void
-extract_query_comments(const char *query, char *comments, size_t max_len)
+extract_query_comments(const char *query, char *comments, size_t buf_len)
 {
 	size_t		curr_len = 0;
 	const char *q_iter = query;
 
 	if (!pgsm_extract_comments)
 	{
-		comments[0] = 0;
+		comments[0] = '\0';
 		return;
 	}
 
@@ -3107,27 +3110,27 @@ extract_query_comments(const char *query, char *comments, size_t max_len)
 		{
 			if (curr_len != 0)
 			{
-				if (!append_comment_char(comments, max_len, &curr_len, ','))
+				if (!append_comment_char(comments, buf_len, &curr_len, ','))
 					return;
-				if (!append_comment_char(comments, max_len, &curr_len, ' '))
+				if (!append_comment_char(comments, buf_len, &curr_len, ' '))
 					return;
 			}
 			while (*q_iter && *(q_iter + 1) && (*q_iter != '*' || *(q_iter + 1) != '/'))
 			{
-				if (!append_comment_char(comments, max_len, &curr_len, *q_iter))
+				if (!append_comment_char(comments, buf_len, &curr_len, *q_iter))
 					return;
 				q_iter++;
 			}
 
 			if (*q_iter)
 			{
-				if (!append_comment_char(comments, max_len, &curr_len, *q_iter))
+				if (!append_comment_char(comments, buf_len, &curr_len, *q_iter))
 					return;
 				q_iter++;
 			}
 			if (*q_iter)
 			{
-				if (!append_comment_char(comments, max_len, &curr_len, *q_iter))
+				if (!append_comment_char(comments, buf_len, &curr_len, *q_iter))
 					return;
 				q_iter++;
 			}
@@ -3136,7 +3139,7 @@ extract_query_comments(const char *query, char *comments, size_t max_len)
 		q_iter++;
 	}
 
-	comments[curr_len] = 0;
+	comments[curr_len] = '\0';
 }
 
 static void
