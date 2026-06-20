@@ -2921,19 +2921,19 @@ time_diff(struct timeval end, struct timeval start)
 static void
 set_histogram_bucket_timings(void)
 {
-	double		b2_start;
-	double		b2_end;
-	int			b_count;
-
 	hist_bucket_min = pgsm_histogram_min;
 	hist_bucket_max = pgsm_histogram_max;
 	hist_bucket_count_user = pgsm_histogram_buckets;
-	b_count = hist_bucket_count_user;
 
 	if (pgsm_histogram_buckets >= 2)
 	{
+		int			b_count = hist_bucket_count_user;
+
 		for (; hist_bucket_count_user > 0; hist_bucket_count_user--)
 		{
+			double		b2_start;
+			double		b2_end;
+
 			histogram_bucket_timings(2, &b2_start, &b2_end);
 
 			/*
@@ -2964,9 +2964,9 @@ set_histogram_bucket_timings(void)
 	 */
 	hist_bucket_count_total = hist_bucket_count_user + (int) (hist_bucket_max < HISTOGRAM_MAX_TIME) + (int) (hist_bucket_min > 0);
 
-	for (b_count = 0; b_count < hist_bucket_count_total; b_count++)
+	for (int index = 0; index < hist_bucket_count_total; index++)
 	{
-		histogram_bucket_timings(b_count, &hist_bucket_timings[b_count].start, &hist_bucket_timings[b_count].end);
+		histogram_bucket_timings(index, &hist_bucket_timings[index].start, &hist_bucket_timings[index].end);
 	}
 }
 
@@ -3020,9 +3020,7 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 static int
 get_histogram_bucket(double q_time)
 {
-	int			index;
-
-	for (index = 0; index < hist_bucket_count_total; index++)
+	for (int index = 0; index < hist_bucket_count_total; index++)
 	{
 		if (q_time >= hist_bucket_timings[index].start && q_time <= hist_bucket_timings[index].end)
 			return index;
