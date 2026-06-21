@@ -1201,13 +1201,15 @@ pgsm_hash_string(const char *str, int len)
 static int
 pg_get_application_name(char *name, int buff_size)
 {
+	int			len;
+
 	if (application_name && *application_name)
-		strlcpy(name, application_name, buff_size);
+		len = strlcpy(name, application_name, buff_size);
 	else
-		strlcpy(name, "unknown", buff_size);
+		len = strlcpy(name, "unknown", buff_size);
 
 	/* Return length so that others don't have to calculate */
-	return strlen(name);
+	return len < buff_size ? len : buff_size - 1;
 }
 
 static uint
