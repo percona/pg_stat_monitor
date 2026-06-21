@@ -525,8 +525,7 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 static void
 pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 {
-	if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
-		elog(DEBUG1, "[pg_stat_monitor] pgsm_ExecutorStart: failed to execute getrusage.");
+	getrusage(RUSAGE_SELF, &rusage_start);
 
 	if (prev_ExecutorStart)
 		prev_ExecutorStart(queryDesc, eflags);
@@ -719,16 +718,9 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		 */
 		InstrEndLoop(queryDesc->totaltime);
 
-		sys_info.utime = 0;
-		sys_info.stime = 0;
-
-		if (getrusage(RUSAGE_SELF, &rusage_end) != 0)
-			elog(DEBUG1, "[pg_stat_monitor] pgsm_ExecutorEnd: Failed to execute getrusage.");
-		else
-		{
-			sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
-			sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
-		}
+		getrusage(RUSAGE_SELF, &rusage_end);
+		sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
+		sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
 
 		entry->counters.info.cmd_type = queryDesc->operation;
 
@@ -1045,8 +1037,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		WalUsage	walusage_start = pgWalUsage;
 		pgsmEntry  *entry = pgsm_create_hash_entry(queryId, NULL);
 
-		if (getrusage(RUSAGE_SELF, &rusage_start) != 0)
-			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
+		getrusage(RUSAGE_SELF, &rusage_start);
 
 		INSTR_TIME_SET_CURRENT(start);
 		nesting_level++;
@@ -1072,19 +1063,11 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 			nesting_level--;
 			PG_RE_THROW();
 		}
-
-		sys_info.utime = 0;
-		sys_info.stime = 0;
-
 		PG_END_TRY();
 
-		if (getrusage(RUSAGE_SELF, &rusage_end) != 0)
-			elog(DEBUG1, "[pg_stat_monitor] pgsm_ProcessUtility: Failed to execute getrusage.");
-		else
-		{
-			sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
-			sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
-		}
+		getrusage(RUSAGE_SELF, &rusage_end);
+		sys_info.utime = time_diff(rusage_end.ru_utime, rusage_start.ru_utime);
+		sys_info.stime = time_diff(rusage_end.ru_stime, rusage_start.ru_stime);
 
 		INSTR_TIME_SET_CURRENT(duration);
 		INSTR_TIME_SUBTRACT(duration, start);
