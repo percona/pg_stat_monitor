@@ -514,7 +514,8 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 static void
 pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 {
-	getrusage(RUSAGE_SELF, &rusage_start);
+	if (pgsm_enabled(nesting_level))
+		getrusage(RUSAGE_SELF, &rusage_start);
 
 	if (prev_ExecutorStart)
 		prev_ExecutorStart(queryDesc, eflags);
