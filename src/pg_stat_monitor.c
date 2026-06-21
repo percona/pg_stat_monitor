@@ -138,7 +138,6 @@ static char relations[REL_LST][REL_LEN];
 static int	num_relations;		/* Number of relation in the query */
 static bool system_init = false;
 static struct rusage rusage_start;
-static struct rusage rusage_end;
 
 /* Application name and length; set each time when an entry is created locally */
 static char app_name[APPLICATIONNAME_LEN];
@@ -700,6 +699,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	if (queryId != INT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
 	{
 		pgsmEntry  *entry;
+		struct rusage rusage_end;
 		SysInfo		sys_info;
 
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, queryDesc->sourceText, queryDesc->operation);
@@ -1030,6 +1030,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		instr_time	start;
 		instr_time	duration;
 		uint64		rows;
+		struct rusage rusage_end;
 		SysInfo		sys_info;
 		BufferUsage bufusage;
 		BufferUsage bufusage_start = pgBufferUsage;
