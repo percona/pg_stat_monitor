@@ -15,14 +15,14 @@ jobs:
         run: sudo apt purge postgresql* libpq*
 
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           path: src
           ref: ${{ github.ref }}
 
       - name: Clone postgres repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: postgres
           repository: percona/postgres.git
@@ -53,7 +53,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Check license headers
         uses: apache/skywalking-eyes/header@v0.8.0

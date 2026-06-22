@@ -22,14 +22,14 @@ jobs:
 
     steps:
       - name: Clone QA Integration
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Percona-Lab/qa-integration
           ref: main
           path: qa-integration
 
       - name: Clone PMM UI tests
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: percona/pmm-ui-tests
           ref: main
