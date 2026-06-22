@@ -198,6 +198,8 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_2_3);
 PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(get_histogram_timings);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
+PG_FUNCTION_INFO_V1(pg_stat_monitor_decode_error_level);
+PG_FUNCTION_INFO_V1(pg_stat_monitor_get_cmd_type);
 
 static uint pg_get_client_addr(void);
 static int	pg_get_application_name(char *name, int buff_size);
@@ -2430,6 +2432,96 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	}
 	/* clean up and return the tuplestore */
 	pgsm_lock_release(pgsm);
+}
+
+static const char *
+decode_error_level(int elevel)
+{
+	switch (elevel)
+	{
+		case 0:					/* compatibility with legacy code */
+			return "";
+		case DEBUG5:
+			return "DEBUG5";
+		case DEBUG4:
+			return "DEBUG4";
+		case DEBUG3:
+			return "DEBUG3";
+		case DEBUG2:
+			return "DEBUG2";
+		case DEBUG1:
+			return "DEBUG1";
+		case LOG:
+			return "LOG";
+		case LOG_SERVER_ONLY:
+			return "LOG_SERVER_ONLY";
+		case INFO:
+			return "INFO";
+		case NOTICE:
+			return "NOTICE";
+		case WARNING:
+			return "WARNING";
+		case WARNING_CLIENT_ONLY:
+			return "WARNING_CLIENT_ONLY";
+		case ERROR:
+			return "ERROR";
+		case FATAL:
+			return "FATAL";
+		case PANIC:
+			return "PANIC";
+		default:
+			return NULL;
+	}
+}
+
+Datum
+pg_stat_monitor_decode_error_level(PG_FUNCTION_ARGS)
+{
+	const char *severity = decode_error_level(PG_GETARG_INT32(0));
+
+	if (severity == NULL)
+		PG_RETURN_NULL();
+
+	PG_RETURN_TEXT_P(cstring_to_text(severity));
+}
+
+static const char *
+get_cmd_type(int cmd_type)
+{
+	switch (cmd_type)
+	{
+		case CMD_UNKNOWN:
+			return "";			/* compatibility with legacy code */
+		case CMD_SELECT:
+			return "SELECT";
+		case CMD_UPDATE:
+			return "UPDATE";
+		case CMD_INSERT:
+			return "INSERT";
+		case CMD_DELETE:
+			return "DELETE";
+#if PG_VERSION_NUM >= 150000
+		case CMD_MERGE:
+			return "MERGE";
+#endif
+		case CMD_UTILITY:
+			return "UTILITY";
+		case CMD_NOTHING:
+			return "NOTHING";
+		default:
+			return NULL;
+	}
+}
+
+Datum
+pg_stat_monitor_get_cmd_type(PG_FUNCTION_ARGS)
+{
+	const char *cmd_string = get_cmd_type(PG_GETARG_INT32(0));
+
+	if (cmd_string == NULL)
+		PG_RETURN_NULL();
+
+	PG_RETURN_TEXT_P(cstring_to_text(cmd_string));
 }
 
 static uint64
