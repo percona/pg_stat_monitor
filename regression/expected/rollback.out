@@ -1,7 +1,7 @@
 CREATE EXTENSION pg_stat_monitor;
 CREATE USER u WITH SUPERUSER;
 SET ROLE u;
-CREATE TABLE t (a int PRIMARY KEY) ;
+CREATE TABLE t (a int PRIMARY KEY);
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------

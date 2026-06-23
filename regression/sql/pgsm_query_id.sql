@@ -7,9 +7,9 @@ CREATE DATABASE db2;
 CREATE TABLE t1 (a int);
 CREATE TABLE t2 (b int);
 
-CREATE FUNCTION add(integer, integer) RETURNS integer
-    AS 'select $1 + $2;'
-    LANGUAGE SQL
+CREATE FUNCTION add(int, int) RETURNS int
+    AS 'SELECT $1 + $2;'
+    LANGUAGE sql
     IMMUTABLE
     RETURNS NULL ON NULL INPUT;
 
@@ -17,9 +17,9 @@ CREATE FUNCTION add(integer, integer) RETURNS integer
 CREATE TABLE t1 (a int);
 CREATE TABLE t3 (c int);
 
-CREATE FUNCTION add(integer, integer) RETURNS integer
-    AS 'select $1 + $2;'
-    LANGUAGE SQL
+CREATE FUNCTION add(int, int) RETURNS int
+    AS 'SELECT $1 + $2;'
+    LANGUAGE sql
     IMMUTABLE
     RETURNS NULL ON NULL INPUT;
 
@@ -27,7 +27,7 @@ CREATE FUNCTION add(integer, integer) RETURNS integer
 SELECT pg_stat_monitor_reset();
 \c db1
 SELECT * FROM t1;
-SELECT *, ADD(1, 2) FROM t1;
+SELECT *, add(1, 2) FROM t1;
 SELECT * FROM t2;
 -- Check that spaces and comments do not generate a different pgsm_query_id
 SELECT     *     FROM t2 --WHATEVER;
@@ -40,13 +40,12 @@ More comments to check for spaces.
 
 \c db2
 SELECT * FROM t1;
-SELECT *, ADD(1, 2) FROM t1;
+SELECT *, add(1, 2) FROM t1;
 
 set pg_stat_monitor.pgsm_enable_pgsm_query_id = off;
 SELECT * FROM t3;
 set pg_stat_monitor.pgsm_enable_pgsm_query_id = on;
-SELECT * FROM t3 where c = 20;
-
+SELECT * FROM t3 WHERE c = 20;
 
 \c contrib_regression
 SELECT datname, pgsm_query_id, query, calls FROM pg_stat_monitor ORDER BY pgsm_query_id, query, datname;
@@ -55,12 +54,12 @@ SELECT pg_stat_monitor_reset();
 \c db1
 DROP TABLE t1;
 DROP TABLE t2;
-DROP FUNCTION ADD;
+DROP FUNCTION add;
 
 \c db2
 DROP TABLE t1;
 DROP TABLE t3;
-DROP FUNCTION ADD;
+DROP FUNCTION add;
 
 \c contrib_regression
 DROP DATABASE db1;

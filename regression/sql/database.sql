@@ -14,10 +14,10 @@ CREATE TABLE t4 (d int);
 \c contrib_regression
 SELECT pg_stat_monitor_reset();
 \c db1
-SELECT * FROM t1,t2 WHERE t1.a = t2.b;
+SELECT * FROM t1, t2 WHERE t1.a = t2.b;
 
 \c db2
-SELECT * FROM t3,t4 WHERE t3.c = t4.d;
+SELECT * FROM t3, t4 WHERE t3.c = t4.d;
 
 \c contrib_regression
 DROP DATABASE db2;

@@ -2,13 +2,13 @@
 -- Tests for parallel statistics
 --
 
-SELECT setting::integer < 180000 AS skip_test FROM pg_settings where name = 'server_version_num'  \gset
+SELECT setting::int < 180000 AS skip_test FROM pg_settings where name = 'server_version_num' \gset
 \if :skip_test
 \quit
 \endif
 
 CREATE EXTENSION pg_stat_monitor;
-SET pgsm.track_utility = FALSE;
+SET pgsm.track_utility = off;
 
 -- encourage use of parallel plans
 SET parallel_setup_cost = 0;
@@ -22,12 +22,13 @@ SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 
 SELECT count(*) FROM pgsm_parallel_tab;
 
-SELECT query,
-  parallel_workers_to_launch > 0 AS has_workers_to_launch,
-  parallel_workers_launched > 0 AS has_workers_launched
-  FROM pg_stat_monitor
-  WHERE query ~ 'SELECT count'
-  ORDER BY query COLLATE "C";
+SELECT
+    query,
+    parallel_workers_to_launch > 0 AS has_workers_to_launch,
+    parallel_workers_launched > 0 AS has_workers_launched
+FROM pg_stat_monitor
+WHERE query ~ 'SELECT count'
+ORDER BY query COLLATE "C";
 
 DROP TABLE pgsm_parallel_tab;
 DROP EXTENSION pg_stat_monitor;

@@ -2,13 +2,13 @@
 -- Const squashing functionality
 --
 
-SELECT setting::integer < 180000 AS skip_test FROM pg_settings where name = 'server_version_num'  \gset
+SELECT setting::int < 180000 AS skip_test FROM pg_settings where name = 'server_version_num' \gset
 \if :skip_test
 \quit
 \endif
 
 CREATE EXTENSION pg_stat_monitor;
-SET pg_stat_monitor.pgsm_normalized_query = TRUE;
+SET pg_stat_monitor.pgsm_normalized_query = on;
 
 --
 -- Simple Lists
@@ -36,7 +36,7 @@ SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 -- the IN and ARRAY forms of this statement will have the same queryId
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 SELECT WHERE 1 IN (1, int4(1), int4(2), 2);
-SELECT WHERE 1 = ANY (ARRAY[1, int4(1), int4(2), 2]);
+SELECT WHERE 1 = ANY(ARRAY[1, int4(1), int4(2), 2]);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- This tests are disabled due bug in PGSM, see: https://perconadev.atlassian.net/browse/PG-1936
@@ -66,9 +66,9 @@ SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 SELECT * FROM test_squash WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9) AND data = 2;
 SELECT * FROM test_squash WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) AND data = 2;
 SELECT * FROM test_squash WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) AND data = 2;
-SELECT * FROM test_squash WHERE id = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9]) AND data = 2;
-SELECT * FROM test_squash WHERE id = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AND data = 2;
-SELECT * FROM test_squash WHERE id = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) AND data = 2;
+SELECT * FROM test_squash WHERE id = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9]) AND data = 2;
+SELECT * FROM test_squash WHERE id = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AND data = 2;
+SELECT * FROM test_squash WHERE id = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) AND data = 2;
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- Multiple squashed intervals
@@ -79,12 +79,12 @@ SELECT * FROM test_squash WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
     AND data IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 SELECT * FROM test_squash WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
     AND data IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-SELECT * FROM test_squash WHERE id = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9])
-    AND data = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9]);
-SELECT * FROM test_squash WHERE id = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    AND data = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-SELECT * FROM test_squash WHERE id = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-    AND data = ANY (ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+SELECT * FROM test_squash WHERE id = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9])
+    AND data = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9]);
+SELECT * FROM test_squash WHERE id = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    AND data = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+SELECT * FROM test_squash WHERE id = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    AND data = ANY(ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 
@@ -92,13 +92,13 @@ SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 -- The IN and ARRAY forms of this statement will have the same queryId
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 SELECT * FROM test_squash WHERE id IN
-	(1 + 1, 2 + 2, 3 + 3, 4 + 4, 5 + 5, 6 + 6, 7 + 7, 8 + 8, 9 + 9);
+    (1 + 1, 2 + 2, 3 + 3, 4 + 4, 5 + 5, 6 + 6, 7 + 7, 8 + 8, 9 + 9);
 SELECT * FROM test_squash WHERE id IN
-	(@ '-1', @ '-2', @ '-3', @ '-4', @ '-5', @ '-6', @ '-7', @ '-8', @ '-9');
+    (@ '-1', @ '-2', @ '-3', @ '-4', @ '-5', @ '-6', @ '-7', @ '-8', @ '-9');
 SELECT * FROM test_squash WHERE id = ANY(ARRAY
-	[1 + 1, 2 + 2, 3 + 3, 4 + 4, 5 + 5, 6 + 6, 7 + 7, 8 + 8, 9 + 9]);
+    [1 + 1, 2 + 2, 3 + 3, 4 + 4, 5 + 5, 6 + 6, 7 + 7, 8 + 8, 9 + 9]);
 SELECT * FROM test_squash WHERE id = ANY(ARRAY
-	[@ '-1', @ '-2', @ '-3', @ '-4', @ '-5', @ '-6', @ '-7', @ '-8', @ '-9']);
+    [@ '-1', @ '-2', @ '-3', @ '-4', @ '-5', @ '-6', @ '-7', @ '-8', @ '-9']);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 --
@@ -139,21 +139,21 @@ SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 -- Bigint, explicit cast is squashed
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 SELECT * FROM test_squash_bigint WHERE data IN
-	(1::bigint, 2::bigint, 3::bigint, 4::bigint, 5::bigint, 6::bigint,
-	 7::bigint, 8::bigint, 9::bigint, 10::bigint, 11::bigint);
+    (1::bigint, 2::bigint, 3::bigint, 4::bigint, 5::bigint, 6::bigint,
+     7::bigint, 8::bigint, 9::bigint, 10::bigint, 11::bigint);
 SELECT * FROM test_squash_bigint WHERE data = ANY(ARRAY[
-	 1::bigint, 2::bigint, 3::bigint, 4::bigint, 5::bigint, 6::bigint,
-	 7::bigint, 8::bigint, 9::bigint, 10::bigint, 11::bigint]);
+    1::bigint, 2::bigint, 3::bigint, 4::bigint, 5::bigint, 6::bigint,
+    7::bigint, 8::bigint, 9::bigint, 10::bigint, 11::bigint]);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- Bigint, long tokens with parenthesis, will not squash
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 SELECT * FROM test_squash_bigint WHERE id IN
-	(abs(100), abs(200), abs(300), abs(400), abs(500), abs(600), abs(700),
-	 abs(800), abs(900), abs(1000), ((abs(1100))));
+    (abs(100), abs(200), abs(300), abs(400), abs(500), abs(600), abs(700),
+     abs(800), abs(900), abs(1000), ((abs(1100))));
 SELECT * FROM test_squash_bigint WHERE id = ANY(ARRAY[
-	 abs(100), abs(200), abs(300), abs(400), abs(500), abs(600), abs(700),
-	 abs(800), abs(900), abs(1000), ((abs(1100)))]);
+    abs(100), abs(200), abs(300), abs(400), abs(500), abs(600), abs(700),
+    abs(800), abs(900), abs(1000), ((abs(1100)))]);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- Multiple FuncExpr's. Will not squash
@@ -170,26 +170,26 @@ SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 CREATE TYPE casttesttype;
 
 CREATE FUNCTION casttesttype_in(cstring)
-   RETURNS casttesttype
-   AS 'textin'
-   LANGUAGE internal STRICT IMMUTABLE;
+    RETURNS casttesttype
+    AS 'textin'
+    LANGUAGE internal STRICT IMMUTABLE;
 
 CREATE FUNCTION casttesttype_out(casttesttype)
-   RETURNS cstring
-   AS 'textout'
-   LANGUAGE internal STRICT IMMUTABLE;
+    RETURNS cstring
+    AS 'textout'
+    LANGUAGE internal STRICT IMMUTABLE;
 
 CREATE TYPE casttesttype (
-   internallength = variable,
-   input = casttesttype_in,
-   output = casttesttype_out,
-   alignment = int4
+    internallength = variable,
+    input = casttesttype_in,
+    output = casttesttype_out,
+    alignment = int4
 );
 
 CREATE CAST (int4 AS casttesttype) WITH INOUT;
 
 CREATE FUNCTION casttesttype_eq(casttesttype, casttesttype)
-returns boolean language sql immutable as $$
+RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
     SELECT true
 $$;
 
@@ -197,49 +197,50 @@ CREATE OPERATOR = (
     leftarg = casttesttype,
     rightarg = casttesttype,
     procedure = casttesttype_eq,
-    commutator = =);
+    commutator = =
+);
 
 CREATE TABLE test_squash_cast (id int, data casttesttype);
 
 -- Use the introduced type to construct a list of CoerceViaIO around Const
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 SELECT * FROM test_squash_cast WHERE data IN
-	(1::int4::casttesttype, 2::int4::casttesttype, 3::int4::casttesttype,
-	 4::int4::casttesttype, 5::int4::casttesttype, 6::int4::casttesttype,
-	 7::int4::casttesttype, 8::int4::casttesttype, 9::int4::casttesttype,
-	 10::int4::casttesttype, 11::int4::casttesttype);
-SELECT * FROM test_squash_cast WHERE data = ANY (ARRAY
-	[1::int4::casttesttype, 2::int4::casttesttype, 3::int4::casttesttype,
-	 4::int4::casttesttype, 5::int4::casttesttype, 6::int4::casttesttype,
-	 7::int4::casttesttype, 8::int4::casttesttype, 9::int4::casttesttype,
-	 10::int4::casttesttype, 11::int4::casttesttype]);
+    (1::int4::casttesttype, 2::int4::casttesttype, 3::int4::casttesttype,
+     4::int4::casttesttype, 5::int4::casttesttype, 6::int4::casttesttype,
+     7::int4::casttesttype, 8::int4::casttesttype, 9::int4::casttesttype,
+     10::int4::casttesttype, 11::int4::casttesttype);
+SELECT * FROM test_squash_cast WHERE data = ANY(ARRAY
+    [1::int4::casttesttype, 2::int4::casttesttype, 3::int4::casttesttype,
+     4::int4::casttesttype, 5::int4::casttesttype, 6::int4::casttesttype,
+     7::int4::casttesttype, 8::int4::casttesttype, 9::int4::casttesttype,
+     10::int4::casttesttype, 11::int4::casttesttype]);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- Some casting expression are simplified to Const
 CREATE TABLE test_squash_jsonb (id int, data jsonb);
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 SELECT * FROM test_squash_jsonb WHERE data IN
-	(('"1"')::jsonb, ('"2"')::jsonb, ('"3"')::jsonb, ('"4"')::jsonb,
-	 ('"5"')::jsonb, ('"6"')::jsonb, ('"7"')::jsonb, ('"8"')::jsonb,
-	 ('"9"')::jsonb, ('"10"')::jsonb);
-SELECT * FROM test_squash_jsonb WHERE data = ANY (ARRAY
-	[('"1"')::jsonb, ('"2"')::jsonb, ('"3"')::jsonb, ('"4"')::jsonb,
-	 ('"5"')::jsonb, ('"6"')::jsonb, ('"7"')::jsonb, ('"8"')::jsonb,
-	 ('"9"')::jsonb, ('"10"')::jsonb]);
+    (('"1"')::jsonb, ('"2"')::jsonb, ('"3"')::jsonb, ('"4"')::jsonb,
+     ('"5"')::jsonb, ('"6"')::jsonb, ('"7"')::jsonb, ('"8"')::jsonb,
+     ('"9"')::jsonb, ('"10"')::jsonb);
+SELECT * FROM test_squash_jsonb WHERE data = ANY(ARRAY
+    [('"1"')::jsonb, ('"2"')::jsonb, ('"3"')::jsonb, ('"4"')::jsonb,
+     ('"5"')::jsonb, ('"6"')::jsonb, ('"7"')::jsonb, ('"8"')::jsonb,
+     ('"9"')::jsonb, ('"10"')::jsonb]);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- CoerceViaIO, SubLink instead of a Const. Will not squash
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 SELECT * FROM test_squash_jsonb WHERE data IN
-	((SELECT '"1"')::jsonb, (SELECT '"2"')::jsonb, (SELECT '"3"')::jsonb,
-	 (SELECT '"4"')::jsonb, (SELECT '"5"')::jsonb, (SELECT '"6"')::jsonb,
-	 (SELECT '"7"')::jsonb, (SELECT '"8"')::jsonb, (SELECT '"9"')::jsonb,
-	 (SELECT '"10"')::jsonb);
+    ((SELECT '"1"')::jsonb, (SELECT '"2"')::jsonb, (SELECT '"3"')::jsonb,
+     (SELECT '"4"')::jsonb, (SELECT '"5"')::jsonb, (SELECT '"6"')::jsonb,
+     (SELECT '"7"')::jsonb, (SELECT '"8"')::jsonb, (SELECT '"9"')::jsonb,
+     (SELECT '"10"')::jsonb);
 SELECT * FROM test_squash_jsonb WHERE data = ANY(ARRAY
-	[(SELECT '"1"')::jsonb, (SELECT '"2"')::jsonb, (SELECT '"3"')::jsonb,
-	 (SELECT '"4"')::jsonb, (SELECT '"5"')::jsonb, (SELECT '"6"')::jsonb,
-	 (SELECT '"7"')::jsonb, (SELECT '"8"')::jsonb, (SELECT '"9"')::jsonb,
-	 (SELECT '"10"')::jsonb]);
+    [(SELECT '"1"')::jsonb, (SELECT '"2"')::jsonb, (SELECT '"3"')::jsonb,
+     (SELECT '"4"')::jsonb, (SELECT '"5"')::jsonb, (SELECT '"6"')::jsonb,
+     (SELECT '"7"')::jsonb, (SELECT '"8"')::jsonb, (SELECT '"9"')::jsonb,
+     (SELECT '"10"')::jsonb]);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- Multiple CoerceViaIO are squashed
@@ -255,7 +256,7 @@ SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 -- However many layers of RelabelType there are, the list will be squashable.
 SELECT * FROM test_squash WHERE id IN
-	(1::oid, 2::oid, 3::oid, 4::oid, 5::oid, 6::oid, 7::oid, 8::oid, 9::oid);
+    (1::oid, 2::oid, 3::oid, 4::oid, 5::oid, 6::oid, 7::oid, 8::oid, 9::oid);
 SELECT ARRAY[1::oid, 2::oid, 3::oid, 4::oid, 5::oid, 6::oid, 7::oid, 8::oid, 9::oid];
 SELECT * FROM test_squash WHERE id IN (1::oid, 2::oid::int::oid);
 SELECT * FROM test_squash WHERE id = ANY(ARRAY[1::oid, 2::oid::int::oid]);
@@ -280,23 +281,23 @@ SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- Test constants evaluation in a CTE, which was causing issues in the past
 WITH cte AS (
-    SELECT 'const' as const FROM test_squash
+    SELECT 'const' AS const FROM test_squash
 )
 SELECT ARRAY['a', 'b', 'c', const::varchar] AS result
 FROM cte;
 
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 -- Rewritten as an OpExpr, so it will not be squashed
-select where '1' IN ('1'::int, '2'::int::text);
+SELECT WHERE '1' IN ('1'::int, '2'::int::text);
 -- Rewritten as an ArrayExpr, so it will be squashed
-select where '1' IN ('1'::int, '2'::int);
+SELECT WHERE '1' IN ('1'::int, '2'::int);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 -- Both of these queries will be rewritten as an ArrayExpr, so they
 -- will be squashed, and have a similar queryId
-select where '1' IN ('1'::int::text, '2'::int::text);
-select where '1' = ANY (array['1'::int::text, '2'::int::text]);
+SELECT WHERE '1' IN ('1'::int::text, '2'::int::text);
+SELECT WHERE '1' = ANY(array['1'::int::text, '2'::int::text]);
 SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 --

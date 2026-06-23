@@ -2,11 +2,12 @@ CREATE EXTENSION pg_stat_monitor;
 
 DO $$
 DECLARE
-    i integer;
+    i int;
 BEGIN
     FOR i IN 10..24 LOOP
-         RAISE NOTICE 'error_code: %, error_level: %', i, decode_error_level(i);
+        RAISE NOTICE 'error_code: %, error_level: %', i, decode_error_level(i);
     END LOOP;
-END $$;
+END
+$$;
 
 DROP EXTENSION pg_stat_monitor;

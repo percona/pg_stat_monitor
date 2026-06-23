@@ -1,9 +1,9 @@
 CREATE EXTENSION pg_stat_monitor;
 
-CREATE TABLE t1(a int);
-CREATE TABLE t2(b int);
-INSERT INTO t1 VALUES(generate_series(1,1000));
-INSERT INTO t2 VALUES(generate_series(1,5000));
+CREATE TABLE t1 (a int);
+CREATE TABLE t2 (b int);
+INSERT INTO t1 VALUES (generate_series(1, 1000));
+INSERT INTO t2 VALUES (generate_series(1, 5000));
 
 SELECT pg_stat_monitor_reset();
 SELECT * FROM t1;
@@ -17,4 +17,5 @@ SELECT pg_stat_monitor_reset();
 
 DROP TABLE t1;
 DROP TABLE t2;
+
 DROP EXTENSION pg_stat_monitor;
