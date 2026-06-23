@@ -6,16 +6,16 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-CREATE OR REPLACE FUNCTION test() RETURNS VOID AS
-$$
+CREATE OR REPLACE FUNCTION test() RETURNS void AS $$
 BEGIN
-	PERFORM 1 + 2;
-END; $$ language plpgsql;
-CREATE OR REPLACE FUNCTION test2() RETURNS VOID AS
-$$
+    PERFORM 1 + 2;
+END
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION test2() RETURNS void AS $$
 BEGIN
-	PERFORM 1 + 2;
-END; $$ language plpgsql;
+    PERFORM 1 + 2;
+END
+$$ LANGUAGE plpgsql;
 SELECT pg_stat_monitor_reset(); 
  pg_stat_monitor_reset 
 -----------------------
@@ -40,7 +40,7 @@ SELECT 1 + 2;
         3
 (1 row)
 
-SELECT left(query, 15) as query, calls, top_query, pgsm_query_id FROM pg_stat_monitor ORDER BY query, top_query COLLATE "C";
+SELECT left(query, 15) AS query, calls, top_query, pgsm_query_id FROM pg_stat_monitor ORDER BY query, top_query COLLATE "C";
       query      | calls |    top_query    |    pgsm_query_id     
 -----------------+-------+-----------------+----------------------
  SELECT 1 + 2    |     1 | SELECT test();  |  5193804135051352284

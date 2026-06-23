@@ -5,10 +5,10 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-CREATE TABLE foo1(a int);
-CREATE TABLE foo2(b int);
-CREATE TABLE foo3(c int);
-CREATE TABLE foo4(d int);
+CREATE TABLE foo1 (a int);
+CREATE TABLE foo2 (b int);
+CREATE TABLE foo3 (c int);
+CREATE TABLE foo4 (d int);
 -- test the simple table names
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
@@ -36,7 +36,7 @@ SELECT * FROM foo1, foo2, foo3, foo4;
 ---+---+---+---
 (0 rows)
 
-SELECT query, relations from pg_stat_monitor ORDER BY query collate "C";
+SELECT query, relations FROM pg_stat_monitor ORDER BY query COLLATE "C";
                 query                 |                     relations                     
 --------------------------------------+---------------------------------------------------
  SELECT * FROM foo1                   | {public.foo1}
@@ -57,10 +57,10 @@ CREATE SCHEMA sch1;
 CREATE SCHEMA sch2;
 CREATE SCHEMA sch3;
 CREATE SCHEMA sch4;
-CREATE TABLE sch1.foo1(a int);
-CREATE TABLE sch2.foo2(b int);
-CREATE TABLE sch3.foo3(c int);
-CREATE TABLE sch4.foo4(d int);
+CREATE TABLE sch1.foo1 (a int);
+CREATE TABLE sch2.foo2 (b int);
+CREATE TABLE sch3.foo3 (c int);
+CREATE TABLE sch4.foo4 (d int);
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------
@@ -87,7 +87,7 @@ SELECT * FROM sch1.foo1, sch2.foo2, sch3.foo3, sch4.foo4;
 ---+---+---+---
 (0 rows)
 
-SELECT query, relations from pg_stat_monitor ORDER BY query collate "C";
+SELECT query, relations FROM pg_stat_monitor ORDER BY query COLLATE "C";
                           query                           |                 relations                 
 ----------------------------------------------------------+-------------------------------------------
  SELECT * FROM sch1.foo1                                  | {sch1.foo1}
@@ -119,7 +119,7 @@ SELECT * FROM sch1.foo1, sch2.foo2, foo1, foo2;
 ---+---+---+---
 (0 rows)
 
-SELECT query, relations from pg_stat_monitor ORDER BY query;
+SELECT query, relations FROM pg_stat_monitor ORDER BY query;
                      query                      |                   relations                   
 ------------------------------------------------+-----------------------------------------------
  SELECT * FROM sch1.foo1, foo1                  | {sch1.foo1,public.foo1}
@@ -134,10 +134,10 @@ SELECT pg_stat_monitor_reset();
 (1 row)
 
 -- test the view
-CREATE VIEW v1 AS SELECT * from foo1;
-CREATE VIEW v2 AS SELECT * from foo1,foo2;
-CREATE VIEW v3 AS SELECT * from foo1,foo2,foo3;
-CREATE VIEW v4 AS SELECT * from foo1,foo2,foo3,foo4;
+CREATE VIEW v1 AS SELECT * FROM foo1;
+CREATE VIEW v2 AS SELECT * FROM foo1, foo2;
+CREATE VIEW v3 AS SELECT * FROM foo1, foo2, foo3;
+CREATE VIEW v4 AS SELECT * FROM foo1, foo2, foo3, foo4;
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------
@@ -149,28 +149,28 @@ SELECT * FROM v1;
 ---
 (0 rows)
 
-SELECT * FROM v1,v2;
+SELECT * FROM v1, v2;
  a | a | b 
 ---+---+---
 (0 rows)
 
-SELECT * FROM v1,v2,v3;
+SELECT * FROM v1, v2, v3;
  a | a | b | a | b | c 
 ---+---+---+---+---+---
 (0 rows)
 
-SELECT * FROM v1,v2,v3,v4;
+SELECT * FROM v1, v2, v3, v4;
  a | a | b | a | b | c | a | b | c | d 
 ---+---+---+---+---+---+---+---+---+---
 (0 rows)
 
-SELECT query, relations from pg_stat_monitor ORDER BY query collate "C";
+SELECT query, relations FROM pg_stat_monitor ORDER BY query COLLATE "C";
              query              |                                           relations                                           
 --------------------------------+-----------------------------------------------------------------------------------------------
  SELECT * FROM v1               | {public.v1*,public.foo1}
- SELECT * FROM v1,v2            | {public.v1*,public.v2*,public.foo1,public.foo2}
- SELECT * FROM v1,v2,v3         | {public.v1*,public.v2*,public.v3*,public.foo1,public.foo2,public.foo3}
- SELECT * FROM v1,v2,v3,v4      | {public.v1*,public.v2*,public.v3*,public.v4*,public.foo1,public.foo2,public.foo3,public.foo4}
+ SELECT * FROM v1, v2           | {public.v1*,public.v2*,public.foo1,public.foo2}
+ SELECT * FROM v1, v2, v3       | {public.v1*,public.v2*,public.v3*,public.foo1,public.foo2,public.foo3}
+ SELECT * FROM v1, v2, v3, v4   | {public.v1*,public.v2*,public.v3*,public.v4*,public.foo1,public.foo2,public.foo3,public.foo4}
  SELECT pg_stat_monitor_reset() | 
 (5 rows)
 
