@@ -243,16 +243,13 @@ hash_entry_alloc(pgsmSharedState *pgsm, const pgsmHashKey *key)
 
 /*
  * Prepare resources for using the new bucket:
- *    - Deallocate finished hash table entries in new_bucket_id (entries whose
- *      state is PGSM_EXEC or PGSM_ERROR).
- *    - Clear query buffer for new_bucket_id.
- *    - If old_bucket_id != -1, move all pending hash table entries in
- *      old_bucket_id to the new bucket id.
+ *    - Deallocate hash table entries in the bucket
+ *    - Clear query buffer for the bucket
  *
  * Caller must hold an exclusive lock on pgsm->lock.
  */
 void
-hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
+hash_entry_dealloc(int bucket_id)
 {
 	HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
@@ -269,12 +266,8 @@ hash_entry_dealloc(int new_bucket_id, int old_bucket_id)
 	{
 		dsa_pointer pdsa;
 
-		/*
-		 * Remove all entries if new_bucket_id == -1. Otherwise remove entry
-		 * in new_bucket_id if it has finished already.
-		 */
-		if (new_bucket_id == INVALID_BUCKET_ID ||
-			entry->key.bucket_id == new_bucket_id)
+		/*  Remove all entries if new_bucket_id == -1 */
+		if (bucket_id == INVALID_BUCKET_ID || entry->key.bucket_id == bucket_id)
 		{
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
 
