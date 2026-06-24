@@ -1908,7 +1908,7 @@ pg_stat_monitor_reset(PG_FUNCTION_ARGS)
 
 	pgsm = pgsm_get_ss();
 	pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
-	hash_entry_dealloc(INVALID_BUCKET_ID, INVALID_BUCKET_ID);
+	hash_entry_dealloc(INVALID_BUCKET_ID);
 	pgsm_lock_release(pgsm);
 	PG_RETURN_VOID();
 }
@@ -2458,15 +2458,14 @@ get_next_wbucket(pgsmSharedState *pgsm)
 	if (update_bucket)
 	{
 		uint64		new_bucket_id;
-		uint64		prev_bucket_id;
 
 		new_bucket_id = (tv.tv_sec / pgsm_bucket_time) % pgsm_max_buckets;
 
 		/* Update bucket id and retrieve the previous one. */
-		prev_bucket_id = pg_atomic_exchange_u64(&pgsm->current_wbucket, new_bucket_id);
+		pg_atomic_exchange_u64(&pgsm->current_wbucket, new_bucket_id);
 
 		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
-		hash_entry_dealloc(new_bucket_id, prev_bucket_id);
+		hash_entry_dealloc(new_bucket_id);
 
 		pgsm_lock_release(pgsm);
 

@@ -248,7 +248,7 @@ HTAB	   *get_pgsmHash(void);
 bool		IsSystemOOM(void);
 Size		pgsm_ShmemSize(void);
 pgsmSharedState *pgsm_get_ss(void);
-void		hash_entry_dealloc(int new_bucket_id, int old_bucket_id);
+void		hash_entry_dealloc(int bucket_id);
 pgsmEntry  *hash_entry_alloc(pgsmSharedState *pgsm, const pgsmHashKey *key);
 
 #endif							/* __PGSM_HASH_QUERY_H__ */
