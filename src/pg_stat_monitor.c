@@ -1963,18 +1963,15 @@ pg_stat_monitor(PG_FUNCTION_ARGS)
 }
 
 static bool
-IsBucketValid(uint64 bucketid)
+IsBucketValid(uint64 bucketid, TimestampTz now)
 {
 	long		secs;
 	int			microsecs;
-	TimestampTz current_tz = GetCurrentTimestamp();
 	pgsmSharedState *pgsm = pgsm_get_ss();
 
-	TimestampDifference(pgsm->bucket_start_time[bucketid], current_tz, &secs, &microsecs);
+	TimestampDifference(pgsm->bucket_start_time[bucketid], now, &secs, &microsecs);
 
-	if (secs > ((int64) pgsm_bucket_time * pgsm_max_buckets))
-		return false;
-	return true;
+	return secs <= (int64) pgsm_bucket_time * pgsm_max_buckets;
 }
 
 /* Common code for all versions of pg_stat_monitor() */
@@ -1990,6 +1987,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	MemoryContext per_query_ctx;
 	MemoryContext oldcontext;
 	HASH_SEQ_STATUS hstat;
+	TimestampTz now;
+	uint64		current_bucket;
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
 	int			expected_columns;
@@ -2069,6 +2068,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	pgsm_lock_aquire(pgsm, LW_SHARED);
 	hash_seq_init(&hstat, get_pgsmHash());
 
+	now = GetCurrentTimestamp();
+	current_bucket = pg_atomic_read_u64(&pgsm->current_wbucket);
+
 	while ((entry = hash_seq_search(&hstat)) != NULL)
 	{
 		Datum		values[PG_STAT_MONITOR_COLS] = {0};
@@ -2114,7 +2116,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		if (tmp.info.cmd_type == CMD_SELECT && pgsm_enable_query_plan && planid == 0)
 			continue;
 
-		if (!IsBucketValid(bucketid))
+		if (!IsBucketValid(bucketid, now))
 			continue;
 
 		/* read the parent query text if any */
@@ -2416,7 +2418,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		values[i++] = BoolGetDatum(toplevel);
 
 		/* bucket_done at column number 72 */
-		values[i++] = BoolGetDatum(pg_atomic_read_u64(&pgsm->current_wbucket) != bucketid);
+		values[i++] = BoolGetDatum(bucketid != current_bucket);
 
 		/* clean up and return the tuplestore */
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
