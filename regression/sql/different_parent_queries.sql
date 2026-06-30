@@ -2,13 +2,13 @@ CREATE EXTENSION pg_stat_monitor;
 SET pg_stat_monitor.pgsm_track = 'all';
 SELECT pg_stat_monitor_reset();
 
-CREATE OR REPLACE FUNCTION test() RETURNS void AS $$
+CREATE FUNCTION test() RETURNS void AS $$
 BEGIN
     PERFORM 1 + 2;
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION test2() RETURNS void AS $$
+CREATE FUNCTION test2() RETURNS void AS $$
 BEGIN
     PERFORM 1 + 2;
 END
