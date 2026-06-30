@@ -254,8 +254,6 @@ hash_entry_dealloc(int bucket_id)
 	HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
 
-	/* Store pending query ids from the previous bucket. */
-
 	if (!pgsmStateLocal.shared_hash)
 		return;
 
@@ -266,7 +264,7 @@ hash_entry_dealloc(int bucket_id)
 	{
 		dsa_pointer pdsa;
 
-		/*  Remove all entries if new_bucket_id == -1 */
+		/* Remove all entries if new_bucket_id == -1 */
 		if (bucket_id == INVALID_BUCKET_ID || entry->key.bucket_id == bucket_id)
 		{
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
