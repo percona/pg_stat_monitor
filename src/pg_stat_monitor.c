@@ -236,7 +236,6 @@ static void pgsm_update_entry(pgsmEntry *entry,
 							  const struct JitInstrumentation *jitusage,
 							  int parallel_workers_to_launch,
 							  int parallel_workers_launched,
-							  bool reset,
 							  pgsmStoreKind kind);
 static void pgsm_store(pgsmEntry *entry);
 
@@ -749,7 +748,6 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 						  0,	/* parallel_workers_to_launch */
 						  0,	/* parallel_workers_launched */
 #endif
-						  false,	/* reset */
 						  PGSM_EXEC);	/* kind */
 
 		pgsm_store(entry);
@@ -935,7 +933,6 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 							  NULL, /* jitusage */
 							  0,	/* parallel_workers_to_launch */
 							  0,	/* parallel_workers_launched */
-							  false,	/* reset */
 							  PGSM_PLAN);	/* kind */
 	}
 	else
@@ -1116,7 +1113,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 						  NULL, /* jitusage */
 						  0,	/* parallel_workers_to_launch */
 						  0,	/* parallel_workers_launched */
-						  false,	/* reset */
 						  PGSM_EXEC);	/* kind */
 
 		pgsm_store(entry);
@@ -1246,25 +1242,10 @@ pgsm_update_entry(pgsmEntry *entry,
 				  const struct JitInstrumentation *jitusage,
 				  int parallel_workers_to_launch,
 				  int parallel_workers_launched,
-				  bool reset,
 				  pgsmStoreKind kind)
 {
 	int			index;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
-
-	/*
-	 * Start collecting data for next bucket and reset all counters and
-	 * timestamps
-	 */
-	if (reset)
-	{
-		memset(&entry->counters, 0, sizeof(Counters));
-		entry->stats_since = GetCurrentTimestamp();
-		entry->minmax_stats_since = entry->stats_since;
-	}
-
-	if (kind == PGSM_STORE)
-		SpinLockAcquire(&entry->mutex);
 
 	/*
 	 * Extract comments if enabled and only when the query has completed with
@@ -1494,9 +1475,6 @@ pgsm_update_entry(pgsmEntry *entry,
 	/* parallel worker counters */
 	entry->counters.parallel_workers_to_launch += parallel_workers_to_launch;
 	entry->counters.parallel_workers_launched += parallel_workers_launched;
-
-	if (kind == PGSM_STORE)
-		SpinLockRelease(&entry->mutex);
 }
 
 static void
@@ -1710,7 +1688,6 @@ pgsm_store(pgsmEntry *entry)
 	bool		found;
 	uint64		bucketid;
 	uint64		prev_bucket_id;
-	bool		reset = false;	/* Only used in update function - HAMID */
 	char	   *query;
 	BufferUsage bufusage;
 	WalUsage	walusage;
@@ -1725,9 +1702,6 @@ pgsm_store(pgsmEntry *entry)
 
 	prev_bucket_id = pg_atomic_read_u64(&pgsm->current_wbucket);
 	bucketid = get_next_wbucket(pgsm);
-
-	if (bucketid != prev_bucket_id)
-		reset = true;
 
 	entry->key.bucket_id = bucketid;
 	query = entry->query_text.query_pointer;
@@ -1877,6 +1851,20 @@ pgsm_store(pgsmEntry *entry)
 		strlcpy(shared_hash_entry->username, entry->username, sizeof(shared_hash_entry->username));
 	}
 
+	SpinLockAcquire(&shared_hash_entry->mutex);
+
+	/*
+	 * Start collecting data for next bucket and reset all counters and
+	 * timestamps.
+	 */
+	if (bucketid != prev_bucket_id)
+	{
+		memset(&shared_hash_entry->counters, 0, sizeof(Counters));
+		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
+		shared_hash_entry->stats_since = GetCurrentTimestamp();
+		shared_hash_entry->minmax_stats_since = shared_hash_entry->stats_since;
+	}
+
 	pgsm_update_entry(shared_hash_entry,	/* entry */
 					  query,	/* query */
 					  comments, /* comments */
@@ -1891,16 +1879,13 @@ pgsm_store(pgsmEntry *entry)
 					  &jitusage,	/* jitusage */
 					  entry->counters.parallel_workers_to_launch,	/* parallel_workers_to_launch */
 					  entry->counters.parallel_workers_launched,	/* parallel_workers_launched */
-					  reset,	/* reset */
 					  PGSM_STORE);
 
-	if (reset)
-	{
-		shared_hash_entry->counters.info.cmd_type = entry->counters.info.cmd_type;
-	}
+	SpinLockRelease(&shared_hash_entry->mutex);
+
+	pgsm_lock_release(pgsm);
 
 	memset(&entry->counters, 0, sizeof(entry->counters));
-	pgsm_lock_release(pgsm);
 }
 
 /*
