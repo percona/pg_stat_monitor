@@ -1715,7 +1715,7 @@ pgsm_store(pgsmEntry *entry)
 	BufferUsage bufusage;
 	WalUsage	walusage;
 	JitInstrumentation jitusage;
-	char		comments[COMMENTS_LEN] = {0};
+	char		comments[COMMENTS_LEN];
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -3102,13 +3102,15 @@ extract_query_comments(const char *query, char *comments, size_t buf_len)
 	size_t		curr_len = 0;
 	const char *q_iter = query;
 
+	Assert(query != NULL);
+
 	if (!pgsm_extract_comments)
 	{
 		comments[0] = '\0';
 		return;
 	}
 
-	while (q_iter && *q_iter)
+	while (*q_iter)
 	{
 		/*
 		 * multiline comments, + 1 is safe even if we've reach end of string
