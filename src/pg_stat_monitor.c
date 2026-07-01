@@ -55,7 +55,7 @@
 #include "guc.h"
 #include "hash_query.h"
 
-#define BUILD_VERSION                   "2.4.0"
+#define BUILD_VERSION "2.4.0"
 
 #if PG_VERSION_NUM >= 180000
 PG_MODULE_MAGIC_EXT(.name = "pg_stat_monitor",.version = BUILD_VERSION);
@@ -64,11 +64,11 @@ PG_MODULE_MAGIC;
 #endif
 
 /* Number of output arguments (columns) for various API versions */
-#define PG_STAT_MONITOR_COLS_V1_0    52
-#define PG_STAT_MONITOR_COLS_V2_0    64
-#define PG_STAT_MONITOR_COLS_V2_1    70
-#define PG_STAT_MONITOR_COLS_V2_3    73
-#define PG_STAT_MONITOR_COLS         PG_STAT_MONITOR_COLS_V2_3	/* maximum of above */
+#define PG_STAT_MONITOR_COLS_V1_0	52
+#define PG_STAT_MONITOR_COLS_V2_0	64
+#define PG_STAT_MONITOR_COLS_V2_1	70
+#define PG_STAT_MONITOR_COLS_V2_3	73
+#define PG_STAT_MONITOR_COLS		PG_STAT_MONITOR_COLS_V2_3	/* maximum of above */
 
 #define pgsm_enabled(level) \
     (!IsParallelWorker() && \
