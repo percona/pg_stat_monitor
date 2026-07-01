@@ -231,8 +231,8 @@ typedef struct pgsmEntry
 typedef struct pgsmSharedState
 {
 	LWLock	   *lock;			/* protects hashtable search/modification */
-	pg_atomic_uint64 current_wbucket;
-	pg_atomic_uint64 prev_bucket_sec;
+	pg_atomic_uint64 current_bucket;
+	pg_atomic_uint64 current_bucket_sec;
 	void	   *raw_dsa_area;	/* DSA area pointer to store query texts */
 	HTAB	   *hash_handle;
 

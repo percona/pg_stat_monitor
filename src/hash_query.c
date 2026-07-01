@@ -137,8 +137,8 @@ pgsm_startup(void)
 static void
 InitializeSharedState(pgsmSharedState *pgsm)
 {
-	pg_atomic_init_u64(&pgsm->current_wbucket, 0);
-	pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
+	pg_atomic_init_u64(&pgsm->current_bucket, 0);
+	pg_atomic_init_u64(&pgsm->current_bucket_sec, 0);
 }
 
 /*
