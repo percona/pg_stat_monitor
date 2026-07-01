@@ -269,6 +269,8 @@ static void pgsm_lock_release(pgsmSharedState *pgsm);
 void
 _PG_init(void)
 {
+	MemoryContext oldctx;
+
 	elog(DEBUG2, "[pg_stat_monitor] pg_stat_monitor: %s().", __FUNCTION__);
 
 	/*
@@ -325,8 +327,12 @@ _PG_init(void)
 	prev_ExecutorCheckPerms_hook = ExecutorCheckPerms_hook;
 	ExecutorCheckPerms_hook = pgsm_ExecutorCheckPerms;
 
-	nested_queryids = (int64 *) malloc(sizeof(int64) * max_stack_depth);
-	nested_query_txts = (char **) calloc(max_stack_depth, sizeof(char *));
+	oldctx = MemoryContextSwitchTo(TopMemoryContext);
+
+	nested_queryids = palloc_array(int64, max_stack_depth);
+	nested_query_txts = palloc0_array(char *, max_stack_depth);
+
+	MemoryContextSwitchTo(oldctx);
 }
 
 /*
