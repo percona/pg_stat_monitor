@@ -36,7 +36,7 @@ bool		pgsm_normalized_query;
 bool		pgsm_track_utility;
 bool		pgsm_track_application_names;
 bool		pgsm_enable_pgsm_query_id;
-int			pgsm_track;
+int			pgsm_track = PGSM_TRACK_TOP;
 
 static const struct config_enum_entry track_options[] =
 {
@@ -56,8 +56,6 @@ static bool check_histogram_max(double *newval, void **extra, GucSource source);
 void
 init_guc(void)
 {
-	pgsm_track = PGSM_TRACK_TOP;
-
 	DefineCustomIntVariable("pg_stat_monitor.pgsm_max", /* name */
 							"Sets the maximum size of shared memory in (MB) used for statement's metadata tracked by pg_stat_monitor.", /* short_desc */
 							NULL,	/* long_desc */
