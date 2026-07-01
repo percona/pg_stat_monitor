@@ -3061,22 +3061,17 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 
 	for (int index = 0; index < hist_bucket_count_total; index++)
 	{
-		double		b_start;
-		double		b_end;
-
-		histogram_bucket_timings(index, &b_start, &b_end);
-
 		if (index == 0)
 			appendStringInfoChar(&buf, '{');
 		else
 			appendStringInfoString(&buf, ", (");
 
-		appendStringInfo(&buf, "%.3f - ", b_start);
+		appendStringInfo(&buf, "%.3f - ", hist_bucket_timings[index].start);
 
-		if (b_end == -1)
+		if (hist_bucket_timings[index].end == -1)
 			appendStringInfoString(&buf, "...");
 		else
-			appendStringInfo(&buf, "%.3f", b_end);
+			appendStringInfo(&buf, "%.3f", hist_bucket_timings[index].end);
 
 		appendStringInfoChar(&buf, '}');
 	}
