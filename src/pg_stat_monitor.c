@@ -100,6 +100,7 @@ void		_PG_init(void);
 
 /* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
 static int	nesting_level = 0;
+static int	max_nesting_level;
 
 #if PG_VERSION_NUM < 170000
 /* Before planner nesting level was counted separately */
@@ -327,10 +328,16 @@ _PG_init(void)
 	prev_ExecutorCheckPerms_hook = ExecutorCheckPerms_hook;
 	ExecutorCheckPerms_hook = pgsm_ExecutorCheckPerms;
 
+	/*
+	 * Use max_stack_depth as a very high and very rough estimate for maximum
+	 * query nesting.
+	 */
+	max_nesting_level = max_stack_depth;
+
 	oldctx = MemoryContextSwitchTo(TopMemoryContext);
 
-	nested_queryids = palloc_array(int64, max_stack_depth);
-	nested_query_txts = palloc0_array(char *, max_stack_depth);
+	nested_queryids = palloc_array(int64, max_nesting_level);
+	nested_query_txts = palloc0_array(char *, max_nesting_level);
 
 	MemoryContextSwitchTo(oldctx);
 }
@@ -495,8 +502,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 		pgsm_add_to_list(entry, query_text, query_len);
 	}
 
-	/* Check that we've not exceeded max_stack_depth */
-	Assert(list_length(lentries) <= max_stack_depth);
+	Assert(list_length(lentries) <= max_nesting_level);
 
 	if (norm_query)
 		pfree(norm_query);
@@ -563,7 +569,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 				 bool execute_once)
 #endif
 {
-	if (nesting_level >= 0 && nesting_level < max_stack_depth)
+	if (nesting_level >= 0 && nesting_level < max_nesting_level)
 	{
 		nested_queryids[nesting_level] = queryDesc->plannedstmt->queryId;
 		nested_query_txts[nesting_level] = strdup(queryDesc->sourceText);
@@ -589,7 +595,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 #endif
 		}
 		nesting_level--;
-		if (nesting_level >= 0 && nesting_level < max_stack_depth)
+		if (nesting_level >= 0 && nesting_level < max_nesting_level)
 		{
 			nested_queryids[nesting_level] = INT64CONST(0);
 			if (nested_query_txts[nesting_level])
@@ -600,7 +606,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 	PG_CATCH();
 	{
 		nesting_level--;
-		if (nesting_level >= 0 && nesting_level < max_stack_depth)
+		if (nesting_level >= 0 && nesting_level < max_nesting_level)
 		{
 			nested_queryids[nesting_level] = INT64CONST(0);
 			if (nested_query_txts[nesting_level])
@@ -1093,8 +1099,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		pgsm_add_to_list(entry, query_text, query_len);
 
-		/* Check that we've not exceeded max_stack_depth */
-		Assert(list_length(lentries) <= max_stack_depth);
+		Assert(list_length(lentries) <= max_nesting_level);
 
 		/* The plan details are captured when the query finishes */
 		pgsm_update_entry(entry,	/* entry */
@@ -1345,7 +1350,7 @@ pgsm_update_entry(pgsmEntry *entry,
 		for (int i = 0; i < num_relations; i++)
 			strlcpy(entry->counters.info.relations[i], relations[i], REL_LEN);
 
-		if (nesting_level > 0 && nesting_level < max_stack_depth && entry->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
+		if (nesting_level > 0 && nesting_level < max_nesting_level && entry->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
 		{
 			if (!DsaPointerIsValid(entry->counters.info.parent_query))
 			{
@@ -1778,7 +1783,7 @@ pgsm_store(pgsmEntry *entry)
 #endif
 
 	/* Update parent id if needed */
-	if (pgsm_track == PGSM_TRACK_ALL && nesting_level > 0 && nesting_level < max_stack_depth)
+	if (pgsm_track == PGSM_TRACK_ALL && nesting_level > 0 && nesting_level < max_nesting_level)
 	{
 		entry->key.parentid = nested_queryids[nesting_level - 1];
 	}
