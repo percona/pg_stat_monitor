@@ -189,7 +189,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_decode_error_level);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_get_cmd_type);
 
-static uint pg_get_client_addr(void);
+static uint32 pg_get_client_addr(void);
 static void pgsm_set_cached_info(void);
 static Datum intarray_get_datum(const int32 *arr, int len);
 
@@ -1229,27 +1229,27 @@ pgsm_fill_query_exec_info(pgsmQueryExecInfo *info)
 	}
 }
 
-static uint
+/*
+ * Implements accidental behaviour for legacy reasons and only really supports
+ * IPv4 addresses.
+ *
+ * - Returns the IP address for IPv4
+ * - Returns 127.0.0.1 for UNIX sockets
+ * - Returns 127.0.0.1 for background workers
+ * - Returns 255.255.255.255 for IPv6 and other types
+ */
+static uint32
 pg_get_client_addr(void)
 {
-	char		remote_host[NI_MAXHOST];
-	int			ret;
-
 	if (!MyProcPort)
 		return ntohl(inet_addr("127.0.0.1"));
 
-	ret = pg_getnameinfo_all(&MyProcPort->raddr.addr,
-							 MyProcPort->raddr.salen,
-							 remote_host, sizeof(remote_host),
-							 NULL, 0,
-							 NI_NUMERICHOST | NI_NUMERICSERV);
-	if (ret != 0)
+	if (MyProcPort->raddr.addr.ss_family == AF_INET)
+		return ntohl(((struct sockaddr_in *) &MyProcPort->raddr.addr)->sin_addr.s_addr);
+	else if (MyProcPort->raddr.addr.ss_family == AF_UNIX)
 		return ntohl(inet_addr("127.0.0.1"));
-
-	if (strcmp(remote_host, "[local]") == 0)
-		return ntohl(inet_addr("127.0.0.1"));
-
-	return ntohl(inet_addr(remote_host));
+	else
+		return ntohl(INADDR_NONE);
 }
 
 static void
