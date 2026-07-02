@@ -34,7 +34,6 @@ static pgsmLocalState pgsmStateLocal;
 static void pgsm_attach_shmem(void);
 static HTAB *pgsm_create_bucket_hash(void);
 static Size pgsm_get_shared_area_size(void);
-static void InitializeSharedState(pgsmSharedState *pgsm);
 
 #define PGSM_BUCKET_INFO_SIZE	(sizeof(TimestampTz) * pgsm_max_buckets)
 #define PGSM_SHARED_STATE_SIZE	(sizeof(pgsmSharedState) + PGSM_BUCKET_INFO_SIZE)
@@ -77,17 +76,9 @@ pgsm_get_shared_area_size(void)
 void
 pgsm_startup(void)
 {
-	bool		found = false;
+	bool		found;
 	pgsmSharedState *pgsm;
 
-	/* reset in case this is a restart within the postmaster */
-	pgsmStateLocal.dsa = NULL;
-	pgsmStateLocal.shared_hash = NULL;
-	pgsmStateLocal.shared_pgsmState = NULL;
-
-	/*
-	 * Create or attach to the shared memory state, including hash table
-	 */
 	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
 
 	pgsm = ShmemInitStruct("pg_stat_monitor", pgsm_get_shared_area_size(), &found);
@@ -97,9 +88,12 @@ pgsm_startup(void)
 		dsa_area   *dsa;
 		char	   *p = (char *) pgsm;
 
+		/* Initialize fields */
 		pgsm->pgsm_oom = false;
-		pgsm->lock = &(GetNamedLWLockTranche("pg_stat_monitor"))->lock;
-		InitializeSharedState(pgsm);
+		pgsm->lock = &GetNamedLWLockTranche("pg_stat_monitor")->lock;
+		pg_atomic_init_u64(&pgsm->current_wbucket, 0);
+		pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
+
 		/* the allocation of pgsmSharedState itself */
 		p += MAXALIGN(PGSM_SHARED_STATE_SIZE);
 		pgsm->raw_dsa_area = p;
@@ -118,27 +112,23 @@ pgsm_startup(void)
 		if (pgsm_enable_overflow)
 			dsa_set_size_limit(dsa, -1);
 
-		pgsmStateLocal.shared_pgsmState = pgsm;
-
 		/*
 		 * Postmaster will never access the dsa again, thus free its local
 		 * references.
 		 */
 		dsa_detach(dsa);
-
-		pgsmStateLocal.pgsm_mem_cxt = AllocSetContextCreate(TopMemoryContext,
-															"pg_stat_monitor local store",
-															ALLOCSET_DEFAULT_SIZES);
 	}
 
 	LWLockRelease(AddinShmemInitLock);
-}
 
-static void
-InitializeSharedState(pgsmSharedState *pgsm)
-{
-	pg_atomic_init_u64(&pgsm->current_wbucket, 0);
-	pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
+	pgsmStateLocal.shared_pgsmState = pgsm;
+	pgsmStateLocal.pgsm_mem_cxt = AllocSetContextCreate(TopMemoryContext,
+														"pg_stat_monitor local store",
+														ALLOCSET_DEFAULT_SIZES);
+
+	/* Reset in case this is a restart within the postmaster */
+	pgsmStateLocal.dsa = NULL;
+	pgsmStateLocal.shared_hash = NULL;
 }
 
 /*
