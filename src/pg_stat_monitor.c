@@ -1671,20 +1671,19 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 
 	if (IsTransactionState())
 	{
-		char	   *datname;
-		char	   *username;
-
-		datname = get_database_name(entry->key.dbid);
-		username = GetUserNameFromId(entry->key.userid, true);
-
-		strlcpy(entry->datname, datname, sizeof(entry->datname));
-		strlcpy(entry->username, username, sizeof(entry->username));
+		char	   *datname = get_database_name(entry->key.dbid);
+		char	   *username = GetUserNameFromId(entry->key.userid, true);
 
 		if (datname)
+		{
+			strlcpy(entry->datname, datname, sizeof(entry->datname));
 			pfree(datname);
-
+		}
 		if (username)
+		{
+			strlcpy(entry->username, username, sizeof(entry->username));
 			pfree(username);
+		}
 	}
 
 	MemoryContextSwitchTo(oldctx);
