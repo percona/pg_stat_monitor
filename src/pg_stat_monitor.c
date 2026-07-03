@@ -707,11 +707,6 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		SysInfo		sys_info;
 
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, queryDesc->sourceText, queryDesc->operation);
-		if (!entry)
-		{
-			elog(DEBUG2, "[pg_stat_monitor] pgsm_ExecutorEnd: Failed to find entry for [" INT64_FORMAT "] %s.", queryId, queryDesc->sourceText);
-			return;
-		}
 
 		if (entry->key.planid == 0)
 			entry->key.planid = plan_ptr ? plan_ptr->planid : 0;
