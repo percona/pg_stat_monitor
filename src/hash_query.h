@@ -186,7 +186,6 @@ typedef struct pgsmEntry
 	char		username[NAMEDATALEN];	/* user name */
 	Counters	counters;		/* the statistics for this query */
 	TimestampTz stats_since;	/* timestamp of entry allocation */
-	TimestampTz minmax_stats_since; /* timestamp of last min/max values reset */
 	slock_t		mutex;			/* protects the counters only */
 	dsa_pointer query;			/* query text location within query buffer */
 } pgsmEntry;
