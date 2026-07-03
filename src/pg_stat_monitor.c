@@ -677,27 +677,22 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	/* Extract the plan information in case of SELECT statement */
 	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
 	{
-		int			rv;
+		int			plan_len;
 		MemoryContext oldctx;
 
 		/*
-		 * Making sure it is a per query context so that there's no memory
-		 * leak when executor ends.
+		 * Run explain in a per query context so that there's no memory leak
+		 * when executor ends.
 		 */
 		oldctx = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
 
-		rv = strlcpy(plan_info.plan_text, pgsm_explain(queryDesc), PLAN_TEXT_LEN);
+		plan_len = strlcpy(plan_info.plan_text, pgsm_explain(queryDesc), PLAN_TEXT_LEN);
 
-		/* If strlcpy didn't write anything let's keep planinfo as NULL */
-		if (rv > 0)
-		{
-			plan_info.plan_len = (rv < PLAN_TEXT_LEN) ? rv : PLAN_TEXT_LEN - 1;
-			plan_info.planid = pgsm_hash_string(plan_info.plan_text, plan_info.plan_len);
-			plan_ptr = &plan_info;
-		}
-
-		/* Switch back to old context */
 		MemoryContextSwitchTo(oldctx);
+
+		plan_info.plan_len = plan_len < PLAN_TEXT_LEN ? plan_len : PLAN_TEXT_LEN - 1;
+		plan_info.planid = pgsm_hash_string(plan_info.plan_text, plan_info.plan_len);
+		plan_ptr = &plan_info;
 	}
 
 	if (queryId != INT64CONST(0) && queryDesc->totaltime && pgsm_enabled(nesting_level))
@@ -708,8 +703,8 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 
 		entry = pgsm_get_entry_for_query(queryId, plan_ptr, queryDesc->sourceText, queryDesc->operation);
 
-		if (entry->key.planid == 0)
-			entry->key.planid = plan_ptr ? plan_ptr->planid : 0;
+		if (entry->key.planid == 0 && plan_ptr)
+			entry->key.planid = plan_ptr->planid;
 
 		/*
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
