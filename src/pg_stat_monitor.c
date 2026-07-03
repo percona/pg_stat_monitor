@@ -3167,13 +3167,9 @@ static bool
 append_comment_char(char *comments, size_t buf_len, size_t *idx, char c)
 {
 	if (*idx >= buf_len - 1)
-	{
-		comments[buf_len - 1] = '\0';
 		return false;
-	}
 
-	comments[*idx] = c;
-	(*idx)++;
+	comments[(*idx)++] = c;
 
 	return true;
 }
@@ -3182,42 +3178,40 @@ static void
 extract_query_comments(const char *query, char *comments, size_t buf_len)
 {
 	size_t		curr_len = 0;
-	const char *q_iter = query;
 
 	Assert(query != NULL);
 
-	while (*q_iter)
+	for (const char *q_iter = query; *q_iter;)
 	{
-		/*
-		 * multiline comments, + 1 is safe even if we've reach end of string
-		 */
 		if (*q_iter == '/' && *(q_iter + 1) == '*')
 		{
-			if (curr_len != 0)
+			/* Add separator between comments */
+			if (curr_len > 0)
 			{
 				if (!append_comment_char(comments, buf_len, &curr_len, ','))
-					return;
+					goto terminate;
 				if (!append_comment_char(comments, buf_len, &curr_len, ' '))
-					return;
-			}
-			while (*q_iter && *(q_iter + 1) && (*q_iter != '*' || *(q_iter + 1) != '/'))
-			{
-				if (!append_comment_char(comments, buf_len, &curr_len, *q_iter))
-					return;
-				q_iter++;
+					goto terminate;
 			}
 
-			if (*q_iter)
+			if (!append_comment_char(comments, buf_len, &curr_len, *(q_iter++)))
+				goto terminate;
+			if (!append_comment_char(comments, buf_len, &curr_len, *(q_iter++)))
+				goto terminate;
+
+			while (*q_iter)
 			{
-				if (!append_comment_char(comments, buf_len, &curr_len, *q_iter))
-					return;
-				q_iter++;
-			}
-			if (*q_iter)
-			{
-				if (!append_comment_char(comments, buf_len, &curr_len, *q_iter))
-					return;
-				q_iter++;
+				if (*q_iter == '*' && *(q_iter + 1) == '/')
+				{
+					if (!append_comment_char(comments, buf_len, &curr_len, *(q_iter++)))
+						goto terminate;
+					if (!append_comment_char(comments, buf_len, &curr_len, *(q_iter++)))
+						goto terminate;
+					break;
+				}
+
+				if (!append_comment_char(comments, buf_len, &curr_len, *(q_iter++)))
+					goto terminate;
 			}
 		}
 		else
@@ -3226,6 +3220,7 @@ extract_query_comments(const char *query, char *comments, size_t buf_len)
 		}
 	}
 
+terminate:
 	comments[curr_len] = '\0';
 }
 
