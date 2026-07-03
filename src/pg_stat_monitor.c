@@ -2496,7 +2496,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		{
 			/* at column number 71 */
 			values[i++] = TimestampTzGetDatum(entry->stats_since);
-			values[i++] = TimestampTzGetDatum(entry->minmax_stats_since);
+			/* exists for compatibility with pg_stat_statements */
+			values[i++] = TimestampTzGetDatum(entry->stats_since);
 		}
 
 		/* toplevel at column number 73 */
