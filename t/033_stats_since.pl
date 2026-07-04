@@ -20,18 +20,15 @@ if ($PGSM::PG_MAJOR_VERSION <= 16)
 
 # Create new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
-my $pgdata = $node->data_dir;
 
-# Update postgresql.conf to include/load pg_stat_monitor library
-$node->append_conf('postgresql.conf',
-	"shared_preload_libraries = 'pg_stat_monitor'");
-
-# Set change postgresql.conf for this test case.
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_bucket_time = 1");
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_max_buckets = 3");
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_normalized_query = yes");
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'");
+$node->append_conf(
+	'postgresql.conf', qq(
+shared_preload_libraries = 'pg_stat_monitor'
+pg_stat_monitor.pgsm_bucket_time = 1
+pg_stat_monitor.pgsm_max_buckets = 3
+pg_stat_monitor.pgsm_normalized_query = on
+pg_stat_monitor.pgsm_track = 'all'
+));
 
 # Start server
 $node->start;

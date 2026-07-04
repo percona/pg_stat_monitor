@@ -13,9 +13,7 @@ PGSM::setup_files_dir(basename($0));
 
 # Create new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
-my $pgdata = $node->data_dir;
 
-# Update postgresql.conf to include/load pg_stat_monitor library
 $node->append_conf('postgresql.conf',
 	"shared_preload_libraries = 'pg_stat_monitor'");
 
