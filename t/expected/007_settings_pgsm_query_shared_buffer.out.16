@@ -148,4 +148,3 @@ SELECT datname, substr(query, 0, 150) AS query, sum(calls) AS calls FROM pg_stat
  example | select o.n, p.partstrat, pg_catalog.count(i.inhparent) from pg_catalog.pg_class as c join pg_catalog.pg_namespace as n on (n.oid = c.relnamespace) cr |     1
 (20 rows)
 
-DROP EXTENSION pg_stat_monitor;

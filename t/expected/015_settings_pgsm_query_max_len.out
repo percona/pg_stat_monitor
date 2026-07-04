@@ -72,4 +72,3 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_query_max_len | 2048    | B    | postmaster | integer | default | 1024    | 2147483647 |          | 2048     | 2048      | f
 (1 row)
 
-DROP EXTENSION pg_stat_monitor;

@@ -71,4 +71,3 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_histogram_buckets | 20      |      | postmaster | integer | default | 2       | 50      |          | 20       | 20        | f
 (1 row)
 
-DROP EXTENSION pg_stat_monitor;

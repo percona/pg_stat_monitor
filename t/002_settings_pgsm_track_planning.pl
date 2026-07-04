@@ -202,27 +202,10 @@ is($stdout, '0', "Compare: mean_plan_time is 0).");
 trim($stdout);
 is($stdout, '0', "Compare: stddev_plan_time is 0).");
 
-# Dump output to out file
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	'SELECT substr(query, 0, 100) AS query, calls, total_plan_time, min_plan_time, max_plan_time, mean_plan_time, stddev_plan_time FROM pg_stat_monitor ORDER BY query;',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-PGSM::append_to_file($stdout);
-
-# Dump output to out file
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT pg_stat_monitor_reset();',
-	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-is($cmdret, 0, "Reset PGSM EXTENSION");
-PGSM::append_to_file($stdout);
-
-# DROP EXTENSION
-$stdout = $node->safe_psql(
-	'postgres',
-	'DROP EXTENSION pg_stat_monitor;',
-	extra_params => ['-a']);
-is($cmdret, 0, "DROP PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
 # Stop the server

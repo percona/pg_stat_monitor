@@ -77,4 +77,3 @@ SELECT substr(query, 0, 50) AS query, calls, query_plan FROM pg_stat_monitor ORD
  UPDATE tbl_0 SET value_0 = 1681692777             |     1 | 
 (6 rows)
 
-DROP EXTENSION pg_stat_monitor;

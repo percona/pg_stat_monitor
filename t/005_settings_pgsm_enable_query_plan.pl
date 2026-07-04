@@ -164,14 +164,6 @@ trim($stdout);
 is($stdout, '', "Test: planid should be empty");
 is(length($stdout), 0, 'Length of planid is 0');
 
-# DROP EXTENSION
-$stdout = $node->safe_psql(
-	'postgres',
-	'DROP EXTENSION pg_stat_monitor;',
-	extra_params => ['-a']);
-is($cmdret, 0, "DROP PGSM EXTENSION");
-PGSM::append_to_file($stdout);
-
 # Stop the server
 $node->stop;
 

@@ -76,4 +76,3 @@ SELECT datname, substr(query, 0, 100) AS query, calls FROM pg_stat_monitor ORDER
  postgres | UPDATE tbl_0 SET value_0 = $1                                                                       |     1
 (6 rows)
 
-DROP EXTENSION pg_stat_monitor;

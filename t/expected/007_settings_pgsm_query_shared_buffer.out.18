@@ -148,4 +148,3 @@ SELECT datname, substr(query, 0, 150) AS query, sum(calls) AS calls FROM pg_stat
  example | select count(*) from pgbench_branches                                                                         |     1
 (20 rows)
 
-DROP EXTENSION pg_stat_monitor;

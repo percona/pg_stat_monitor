@@ -56,10 +56,3 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_track_utility           | on      |      | user       | bool    | default |         |            |                | on       | on        | f
 (17 rows)
 
-SELECT pg_stat_monitor_reset();
- pg_stat_monitor_reset 
------------------------
- 
-(1 row)
-
-DROP EXTENSION pg_stat_monitor;

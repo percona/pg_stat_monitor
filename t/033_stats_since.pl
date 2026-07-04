@@ -106,14 +106,6 @@ trim($stdout);
 is($stdout, 0, "Check: minmax_stats_since always match stats_since");
 PGSM::append_to_debug_file($stdout);
 
-# DROP EXTENSION
-$stdout = $node->safe_psql(
-	'postgres',
-	'DROP EXTENSION pg_stat_monitor;',
-	extra_params => ['-a']);
-is($cmdret, 0, "DROP PGSM EXTENSION");
-PGSM::append_to_debug_file($stdout);
-
 # Stop the server
 $node->stop;
 

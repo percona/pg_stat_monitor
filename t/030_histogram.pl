@@ -263,14 +263,6 @@ generate_histogram_with_configurations(0, 49999999, 20, 2,
 	"{2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}",
 	21, 0, 11);
 
-# Drop extension
-$stdout = $node->safe_psql(
-	'postgres',
-	'Drop extension pg_stat_monitor;',
-	extra_params => ['-a']);
-is($cmdret, 0, "Drop PGSM  Extension");
-PGSM::append_to_debug_file($stdout);
-
 # Stop the server
 $node->stop;
 

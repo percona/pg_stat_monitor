@@ -558,14 +558,6 @@ if ($PGSM::PG_MAJOR_VERSION >= 18)
 	is($stdout, 't', "Compare: parallel_workers_launched are equal.");
 }
 
-# DROP EXTENSION
-$stdout = $node->safe_psql(
-	'postgres',
-	'DROP EXTENSION pg_stat_monitor;',
-	extra_params => ['-a']);
-is($cmdret, 0, "DROP PGSM EXTENSION");
-PGSM::append_to_file($stdout);
-
 # Stop the server
 $node->stop;
 
