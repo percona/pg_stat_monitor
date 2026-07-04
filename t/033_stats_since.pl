@@ -34,8 +34,7 @@ $node->append_conf('postgresql.conf',
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'");
 
 # Start server
-my $rt_value = $node->start;
-is($rt_value, 1, "Start Server");
+$node->start;
 
 # Create EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql(

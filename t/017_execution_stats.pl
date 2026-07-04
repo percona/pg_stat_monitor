@@ -23,8 +23,7 @@ print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
 close $conf;
 
 # Start server
-my $rt_value = $node->start;
-is($rt_value, 1, "Start Server");
+$node->start;
 
 my $col_total_time = "total_exec_time";
 my $col_min_time = "min_exec_time";

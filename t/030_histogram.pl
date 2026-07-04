@@ -178,8 +178,7 @@ $node->append_conf('postgresql.conf',
 $node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'");
 
 # Start server
-my $rt_value = $node->start;
-is($rt_value, 1, "Start Server");
+$node->start;
 
 # Create functions required for testing
 my ($cmdret, $stdout, $stderr) =

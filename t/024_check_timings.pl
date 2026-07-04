@@ -31,8 +31,7 @@ $node->append_conf('postgresql.conf',
 $node->append_conf('postgresql.conf',
 	"pg_stat_monitor.pgsm_normalized_query = on");
 # Start server
-my $rt_value = $node->start;
-is($rt_value, 1, "Start Server");
+$node->start;
 
 # CREATE EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql(
