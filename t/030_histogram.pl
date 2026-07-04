@@ -15,7 +15,6 @@ PGSM::setup_files_dir(basename($0));
 
 # Create new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
-my $pgdata = $node->data_dir;
 
 my $run_pg_sleep_function_sql =
   "CREATE FUNCTION run_pg_sleep(loops int) RETURNS void AS \$\$
@@ -166,16 +165,13 @@ sub generate_histogram_with_configurations
 	PGSM::append_to_debug_file("===============End===============");
 }
 
-# Update postgresql.conf to include/load pg_stat_monitor library
-$node->append_conf('postgresql.conf',
-	"shared_preload_libraries = 'pg_stat_monitor'");
-
-# Set change postgresql.conf for this test case.
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_bucket_time = 36000");
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_normalized_query = yes");
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'");
+$node->append_conf(
+	'postgresql.conf', qq(
+shared_preload_libraries = 'pg_stat_monitor'
+pg_stat_monitor.pgsm_bucket_time = 36000
+pg_stat_monitor.pgsm_normalized_query = on
+pg_stat_monitor.pgsm_track = 'all'
+));
 
 # Start server
 my $rt_value = $node->start;

@@ -14,13 +14,12 @@ PGSM::setup_files_dir(basename($0));
 
 # CREATE new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
-my $pgdata = $node->data_dir;
 
-# UPDATE postgresql.conf to include/load pg_stat_monitor library
-open my $conf, '>>', "$pgdata/postgresql.conf";
-print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
-print $conf "pg_stat_monitor.pgsm_max_buckets = 1\n";
-close $conf;
+$node->append_conf(
+	'postgresql.conf', qq(
+shared_preload_libraries = 'pg_stat_monitor'
+pg_stat_monitor.pgsm_max_buckets = 1
+));
 
 # Start server
 my $rt_value = $node->start;
@@ -49,8 +48,24 @@ PGSM::append_to_file($stdout);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_max_buckets = 2\n");
+$node->append_conf('postgresql.conf', 'pg_stat_monitor.pgsm_max_buckets = 2');
+$node->restart();
+
+($cmdret, $stdout, $stderr) = $node->psql(
+	'postgres',
+	'SELECT pg_stat_monitor_reset();',
+	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
+is($cmdret, 0, "Reset PGSM EXTENSION");
+PGSM::append_to_file($stdout);
+
+($cmdret, $stdout, $stderr) = $node->psql(
+	'postgres',
+	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_max_buckets';",
+	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
+is($cmdret, 0, "Print PGSM EXTENSION Settings");
+PGSM::append_to_file($stdout);
+
+$node->append_conf('postgresql.conf', 'pg_stat_monitor.pgsm_max_buckets = 5');
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -68,7 +83,7 @@ is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_max_buckets = 5\n");
+	'pg_stat_monitor.pgsm_max_buckets = 10');
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -86,7 +101,7 @@ is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_max_buckets = 10\n");
+	'pg_stat_monitor.pgsm_max_buckets = 11');
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -103,26 +118,7 @@ PGSM::append_to_file($stdout);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_max_buckets = 11\n");
-$node->restart();
-
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT pg_stat_monitor_reset();',
-	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-is($cmdret, 0, "Reset PGSM EXTENSION");
-PGSM::append_to_file($stdout);
-
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	"SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals, boot_val, reset_val, pending_restart FROM pg_settings WHERE name = 'pg_stat_monitor.pgsm_max_buckets';",
-	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
-is($cmdret, 0, "Print PGSM EXTENSION Settings");
-PGSM::append_to_file($stdout);
-
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_max_buckets = 0\n");
+$node->append_conf('postgresql.conf', 'pg_stat_monitor.pgsm_max_buckets = 0');
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(

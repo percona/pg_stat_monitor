@@ -14,16 +14,14 @@ PGSM::setup_files_dir(basename($0));
 
 # CREATE new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
-my $pgdata = $node->data_dir;
 
-# UPDATE postgresql.conf to include/load pg_stat_monitor library
-open my $conf, '>>', "$pgdata/postgresql.conf";
-print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
-print $conf "pg_stat_monitor.pgsm_bucket_time = 360000\n";
-print $conf
-  "pg_stat_monitor.pgsm_query_shared_buffer = 1\n";    # Min possible value
-print $conf "pg_stat_monitor.pgsm_normalized_query = on\n";
-close $conf;
+$node->append_conf(
+	'postgresql.conf', qq(
+shared_preload_libraries = 'pg_stat_monitor'
+pg_stat_monitor.pgsm_bucket_time = 360000
+pg_stat_monitor.pgsm_query_shared_buffer = 1 # Min possible value
+pg_stat_monitor.pgsm_normalized_query = on
+));
 
 # Start server
 my $rt_value = $node->start;
@@ -78,7 +76,7 @@ is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
 
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_query_shared_buffer = 2\n");
+	'pg_stat_monitor.pgsm_query_shared_buffer = 2');
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -111,7 +109,7 @@ is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
 
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_query_shared_buffer = 20\n");
+	'pg_stat_monitor.pgsm_query_shared_buffer = 20');
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -144,7 +142,7 @@ is($cmdret, 0, "SELECT XXX FROM pg_stat_monitor");
 PGSM::append_to_file($stdout);
 
 $node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_query_shared_buffer = 2048\n");
+	'pg_stat_monitor.pgsm_query_shared_buffer = 2048');
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(

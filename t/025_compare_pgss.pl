@@ -15,21 +15,16 @@ PGSM::setup_files_dir(basename($0));
 
 # CREATE new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
-my $pgdata = $node->data_dir;
 
-# UPDATE postgresql.conf to include/load pg_stat_monitor library
-$node->append_conf('postgresql.conf',
-	"shared_preload_libraries = 'pg_stat_statements,pg_stat_monitor'");
-# Set bucket duration to 3600 seconds so bucket doesn't change.
-$node->append_conf('postgresql.conf',
-	"pg_stat_statements.track_utility = off");
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_bucket_time = 360000");
-$node->append_conf('postgresql.conf', "track_io_timing = on");
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_track_utility = off");
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_normalized_query = on");
+$node->append_conf(
+	'postgresql.conf', qq(
+shared_preload_libraries = 'pg_stat_statements, pg_stat_monitor'
+# Set bucket duration to 36000 seconds so bucket doesn't change.
+pg_stat_monitor.pgsm_bucket_time = 36000
+track_io_timing = on
+pg_stat_monitor.pgsm_track_utility = off
+pg_stat_monitor.pgsm_normalized_query = on
+));
 
 # Start server
 my $rt_value = $node->start;

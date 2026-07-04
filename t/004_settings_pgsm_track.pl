@@ -14,13 +14,12 @@ PGSM::setup_files_dir(basename($0));
 
 # CREATE new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
-my $pgdata = $node->data_dir;
 
-# UPDATE postgresql.conf to include/load pg_stat_monitor library
-open my $conf, '>>', "$pgdata/postgresql.conf";
-print $conf "shared_preload_libraries = 'pg_stat_monitor'\n";
-print $conf "pg_stat_monitor.pgsm_track = 'none'\n";
-close $conf;
+$node->append_conf(
+	'postgresql.conf', qq(
+shared_preload_libraries = 'pg_stat_monitor'
+pg_stat_monitor.pgsm_track = 'none'
+));
 
 # Start server
 my $rt_value = $node->start;
@@ -55,7 +54,7 @@ PGSM::append_to_file($stdout);
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
 
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'\n");
+$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'all'");
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -72,7 +71,7 @@ PGSM::append_to_file($stdout);
 is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_file($stdout);
 
-$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'top'\n");
+$node->append_conf('postgresql.conf', "pg_stat_monitor.pgsm_track = 'top'");
 $node->restart();
 
 ($cmdret, $stdout, $stderr) = $node->psql(

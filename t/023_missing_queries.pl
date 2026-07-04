@@ -44,13 +44,12 @@ PGSM::setup_files_dir(basename($0));
 
 # CREATE new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
-my $pgdata = $node->data_dir;
 
-$node->append_conf('postgresql.conf',
-	"shared_preload_libraries = 'pg_stat_monitor'");
-# Set bucket duration to 14 seconds so tests don't take too long.
-$node->append_conf('postgresql.conf',
-	"pg_stat_monitor.pgsm_bucket_time = 14");
+$node->append_conf(
+	'postgresql.conf', qq(
+shared_preload_libraries = 'pg_stat_monitor'
+pg_stat_monitor.pgsm_bucket_time = 14
+));
 
 # Start server
 my $rt_value = $node->start;
