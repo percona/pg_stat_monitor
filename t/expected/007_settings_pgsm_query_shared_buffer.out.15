@@ -148,4 +148,3 @@ SELECT datname, substr(query, 0, 150) AS query, sum(calls) AS calls FROM pg_stat
  example | insert into pgbench_tellers(tid,bid,tbalance) values ($1,$2,$3)                                               |   100
 (20 rows)
 
-DROP EXTENSION pg_stat_monitor;

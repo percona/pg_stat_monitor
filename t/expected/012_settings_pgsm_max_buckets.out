@@ -71,4 +71,3 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_max_buckets | 10      |      | postmaster | integer | default | 1       | 20000   |          | 10       | 10        | f
 (1 row)
 
-DROP EXTENSION pg_stat_monitor;

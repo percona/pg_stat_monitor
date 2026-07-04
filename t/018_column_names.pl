@@ -132,14 +132,6 @@ is($stdout, $pg_versions_pgsm_columns{$PGSM::PG_MAJOR_VERSION},
 is($cmdret, 0, "SELECT statement against expected column names");
 PGSM::append_to_file($stdout);
 
-# DROP EXTENSION
-$stdout = $node->safe_psql(
-	'postgres',
-	'DROP EXTENSION pg_stat_monitor;',
-	extra_params => ['-a']);
-is($cmdret, 0, "DROP PGSM EXTENSION");
-PGSM::append_to_file($stdout);
-
 # Stop the server
 $node->stop;
 

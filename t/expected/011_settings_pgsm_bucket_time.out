@@ -71,4 +71,3 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_bucket_time | 60      | s    | postmaster | integer | default | 1       | 2147483647 |          | 60       | 60        | f
 (1 row)
 
-DROP EXTENSION pg_stat_monitor;

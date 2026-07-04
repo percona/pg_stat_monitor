@@ -35,4 +35,3 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_track | top     |      | user    | enum    | configuration file |         |         | {none,top,all} | top      | top       | f
 (1 row)
 
-DROP EXTENSION pg_stat_monitor;

@@ -58,4 +58,3 @@ SELECT query, comments FROM pg_stat_monitor ORDER BY query COLLATE "C";
  SELECT pg_stat_monitor_reset()                                                                                                                                                               | 
 (3 rows)
 
-DROP EXTENSION pg_stat_monitor;

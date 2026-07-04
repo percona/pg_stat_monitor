@@ -256,14 +256,6 @@ is($stdout, 't', "Check: ${col_shared_blk_read_time} should not be 0.");
 trim($stdout);
 is($stdout, 't', "Check: ${col_shared_blk_write_time} should not be 0.");
 
-# DROP EXTENSION
-$stdout = $node->safe_psql(
-	'postgres',
-	'DROP EXTENSION pg_stat_monitor;',
-	extra_params => ['-a']);
-is($cmdret, 0, "DROP PGSM EXTENSION");
-PGSM::append_to_file($stdout);
-
 # Stop the server
 $node->stop;
 

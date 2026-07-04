@@ -23,4 +23,3 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_enable_overflow | on      |      | postmaster | bool    | configuration file |         |         |          | on       | on        | f
 (1 row)
 
-DROP EXTENSION pg_stat_monitor;

@@ -35,4 +35,3 @@ SELECT name, setting, unit, context, vartype, source, min_val, max_val, enumvals
  pg_stat_monitor.pgsm_histogram_min | 100     | ms   | postmaster | real    | configuration file | 0       | 5e+07   |          | 1        | 100       | f
 (1 row)
 
-DROP EXTENSION pg_stat_monitor;
