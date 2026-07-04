@@ -1268,14 +1268,6 @@ pgsm_update_entry(pgsmEntry *entry,
 	if (kind == PGSM_STORE)
 		SpinLockAcquire(&entry->mutex);
 
-	/*
-	 * Extract comments if enabled and only when the query has completed with
-	 * or without error
-	 */
-	if (pgsm_extract_comments && kind == PGSM_STORE
-		&& !entry->counters.info.comments[0] && comments && comments[0])
-		strlcpy(entry->counters.info.comments, comments, COMMENTS_LEN);
-
 	if (kind == PGSM_PLAN || kind == PGSM_STORE)
 	{
 		entry->counters.plancalls.calls += 1;
@@ -1345,6 +1337,9 @@ pgsm_update_entry(pgsmEntry *entry,
 	/* Only should process this once when storing the data */
 	if (kind == PGSM_STORE)
 	{
+		if (pgsm_extract_comments && comments && comments[0] && !entry->counters.info.comments[0])
+			strlcpy(entry->counters.info.comments, comments, COMMENTS_LEN);
+
 		if (pgsm_track_application_names && app_name[0] != '\0' && !entry->counters.info.application_name[0])
 			strlcpy(entry->counters.info.application_name, app_name, APPLICATIONNAME_LEN);
 
@@ -1734,7 +1729,9 @@ pgsm_store(pgsmEntry *entry)
 	query = entry->query_text.query_pointer;
 
 	/* Let's do all the leg work here before we acquire any locks */
-	extract_query_comments(query, comments, sizeof(comments));
+
+	if (pgsm_extract_comments)
+		extract_query_comments(query, comments, sizeof(comments));
 
 	/* bufusage */
 	bufusage.shared_blks_hit = entry->counters.blocks.shared_blks_hit;
@@ -1880,7 +1877,7 @@ pgsm_store(pgsmEntry *entry)
 
 	pgsm_update_entry(shared_hash_entry,	/* entry */
 					  query,	/* query */
-					  comments, /* comments */
+					  pgsm_extract_comments ? comments : NULL,	/* comments */
 					  &entry->counters.planinfo,	/* PlanInfo */
 					  &entry->counters.sysinfo, /* SysInfo */
 					  &entry->counters.error,	/* ErrorInfo */
@@ -3191,12 +3188,6 @@ extract_query_comments(const char *query, char *comments, size_t buf_len)
 	const char *q_iter = query;
 
 	Assert(query != NULL);
-
-	if (!pgsm_extract_comments)
-	{
-		comments[0] = '\0';
-		return;
-	}
 
 	while (*q_iter)
 	{
