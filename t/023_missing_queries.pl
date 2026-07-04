@@ -53,8 +53,7 @@ $node->append_conf('postgresql.conf',
 	"pg_stat_monitor.pgsm_bucket_time = 14");
 
 # Start server
-my $rt_value = $node->start;
-is($rt_value, 1, "Start Server");
+$node->start;
 
 my ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',

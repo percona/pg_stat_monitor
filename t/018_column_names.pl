@@ -99,8 +99,7 @@ my %pg_versions_pgsm_columns = (
 );
 
 # Start server
-my $rt_value = $node->start;
-is($rt_value, 1, "Start Server");
+$node->start;
 
 # CREATE EXTENSION and change out file permissions
 my ($cmdret, $stdout, $stderr) = $node->psql(

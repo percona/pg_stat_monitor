@@ -33,8 +33,7 @@ print $conf "pg_stat_monitor.pgsm_normalized_query = on\n";
 close $conf;
 
 # Start server
-my $rt_value = $node->start;
-is($rt_value, 1, "Start Server");
+$node->start;
 
 # Create PGSM extension
 my ($cmdret, $stdout, $stderr) = $node->psql(

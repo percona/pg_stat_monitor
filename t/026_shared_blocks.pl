@@ -37,8 +37,7 @@ $node->append_conf('postgresql.conf',
 	"pg_stat_monitor.pgsm_normalized_query = on");
 
 # Start server
-my $rt_value = $node->start;
-is($rt_value, 1, "Start Server");
+$node->start;
 
 my $col_shared_blk_read_time = "shared_blk_read_time";
 my $col_shared_blk_write_time = "shared_blk_write_time";
