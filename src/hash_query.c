@@ -252,14 +252,11 @@ hash_entry_dealloc(int bucket_id)
 
 	while ((entry = hash_seq_search(&hstat)) != NULL)
 	{
-		dsa_pointer pdsa;
-
 		/* Remove all entries if new_bucket_id == -1 */
 		if (bucket_id == INVALID_BUCKET_ID || entry->key.bucket_id == bucket_id)
 		{
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
-
-			pdsa = entry->query_text.query_pos;
+			dsa_pointer pdsa = entry->query_text.query_pos;
 
 			hash_search(pgsmStateLocal.shared_hash, &entry->key, HASH_REMOVE, NULL);
 

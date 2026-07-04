@@ -1251,7 +1251,6 @@ pgsm_update_entry(pgsmEntry *entry,
 				  bool reset,
 				  pgsmStoreKind kind)
 {
-	int			index;
 	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
 
 	/*
@@ -1298,6 +1297,8 @@ pgsm_update_entry(pgsmEntry *entry,
 
 	if (kind == PGSM_EXEC || kind == PGSM_STORE)
 	{
+		int			index;
+
 		entry->counters.calls.calls += 1;
 		entry->counters.time.total_time += exec_total_time;
 
