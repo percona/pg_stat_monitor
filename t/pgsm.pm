@@ -52,7 +52,7 @@ sub pgsm_init_pg
 		$pg_node = PostgreSQL::Test::Cluster->new('pgsm_regression');
 	}
 	# For Server version 14 & below, spawn the server using PostgresNode
-	elsif ($PG_MAJOR_VERSION < 15)
+	else
 	{
 		$pg_node = PostgresNode->get_new_node('pgsm_regression');
 	}
@@ -73,7 +73,7 @@ sub append_to_file
 			$str . "\n");
 	}
 	# For Server version 14 & below, use PostgresNode to write to files
-	elsif ($PG_MAJOR_VERSION < 15)
+	else
 	{
 		TestLib::append_to_file($out_filename_with_path, $str . "\n");
 	}
@@ -94,7 +94,7 @@ sub append_to_debug_file
 			$str . "\n");
 	}
 	# For Server version 14 & below, use PostgresNode to write to files
-	elsif ($PG_MAJOR_VERSION < 15)
+	else
 	{
 		TestLib::append_to_file($debug_out_filename_with_path, $str . "\n");
 	}
