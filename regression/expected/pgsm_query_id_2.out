@@ -35,6 +35,11 @@ SELECT *, add(1, 2) FROM t1;
 ---+-----
 (0 rows)
 
+SELECT * /* x */ FROM t2;
+ b 
+---
+(0 rows)
+
 SELECT * FROM t2;
  b 
 ---
@@ -85,7 +90,7 @@ SELECT datname, pgsm_query_id, query, calls FROM pg_stat_monitor ORDER BY pgsm_q
 --------------------+---------------------+-----------------------------------------------------+-------
  contrib_regression |  689150021118383254 | SELECT pg_stat_monitor_reset()                      |     1
  db2                | 1648576050146230147 | SELECT * FROM t3 WHERE c = 20                       |     1
- db1                | 1897482803466821995 | SELECT * FROM t2                                    |     3
+ db1                | 1897482803466821995 | SELECT * /* x */ FROM t2                            |     4
  db1                | 1988437669671417938 | SELECT * FROM t1                                    |     1
  db2                | 1988437669671417938 | SELECT * FROM t1                                    |     1
  db1                | 8828613017640075704 | SELECT *, add(1, 2) FROM t1                         |     1
