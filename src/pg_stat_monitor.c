@@ -2583,11 +2583,10 @@ get_next_wbucket(pgsmSharedState *pgsm)
 }
 
 /*
- * This function expects a NORMALIZED query as the input.
- * It iterates over the normalized query skipping comments and
- * multiple spaces. All spaces are converted to ' ' so that we
- * the calculation is independent of the space type whether
- * newline, tab, or any other type. Trailing and leading spaces
+ * This function expects a NORMALIZED query as the input. It iterates over the
+ * normalized query skipping comments and multiple spaces. All spaces are
+ * converted to ' ' so that we the calculation is independent of the space
+ * type whether newline, tab, or any other type. Trailing and leading spaces
  * are also removed before calculating the hash.
  */
 static int64
@@ -2596,7 +2595,10 @@ get_pgsm_query_id_hash(const char *norm_query, int norm_len)
 	char	   *query;
 	char	   *q_iter;
 	const char *norm_q_iter = norm_query;
-	int64		pgsm_query_id = 0;
+	bool		space = false;
+	int64		pgsm_query_id;
+
+	Assert(norm_query != NULL);
 
 	if (!pgsm_enable_pgsm_query_id)
 		return 0;
@@ -2604,74 +2606,60 @@ get_pgsm_query_id_hash(const char *norm_query, int norm_len)
 	query = palloc(norm_len + 1);
 	q_iter = query;
 
-	while (norm_q_iter && *norm_q_iter && norm_q_iter < norm_query + norm_len)
+	while (*norm_q_iter && norm_q_iter < norm_query + norm_len)
 	{
-		/*
-		 * Skip multiline comments, + 1 is safe even if we've reach end of
-		 * string
-		 */
 		if (*norm_q_iter == '/' && *(norm_q_iter + 1) == '*')
 		{
-			while (*norm_q_iter && *(norm_q_iter + 1) && (*norm_q_iter != '*' || *(norm_q_iter + 1) != '/'))
-				norm_q_iter++;
+			/* Skip multiline comments */
+			norm_q_iter++;
+			norm_q_iter++;
 
-			/*
-			 * Skip the end if the current character is valid. norm_q_iter
-			 * points to the *, we have to skip 2 characters
-			 */
-			if (*norm_q_iter)
-				norm_q_iter++;
-			if (*norm_q_iter)
-				norm_q_iter++;
+			while (*norm_q_iter)
+			{
+				if (*norm_q_iter == '*' && *(norm_q_iter + 1) == '/')
+				{
+					norm_q_iter++;
+					norm_q_iter++;
+					break;
+				}
 
-			continue;
+				norm_q_iter++;
+			}
 		}
-
-		/*
-		 * Skip single line comments, + 1 is safe even if we've reach end of
-		 * string
-		 */
-		if (*norm_q_iter == '-' && *(norm_q_iter + 1) == '-')
+		else if (*norm_q_iter == '-' && *(norm_q_iter + 1) == '-')
 		{
+			/* Skip single line comments */
+			norm_q_iter++;
+			norm_q_iter++;
+
 			while (*norm_q_iter && *norm_q_iter != '\n')
 				norm_q_iter++;
 		}
-
-		/* Skip white spaces */
-		if (scanner_isspace(*norm_q_iter))
+		else if (scanner_isspace(*norm_q_iter))
 		{
-			while (scanner_isspace(*++norm_q_iter));
+			/* Convert white spaces into single space */
+			norm_q_iter++;
 
-			/*
-			 * Let's replace it with a simple space. -1 is safe as we are
-			 * making sure we are not at the start of the string.
-			 */
-			if (q_iter != query && !scanner_isspace(*(q_iter - 1)))
+			space = true;
+		}
+		else
+		{
+			/* Output a single space unless at start of query */
+			if (space && q_iter != query)
 				*q_iter++ = ' ';
 
-			continue;
-		}
+			space = false;
 
-		*q_iter++ = *norm_q_iter++;
+			*q_iter++ = *norm_q_iter++;
+		}
 	}
 
-	/* Ensure we have a terminating zero at the end */
 	*q_iter = '\0';
 
-	/* Get rid of trailing spaces */
-	while (q_iter > query && *q_iter == '\0')
-	{
-		q_iter--;
-
-		/* Continue reducing the string size if space is found. */
-		if (scanner_isspace(*q_iter))
-			*q_iter = '\0';
-	}
-
-	/* Calculate the hash. */
-	pgsm_query_id = pgsm_hash_string(query, strlen(query));
+	pgsm_query_id = pgsm_hash_string(query, q_iter - query);
 
 	pfree(query);
+
 	return pgsm_query_id;
 }
 

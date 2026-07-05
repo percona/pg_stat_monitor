@@ -28,6 +28,7 @@ SELECT pg_stat_monitor_reset();
 \c db1
 SELECT * FROM t1;
 SELECT *, add(1, 2) FROM t1;
+SELECT * /* x */ FROM t2;
 SELECT * FROM t2;
 -- Check that spaces and comments do not generate a different pgsm_query_id
 SELECT     *     FROM t2 --WHATEVER;
