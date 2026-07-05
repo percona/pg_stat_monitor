@@ -26,7 +26,6 @@ typedef struct pgsmLocalState
 	dsa_area   *dsa;			/* local dsa area for backend attached to the
 								 * dsa area created by postmaster at startup. */
 	HTAB	   *shared_hash;
-	MemoryContext pgsm_mem_cxt;
 } pgsmLocalState;
 
 static pgsmLocalState pgsmStateLocal;
@@ -122,9 +121,6 @@ pgsm_startup(void)
 	LWLockRelease(AddinShmemInitLock);
 
 	pgsmStateLocal.shared_pgsmState = pgsm;
-	pgsmStateLocal.pgsm_mem_cxt = AllocSetContextCreate(TopMemoryContext,
-														"pg_stat_monitor local store",
-														ALLOCSET_DEFAULT_SIZES);
 
 	/* Reset in case this is a restart within the postmaster */
 	pgsmStateLocal.dsa = NULL;
@@ -175,12 +171,6 @@ pgsm_attach_shmem(void)
 	dsa_pin_mapping(pgsmStateLocal.dsa);
 	pgsmStateLocal.shared_hash = pgsmStateLocal.shared_pgsmState->hash_handle;
 	MemoryContextSwitchTo(oldcontext);
-}
-
-MemoryContext
-GetPgsmMemoryContext(void)
-{
-	return pgsmStateLocal.pgsm_mem_cxt;
 }
 
 dsa_area *
