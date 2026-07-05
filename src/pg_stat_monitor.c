@@ -98,6 +98,8 @@ typedef enum pgsmStoreKind
 /*---- Initialization Function Declarations ----*/
 void		_PG_init(void);
 
+static MemoryContext PgsmMemoryContext;
+
 /* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
 static int	nesting_level = 0;
 static int	max_nesting_level;
@@ -337,6 +339,10 @@ _PG_init(void)
 	max_nesting_level = max_stack_depth;
 
 	oldctx = MemoryContextSwitchTo(TopMemoryContext);
+
+	PgsmMemoryContext = AllocSetContextCreate(TopMemoryContext,
+											  "pg_stat_monitor local store",
+											  ALLOCSET_DEFAULT_SIZES);
 
 	nested_queryids = palloc_array(int64, max_nesting_level);
 	nested_query_txts = palloc0_array(char *, max_nesting_level);
@@ -1527,7 +1533,7 @@ static void
 pgsm_add_to_list(pgsmEntry *entry, const char *query_text, int query_len)
 {
 	/* Switch to pgsm memory context */
-	MemoryContext oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
+	MemoryContext oldctx = MemoryContextSwitchTo(PgsmMemoryContext);
 
 	entry->query_text.query_pointer = pnstrdup(query_text, query_len);
 	lentries = lappend(lentries, entry);
@@ -1614,7 +1620,7 @@ static void
 pgsm_cleanup_callback(void *arg)
 {
 	/* Reset the memory context holding the list */
-	MemoryContextReset(GetPgsmMemoryContext());
+	MemoryContextReset(PgsmMemoryContext);
 
 	lentries = NIL;
 	callback_setup = false;
@@ -1631,7 +1637,7 @@ pgsm_create_hash_entry(int64 queryid, const PlanInfo *plan_info)
 	MemoryContext oldctx;
 
 	/* Create an entry in the pgsm memory context */
-	oldctx = MemoryContextSwitchTo(GetPgsmMemoryContext());
+	oldctx = MemoryContextSwitchTo(PgsmMemoryContext);
 	entry = palloc0_object(pgsmEntry);
 
 	/*

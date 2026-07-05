@@ -242,7 +242,6 @@ typedef struct pgsmSharedState
 
 /* hash_query.c */
 void		pgsm_startup(void);
-MemoryContext GetPgsmMemoryContext(void);
 dsa_area   *get_dsa_area_for_query_text(void);
 HTAB	   *get_pgsmHash(void);
 bool		IsSystemOOM(void);
