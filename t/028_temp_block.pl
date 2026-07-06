@@ -109,33 +109,29 @@ PGSM::append_to_debug_file($stdout);
 PGSM::append_to_debug_file($stdout);
 
 # Compare values for query 'SELECT * FROM t1'
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT pgsm.temp_blks_read <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';',
-	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	'SELECT pgsm.temp_blks_read <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';'
+);
 trim($stdout);
 is($stdout, 't', "Check: temp_blks_read should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT pgsm.temp_blks_written <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';',
-	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	'SELECT pgsm.temp_blks_written <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';'
+);
 trim($stdout);
 is($stdout, 't', "Check: temp_blks_written should not be 0.");
 
 if ($PGSM::PG_MAJOR_VERSION >= 15)
 {
-	($cmdret, $stdout, $stderr) = $node->psql(
-		'postgres',
-		'SELECT sum(pgsm.temp_blk_read_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';',
-		extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		'SELECT sum(pgsm.temp_blk_read_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';'
+	);
 	trim($stdout);
 	is($stdout, 't', "Check: temp_blk_read_time should not be 0.");
 
-	($cmdret, $stdout, $stderr) = $node->psql(
-		'postgres',
-		'SELECT sum(pgsm.temp_blk_write_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\'',
-		extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		'SELECT sum(pgsm.temp_blk_write_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\''
+	);
 	trim($stdout);
 	is($stdout, 't', "Check: temp_blk_write_time should not be 0.");
 }

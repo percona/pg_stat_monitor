@@ -72,26 +72,23 @@ PGSM::append_to_debug_file($stdout);
 is($cmdret, 0, "3 - Run pg_sleep(3)");
 PGSM::append_to_debug_file($stdout);
 
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	"SELECT sum(calls) AS calls FROM pg_stat_monitor WHERE query LIKE '%sleep%' AND bucket_done GROUP BY calls;",
-	extra_params => [ '-t', '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	"SELECT sum(calls) AS calls FROM pg_stat_monitor WHERE query LIKE '%sleep%' AND bucket_done GROUP BY calls;"
+);
 is($cmdret, 0, "Run query to get count where bucket is done.");
 is($stdout, 2, "Compare: Calls count is 2");
 PGSM::append_to_debug_file($stdout);
 
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	"SELECT sum(calls) AS calls FROM pg_stat_monitor WHERE query LIKE '%sleep%' AND NOT bucket_done GROUP BY calls;",
-	extra_params => [ '-t', '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	"SELECT sum(calls) AS calls FROM pg_stat_monitor WHERE query LIKE '%sleep%' AND NOT bucket_done GROUP BY calls;"
+);
 is($cmdret, 0, "Run query to get count where bucket is not done.");
 is($stdout, 1, "Compare: Calls count is 1");
 PGSM::append_to_debug_file($stdout);
 
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT bucket, bucket_done, query, calls AS calls FROM pg_stat_monitor;',
-	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	'SELECT bucket, bucket_done, query, calls AS calls FROM pg_stat_monitor;'
+);
 is($cmdret, 0, "Print what is in pg_stat_monitor view");
 PGSM::append_to_debug_file($stdout);
 

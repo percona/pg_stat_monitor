@@ -85,10 +85,8 @@ PGSM::append_to_file($stdout);
 PGSM::append_to_file($stdout);
 
 # Test: planid is not 0 or empty
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT planid FROM pg_stat_monitor WHERE calls = 2;',
-	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	'SELECT planid FROM pg_stat_monitor WHERE calls = 2;');
 trim($stdout);
 isnt($stdout, '', "Test: planid should not be empty");
 ok(length($stdout) > 0, 'Length of planid is > 0');
@@ -155,10 +153,8 @@ PGSM::append_to_file($stdout);
 PGSM::append_to_file($stdout);
 
 # Test: planid is empty
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT planid FROM pg_stat_monitor WHERE calls = 2;',
-	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	'SELECT planid FROM pg_stat_monitor WHERE calls = 2;');
 trim($stdout);
 is($stdout, '', "Test: planid should be empty");
 is(length($stdout), 0, 'Length of planid is 0');
