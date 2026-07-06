@@ -76,43 +76,39 @@ PGSM::append_to_file($stdout);
 PGSM::append_to_debug_file($stdout);
 
 # Compare values for query 'INSERT INTO t1 SELECT generate_series($1, $2)'
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT pgsm.local_blks_hit <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%INSERT INTO t1%\';',
-	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	'SELECT pgsm.local_blks_hit <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%INSERT INTO t1%\';'
+);
 trim($stdout);
 is($stdout, 't', "Check: local_blks_hit should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT pgsm.local_blks_dirtied <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%INSERT INTO t1%\';',
-	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	'SELECT pgsm.local_blks_dirtied <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%INSERT INTO t1%\';'
+);
 trim($stdout);
 is($stdout, 't', "Check: local_blks_dirtied should not be 0.");
 
 if ($PGSM::PG_MAJOR_VERSION >= 17)
 {
-	($cmdret, $stdout, $stderr) = $node->psql(
-		'postgres',
-		'SELECT sum(pgsm.local_blk_write_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%INSERT INTO t1%\'',
-		extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		'SELECT sum(pgsm.local_blk_write_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%INSERT INTO t1%\''
+	);
 	trim($stdout);
 	is($stdout, 't', "Check: local_blk_write_time should not be 0.");
 }
 
 
 # Compare values for query 'SELECT * FROM t1'
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	'SELECT pgsm.local_blks_hit <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';',
-	extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	'SELECT pgsm.local_blks_hit <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';'
+);
 trim($stdout);
 is($stdout, 't', "Check: local_blks_hit should not be 0.");
 
 # TODO: Find a way how to bypass cache and get real block reads
 # if ($PGSM::PG_MAJOR_VERSION >= 17)
 # {
-#     ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT sum(pgsm.local_blk_read_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';', extra_params => ['-Pformat=unaligned','-Ptuples_only=on']);
+#     ($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT sum(pgsm.local_blk_read_time) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%FROM t1%\';');
 #     trim($stdout);
 #     is($stdout,'t',"Check: local_blk_read_time should not be 0.");
 # }

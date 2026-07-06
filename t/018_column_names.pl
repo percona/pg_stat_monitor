@@ -110,7 +110,7 @@ PGSM::append_to_file($stdout . "\n");
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
 	"SELECT column_name FROM information_schema.columns WHERE table_name = 'pg_stat_monitor' ORDER BY column_name;",
-	extra_params => [ '-A', '-R,', '-Ptuples_only=on' ]);
+	extra_params => ['-R,']);
 is($cmdret, 0,
 	"Get columns names in PGSM installation for PG version $PGSM::PG_MAJOR_VERSION"
 );

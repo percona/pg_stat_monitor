@@ -79,26 +79,23 @@ is($cmdret, 0, "3 - Run pg_sleep(1)");
 PGSM::append_to_debug_file($stdout);
 
 # Check that we have more than one bucket
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	"SELECT count(bucket) <> 0 AS pgsm FROM pg_stat_monitor WHERE query LIKE '%sleep%';",
-	extra_params => [ '-t', '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	"SELECT count(bucket) <> 0 AS pgsm FROM pg_stat_monitor WHERE query LIKE '%sleep%';"
+);
 trim($stdout);
 is($stdout, 't', "Check: we have more that one bucket");
 
 # Check that stats timestamps are different for each query/bucket
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	"SELECT count(DISTINCT stats_since) = count(stats_since) AS pgsm FROM pg_stat_monitor WHERE query LIKE '%sleep%';",
-	extra_params => [ '-t', '-Pformat=unaligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	"SELECT count(DISTINCT stats_since) = count(stats_since) AS pgsm FROM pg_stat_monitor WHERE query LIKE '%sleep%';"
+);
 trim($stdout);
 is($stdout, 't', "Check: for every bucket stats_since should be unique");
 
 # Check that minmax_stats_since always match stats_since
-($cmdret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	"SELECT count(*) AS st FROM pg_stat_monitor WHERE query LIKE '%sleep%' AND stats_since <> minmax_stats_since;",
-	extra_params => [ '-t', '-Pformat=aligned', '-Ptuples_only=on' ]);
+($cmdret, $stdout, $stderr) = $node->psql('postgres',
+	"SELECT count(*) AS st FROM pg_stat_monitor WHERE query LIKE '%sleep%' AND stats_since <> minmax_stats_since;"
+);
 trim($stdout);
 is($stdout, 0, "Check: minmax_stats_since always match stats_since");
 PGSM::append_to_debug_file($stdout);

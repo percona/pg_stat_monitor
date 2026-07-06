@@ -126,10 +126,8 @@ sub generate_histogram_with_configurations
 		"Scenario $scenario_number : Print what is in pg_stat_monitor view");
 	PGSM::append_to_debug_file($stdout);
 
-	($cmdret, $stdout, $stderr) = $node->psql(
-		'postgres',
-		'SELECT calls FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;',
-		extra_params => [ '-Pformat=unaligned', '-Ptuples_only=on' ]);
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		'SELECT calls FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;');
 	is($cmdret, 0, "Scenario $scenario_number : Get calls into a variable");
 	is($stdout, $expected_calls_count,
 		"Scenario $scenario_number : Calls are $expected_calls_count");
@@ -137,10 +135,9 @@ sub generate_histogram_with_configurations
 	PGSM::append_to_debug_file(
 		"Scenario $scenario_number : Got Calls from query : " . $stdout);
 
-	($cmdret, $stdout, $stderr) = $node->psql(
-		'postgres',
-		'SELECT resp_calls FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;',
-		extra_params => [ '-Pformat=aligned', '-Ptuples_only=on' ]);
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		'SELECT resp_calls FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;'
+	);
 	is($cmdret, 0,
 		"Scenario $scenario_number : Get resp_calls into a variable");
 	is(trim($stdout), "$expected_resp_calls",
