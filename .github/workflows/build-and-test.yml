@@ -38,32 +38,50 @@ jobs:
       - name: Clone repository
         uses: actions/checkout@v7
         with:
+          path: src
           ref: ${{ github.ref }}
 
       - name: Install dependencies for Ubuntu
         if: startsWith(inputs.os, 'ubuntu-')
-        run: .github/scripts/ubuntu-deps.sh
+        run: src/.github/scripts/ubuntu-deps.sh
+
+      - name: Install dev dependencies for Ubuntu
+        if: startsWith(inputs.os, 'ubuntu-') && env.PG_PACKAGE == 'source'
+        run: src/.github/scripts/ubuntu-deps.sh dev
 
       - name: Install dependencies for MacOS
         if: startsWith(inputs.os,  'macos-')
-        run: .github/scripts/macos-deps.sh
+        run: src/.github/scripts/macos-deps.sh
 
       - name: Install PostgreSQL
-        run: .github/scripts/install-postgresql.sh ${{ env.PG_PACKAGE }} ${{ env.PG_VERSION }}
+        if: env.PG_PACKAGE != 'source'
+        run: src/.github/scripts/install-postgresql.sh ${{ env.PG_PACKAGE }} ${{ env.PG_VERSION }}
+
+      - name: Clone postgres repository
+        if: env.PG_PACKAGE == 'source'
+        uses: actions/checkout@v7
+        with:
+          path: postgres
+          repository: postgres/postgres.git
+          ref: REL_${{ env.PG_VERSION }}_STABLE
+
+      - name: Build PostgreSQL
+        if: env.PG_PACKAGE == 'source'
+        run: src/.github/scripts/build-postgres.sh ${{ env.BUILD_TYPE }}
 
       - name: Build pg_stat_monitor
-        run: .github/scripts/build.sh ${{ env.BUILD_TYPE }}
+        run: src/.github/scripts/build.sh ${{ env.BUILD_TYPE }}
 
       - name: Set permissions
-        if: startsWith(inputs.os, 'ubuntu-')
+        if: startsWith(inputs.os, 'ubuntu-') && env.PG_PACKAGE != 'source'
         run: sudo chown -R runner:runner /var/run/postgresql
 
       - name: Stop existing PostgreSQL instances
-        if: startsWith(inputs.os, 'ubuntu-')
+        if: startsWith(inputs.os, 'ubuntu-') && env.PG_PACKAGE != 'source'
         run: sudo service postgresql stop
 
       - name: Run tests
-        run: .github/scripts/test.sh ${{ env.BUILD_TYPE }}
+        run: src/.github/scripts/test.sh ${{ env.BUILD_TYPE }}
 
       - name: Report on test fail
         uses: actions/upload-artifact@v4
@@ -71,11 +89,11 @@ jobs:
         with:
           name: log-test-${{ env.PG_PACKAGE }}-${{ env.PG_VERSION }}-${{ env.OS }}-${{ env.CC }}-${{ env.BUILD_TYPE }}
           path: |
-            regression_install
-            regression_install.log
-            regression.diffs
-            regression.out
-            results
-            t/results
-            tmp_check
+            src/regression_install
+            src/regression_install.log
+            src/regression.diffs
+            src/regression.out
+            src/results
+            src/t/results
+            src/tmp_check
           retention-days: 3
