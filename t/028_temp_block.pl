@@ -65,7 +65,7 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
-	' CREATE TABLE t1(a int);',
+	'CREATE TABLE t1 (a int);',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "CREATE Table t1");
 PGSM::append_to_file($stdout);
