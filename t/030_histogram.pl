@@ -24,24 +24,21 @@ BEGIN
     WHILE iterator < loops LOOP
         RAISE INFO 'Current timestamp: %', timeofday()::timestamp;
         RAISE INFO 'Sleep % seconds', iterator;
-	    PERFORM pg_sleep(iterator);
+        PERFORM pg_sleep(iterator);
         iterator := iterator + iterator;
     END LOOP;
 END;
 \$\$ LANGUAGE plpgsql;";
 
 my $generate_histogram_function_sql = "CREATE FUNCTION generate_histogram()
-    RETURNS TABLE (
-    range text, freq int, bar text
-  ) AS \$\$
+    RETURNS TABLE (range text, freq int, bar text) AS \$\$
 DECLARE
     bucket_id int;
     query_id bigint;
 BEGIN
     SELECT bucket INTO bucket_id FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;
     SELECT queryid INTO query_id FROM pg_stat_monitor ORDER BY calls DESC LIMIT 1;
-    RETURN query
-    SELECT * FROM histogram(bucket_id, query_id) AS a (range text, freq int, bar text);
+    RETURN QUERY SELECT * FROM histogram(bucket_id, query_id) AS a (range text, freq int, bar text);
 END;
 \$\$ LANGUAGE plpgsql;";
 
