@@ -10,18 +10,18 @@ PSP_DIR=$SCRIPT_DIR/../../../postgres
 case "$1" in
     debug)
         echo "Building with debug option"
-        ARGS+=" --enable-cassert --enable-injection-points"
+        ARGS+=" --enable-cassert"
         ;;
 
     debugoptimized)
         echo "Building with debugoptimized option"
         export CFLAGS="-O2"
-        ARGS+=" --enable-cassert --enable-injection-points"
+        ARGS+=" --enable-cassert"
         ;;
 
     coverage)
         echo "Building with coverage option"
-        ARGS+=" --enable-cassert --enable-injection-points --enable-coverage"
+        ARGS+=" --enable-cassert --enable-coverage"
         ;;
 
     sanitize)
