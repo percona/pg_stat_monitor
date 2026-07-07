@@ -242,7 +242,7 @@ hash_entry_dealloc(int bucket_id)
 
 	while ((entry = hash_seq_search(&hstat)) != NULL)
 	{
-		/* Remove all entries if new_bucket_id == -1 */
+		/* Remove all entries if bucket_id == -1 */
 		if (bucket_id == INVALID_BUCKET_ID || entry->key.bucket_id == bucket_id)
 		{
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
