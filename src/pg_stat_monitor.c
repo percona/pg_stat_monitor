@@ -3221,8 +3221,10 @@ extract_query_comments(const char *query, char *comments, size_t buf_len)
 				q_iter++;
 			}
 		}
-
-		q_iter++;
+		else
+		{
+			q_iter++;
+		}
 	}
 
 	comments[curr_len] = '\0';
