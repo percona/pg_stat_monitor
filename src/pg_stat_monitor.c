@@ -1410,7 +1410,7 @@ pgsm_update_entry(pgsmEntry *entry,
 #if PG_VERSION_NUM >= 170000
 		entry->counters.blocks.instr_shared_blk_read_time = bufusage->shared_blk_read_time;
 		entry->counters.blocks.instr_shared_blk_write_time = bufusage->shared_blk_write_time;
-		entry->counters.blocks.instr_local_blk_write_time = bufusage->local_blk_write_time;
+		entry->counters.blocks.instr_local_blk_read_time = bufusage->local_blk_read_time;
 		entry->counters.blocks.instr_local_blk_write_time = bufusage->local_blk_write_time;
 #else
 		entry->counters.blocks.instr_shared_blk_read_time = bufusage->blk_read_time;
