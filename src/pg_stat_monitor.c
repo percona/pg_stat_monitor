@@ -227,7 +227,6 @@ static MemoryContextCallback mem_cxt_reset_callback =
 static bool callback_setup = false;
 
 static void pgsm_update_entry(pgsmEntry *entry,
-							  const char *query,
 							  const char *comments,
 							  const PlanInfo *plan_info,
 							  const SysInfo *sys_info,
@@ -724,7 +723,6 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		entry->counters.info.cmd_type = queryDesc->operation;
 
 		pgsm_update_entry(entry,	/* entry */
-						  NULL, /* query */
 						  NULL, /* comments */
 						  plan_ptr, /* PlanInfo */
 						  &sys_info,	/* SysInfo */
@@ -918,7 +916,6 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		/* The plan details are captured when the query finishes */
 		if (entry)
 			pgsm_update_entry(entry,	/* entry */
-							  NULL, /* query */
 							  NULL, /* comments */
 							  NULL, /* PlanInfo */
 							  NULL, /* SysInfo */
@@ -1107,7 +1104,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		/* The plan details are captured when the query finishes */
 		pgsm_update_entry(entry,	/* entry */
-						  query_text,	/* query */
 						  NULL, /* comments */
 						  NULL, /* PlanInfo */
 						  &sys_info,	/* SysInfo */
@@ -1237,7 +1233,6 @@ pg_get_client_addr(void)
 
 static void
 pgsm_update_entry(pgsmEntry *entry,
-				  const char *query,
 				  const char *comments,
 				  const PlanInfo *plan_info,
 				  const SysInfo *sys_info,
@@ -1876,7 +1871,6 @@ pgsm_store(pgsmEntry *entry)
 	}
 
 	pgsm_update_entry(shared_hash_entry,	/* entry */
-					  query,	/* query */
 					  pgsm_extract_comments ? comments : NULL,	/* comments */
 					  &entry->counters.planinfo,	/* PlanInfo */
 					  &entry->counters.sysinfo, /* SysInfo */
