@@ -1252,8 +1252,6 @@ pgsm_update_entry(pgsmEntry *entry,
 				  int parallel_workers_launched,
 				  pgsmStoreKind kind)
 {
-	int			plan_text_len = plan_info ? plan_info->plan_len : 0;
-
 	if (kind == PGSM_PLAN || kind == PGSM_STORE)
 	{
 		entry->counters.plancalls.calls += 1;
@@ -1315,10 +1313,10 @@ pgsm_update_entry(pgsmEntry *entry,
 		entry->counters.resp_calls[index]++;
 	}
 
-	if (plan_text_len > 0 && !entry->counters.planinfo.plan_text[0])
+	if (plan_info && !entry->counters.planinfo.plan_text[0])
 	{
 		entry->counters.planinfo.planid = plan_info->planid;
-		entry->counters.planinfo.plan_len = plan_text_len;
+		entry->counters.planinfo.plan_len = plan_info->plan_len;
 		strlcpy(entry->counters.planinfo.plan_text, plan_info->plan_text, PLAN_TEXT_LEN);
 	}
 
