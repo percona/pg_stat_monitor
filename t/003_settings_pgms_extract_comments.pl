@@ -61,6 +61,18 @@ PGSM::append_to_file($stdout);
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
+	'SELECT 1 /* a *//* b */, 2, 3',
+	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
+PGSM::append_to_file($stdout);
+
+($cmdret, $stdout, $stderr) = $node->psql(
+	'postgres',
+	'SELECT 1, 2, 3, 4 /* x */',
+	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
+PGSM::append_to_file($stdout);
+
+($cmdret, $stdout, $stderr) = $node->psql(
+	'postgres',
 	'SELECT query, comments FROM pg_stat_monitor ORDER BY query COLLATE "C";',
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 PGSM::append_to_file($stdout);
