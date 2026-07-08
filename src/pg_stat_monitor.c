@@ -1095,12 +1095,9 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		query_text = CleanQuerytext(queryString, &location, &query_len);
 
+		entry->query_text.query_pointer = pnstrdup(query_text, query_len);
 		entry->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
 		entry->counters.info.cmd_type = cmd_type;
-
-		pgsm_add_to_list(entry, query_text, query_len);
-
-		Assert(list_length(lentries) <= max_nesting_level);
 
 		/* The plan details are captured when the query finishes */
 		pgsm_update_entry(entry,	/* entry */
@@ -1120,7 +1117,8 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		pgsm_store(entry);
 
-		pgsm_delete_entry(queryId);
+		pfree(entry->query_text.query_pointer);
+		pfree(entry);
 	}
 	else
 	{
