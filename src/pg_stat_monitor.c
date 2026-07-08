@@ -1503,6 +1503,9 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 	strlcpy(entry->counters.error.sqlcode, unpack_sql_state(edata->sqlerrcode), SQLCODE_LEN);
 
 	pgsm_store(entry);
+
+	pfree(entry->query_text.query_pointer);
+	pfree(entry);
 }
 
 static void
@@ -1528,9 +1531,9 @@ pgsm_delete_entry(uint64 queryid)
 	entry = (pgsmEntry *) llast(lentries);
 	if (entry->key.queryid == queryid)
 	{
-		pfree(entry->query_text.query_pointer);
-		entry->query_text.query_pointer = NULL;
 		lentries = list_delete_last(lentries);
+		pfree(entry->query_text.query_pointer);
+		pfree(entry);
 		return;
 	}
 
@@ -1545,9 +1548,9 @@ pgsm_delete_entry(uint64 queryid)
 		entry = lfirst(lc);
 		if (entry->key.queryid == queryid)
 		{
-			pfree(entry->query_text.query_pointer);
-			entry->query_text.query_pointer = NULL;
 			lentries = list_delete_cell(lentries, lc);
+			pfree(entry->query_text.query_pointer);
+			pfree(entry);
 			return;
 		}
 	}
