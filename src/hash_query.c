@@ -213,7 +213,7 @@ hash_entry_alloc(pgsmSharedState *pgsm, const pgsmHashKey *key)
 		/* New entry, initialize it */
 		/* reset the statistics */
 		memset(&entry->counters, 0, sizeof(Counters));
-		entry->query_text.query_pos = InvalidDsaPointer;
+		entry->query = InvalidDsaPointer;
 		entry->counters.info.parent_query = InvalidDsaPointer;
 		entry->stats_since = GetCurrentTimestamp();
 		entry->minmax_stats_since = entry->stats_since;
@@ -250,7 +250,7 @@ hash_entry_dealloc(int bucket_id)
 		if (bucket_id == INVALID_BUCKET_ID || entry->key.bucket_id == bucket_id)
 		{
 			dsa_pointer parent_qdsa = entry->counters.info.parent_query;
-			dsa_pointer pdsa = entry->query_text.query_pos;
+			dsa_pointer pdsa = entry->query;
 
 			hash_search(pgsmStateLocal.shared_hash, &entry->key, HASH_REMOVE, NULL);
 
