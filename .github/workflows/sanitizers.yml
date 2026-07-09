@@ -30,7 +30,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: src
-          submodules: recursive
 
       - name: Clone postgres repository
         uses: actions/checkout@v7
