@@ -2074,22 +2074,20 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		uint32		ip = entry->key.ip;
 		int64		planid = entry->key.planid;
 		int64		pgsm_query_id = entry->pgsm_query_id;
-		dsa_area   *query_dsa_area;
-		char	   *query_ptr;
-		char	   *query_txt;
-		char	   *parent_query_txt = NULL;
+		char	   *query_text;
+		char	   *parent_query_text = NULL;
 		bool		toplevel = entry->key.toplevel;
 
 		/* Load the query text from dsa area */
 		if (DsaPointerIsValid(entry->query_text.query_pos))
 		{
+			dsa_area   *query_dsa_area;
+
 			query_dsa_area = get_dsa_area_for_query_text();
-			query_ptr = dsa_get_address(query_dsa_area, entry->query_text.query_pos);
-			query_txt = pstrdup(query_ptr);
+			query_text = dsa_get_address(query_dsa_area, entry->query_text.query_pos);
 		}
 		else
-			query_txt = pstrdup("Query string not available");	/* Should never happen.
-																 * Just a safety check */
+			query_text = "Query string not available";	/* Should never happen */
 
 		/* copy counters to a local variable to keep locking time short */
 		SpinLockAcquire(&entry->mutex);
@@ -2112,12 +2110,13 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		{
 			if (DsaPointerIsValid(tmp.info.parent_query))
 			{
+				dsa_area   *query_dsa_area;
+
 				query_dsa_area = get_dsa_area_for_query_text();
-				query_ptr = dsa_get_address(query_dsa_area, tmp.info.parent_query);
-				parent_query_txt = pstrdup(query_ptr);
+				parent_query_text = dsa_get_address(query_dsa_area, tmp.info.parent_query);
 			}
 			else
-				parent_query_txt = pstrdup("parent query text not available");
+				parent_query_text = "parent query text not available";
 		}
 
 		/* bucketid at column number 0 */
@@ -2158,7 +2157,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			if (showtext)
 			{
 				/* query at column number 8 */
-				values[i++] = CStringGetTextDatum(query_txt);
+				values[i++] = CStringGetTextDatum(query_text);
 				/* plan at column number 9 */
 				if (planid && tmp.planinfo.plan_text[0])
 					values[i++] = CStringGetTextDatum(tmp.planinfo.plan_text);
@@ -2190,7 +2189,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		if (tmpkey.parentid != INT64CONST(0))
 		{
 			values[i++] = Int64GetDatum(tmpkey.parentid);
-			values[i++] = CStringGetTextDatum(parent_query_txt);
+			values[i++] = CStringGetTextDatum(parent_query_text);
 		}
 		else
 		{
@@ -2410,11 +2409,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 		/* clean up and return the tuplestore */
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
-
-		if (query_txt)
-			pfree(query_txt);
-		if (parent_query_txt)
-			pfree(parent_query_txt);
 	}
 	/* clean up and return the tuplestore */
 	pgsm_lock_release(pgsm);
