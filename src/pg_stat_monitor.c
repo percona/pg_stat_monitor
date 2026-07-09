@@ -88,13 +88,6 @@ typedef enum pgsmVersion
 	PGSM_V2_3,
 } pgsmVersion;
 
-typedef enum pgsmStoreKind
-{
-	PGSM_PLAN,
-	PGSM_EXEC,
-	PGSM_STORE,
-} pgsmStoreKind;
-
 /*---- Initialization Function Declarations ----*/
 void		_PG_init(void);
 
@@ -242,8 +235,6 @@ static MemoryContextCallback mem_cxt_reset_callback =
 static bool callback_setup = false;
 
 static void pgsm_update_counters(Counters *counters,
-								 int64 parentid,
-								 const char *comments,
 								 const PlanInfo *plan_info,
 								 const SysInfo *sys_info,
 								 const ErrorInfo *error_info,
@@ -254,8 +245,9 @@ static void pgsm_update_counters(Counters *counters,
 								 const WalUsage *walusage,
 								 const struct JitInstrumentation *jitusage,
 								 int parallel_workers_to_launch,
-								 int parallel_workers_launched,
-								 pgsmStoreKind kind);
+								 int parallel_workers_launched);
+static void pgsm_merge_counters(Counters *dst, const Counters *src,
+								const char *comments, int64 parentid);
 static void pgsm_store(pgsmQueryStats *stats);
 
 static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
@@ -739,8 +731,6 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		stats->counters.info.cmd_type = queryDesc->operation;
 
 		pgsm_update_counters(&stats->counters,	/* counters */
-							 stats->key.parentid,	/* parentid */
-							 NULL,	/* comments */
 							 plan_ptr,	/* PlanInfo */
 							 &sys_info, /* SysInfo */
 							 NULL,	/* ErrorInfo */
@@ -756,12 +746,12 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 #endif
 #if PG_VERSION_NUM >= 180000
 							 queryDesc->estate->es_parallel_workers_to_launch,	/* parallel_workers_to_launch */
-							 queryDesc->estate->es_parallel_workers_launched,	/* parallel_workers_launched */
+							 queryDesc->estate->es_parallel_workers_launched);	/* parallel_workers_launched */
 #else
 							 0, /* parallel_workers_to_launch */
-							 0, /* parallel_workers_launched */
+							 0);	/* parallel_workers_launched */
 #endif
-							 PGSM_EXEC);	/* kind */
+
 
 		pgsm_store(stats);
 	}
@@ -933,8 +923,6 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		/* The plan details are captured when the query finishes */
 		if (stats)
 			pgsm_update_counters(&stats->counters,	/* counters */
-								 stats->key.parentid,	/* parentid */
-								 NULL,	/* comments */
 								 NULL,	/* PlanInfo */
 								 NULL,	/* SysInfo */
 								 NULL,	/* ErrorInfo */
@@ -945,8 +933,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 								 &walusage, /* walusage */
 								 NULL,	/* jitusage */
 								 0, /* parallel_workers_to_launch */
-								 0, /* parallel_workers_launched */
-								 PGSM_PLAN);	/* kind */
+								 0);	/* parallel_workers_launched */
 	}
 	else
 	{
@@ -1119,8 +1106,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		/* The plan details are captured when the query finishes */
 		pgsm_update_counters(&stats->counters,	/* counters */
-							 stats->key.parentid,	/* parentid */
-							 NULL,	/* comments */
 							 NULL,	/* PlanInfo */
 							 &sys_info, /* SysInfo */
 							 NULL,	/* ErrorInfo */
@@ -1131,8 +1116,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 							 &walusage, /* walusage */
 							 NULL,	/* jitusage */
 							 0, /* parallel_workers_to_launch */
-							 0, /* parallel_workers_launched */
-							 PGSM_EXEC);	/* kind */
+							 0);	/* parallel_workers_launched */
 
 		pgsm_store(stats);
 
@@ -1250,8 +1234,6 @@ pg_get_client_addr(void)
 
 static void
 pgsm_update_counters(Counters *counters,
-					 int64 parentid,
-					 const char *comments,
 					 const PlanInfo *plan_info,
 					 const SysInfo *sys_info,
 					 const ErrorInfo *error_info,
@@ -1262,125 +1244,20 @@ pgsm_update_counters(Counters *counters,
 					 const WalUsage *walusage,
 					 const struct JitInstrumentation *jitusage,
 					 int parallel_workers_to_launch,
-					 int parallel_workers_launched,
-					 pgsmStoreKind kind)
+					 int parallel_workers_launched)
 {
-	if (kind == PGSM_PLAN || kind == PGSM_STORE)
-	{
-		counters->plancalls.calls += 1;
-		counters->plantime.total_time += plan_total_time;
-
-		if (counters->plancalls.calls == 1)
-		{
-			counters->plantime.min_time = plan_total_time;
-			counters->plantime.max_time = plan_total_time;
-			counters->plantime.mean_time = plan_total_time;
-		}
-		else
-		{
-			double		old_mean = counters->plantime.mean_time;
-
-			/* Increment the counts, except when jstate is not NULL */
-			counters->plantime.mean_time += (plan_total_time - old_mean) / counters->plancalls.calls;
-			counters->plantime.sum_var_time += (plan_total_time - old_mean) * (plan_total_time - counters->plantime.mean_time);
-
-			/* calculate min and max time */
-			if (counters->plantime.min_time > plan_total_time)
-				counters->plantime.min_time = plan_total_time;
-
-			if (counters->plantime.max_time < plan_total_time)
-				counters->plantime.max_time = plan_total_time;
-		}
-	}
-
-	if (kind == PGSM_EXEC || kind == PGSM_STORE)
-	{
-		int			index;
-
-		counters->calls.calls += 1;
-		counters->time.total_time += exec_total_time;
-
-		if (counters->calls.calls == 1)
-		{
-			counters->time.min_time = exec_total_time;
-			counters->time.max_time = exec_total_time;
-			counters->time.mean_time = exec_total_time;
-		}
-		else
-		{
-			double		old_mean = counters->time.mean_time;
-
-			/* Increment the counts, except when jstate is not NULL */
-			counters->time.mean_time += (exec_total_time - old_mean) / counters->calls.calls;
-			counters->time.sum_var_time += (exec_total_time - old_mean) * (exec_total_time - counters->time.mean_time);
-
-			/* calculate min and max time */
-			if (counters->time.min_time > exec_total_time)
-				counters->time.min_time = exec_total_time;
-
-			if (counters->time.max_time < exec_total_time)
-				counters->time.max_time = exec_total_time;
-		}
-
-		index = get_histogram_bucket(exec_total_time);
-		counters->resp_calls[index]++;
-	}
+	/*
+	 * Only the update totals here, min/max/mean will be computed in
+	 * pgsm_merge_counters.
+	 */
+	counters->plantime.total_time += plan_total_time;
+	counters->time.total_time += exec_total_time;
 
 	if (plan_info && !counters->planinfo.plan_text[0])
 	{
 		counters->planinfo.planid = plan_info->planid;
 		counters->planinfo.plan_len = plan_info->plan_len;
 		strlcpy(counters->planinfo.plan_text, plan_info->plan_text, PLAN_TEXT_LEN);
-	}
-
-	/* Only should process this once when storing the data */
-	if (kind == PGSM_STORE)
-	{
-		if (pgsm_extract_comments && comments && comments[0] && !counters->info.comments[0])
-			strlcpy(counters->info.comments, comments, COMMENTS_LEN);
-
-		if (pgsm_track_application_names && app_name[0] != '\0' && !counters->info.application_name[0])
-			strlcpy(counters->info.application_name, app_name, APPLICATIONNAME_LEN);
-
-		counters->info.num_relations = num_relations;
-		for (int i = 0; i < num_relations; i++)
-			strlcpy(counters->info.relations[i], relations[i], REL_LEN);
-
-		if (nesting_level > 0 && nesting_level < max_nesting_level && parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
-		{
-			if (!DsaPointerIsValid(counters->info.parent_query))
-			{
-				int			parent_query_len = nested_query_txts[nesting_level - 1] ?
-					strlen(nested_query_txts[nesting_level - 1]) : 0;
-
-				/* If we have a parent query, store it in the raw dsa area */
-				if (parent_query_len > 0)
-				{
-					dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
-
-					/*
-					 * Use dsa_allocate_extended with DSA_ALLOC_NO_OOM flag,
-					 * as we don't want to get an error if memory allocation
-					 * fails.
-					 */
-					dsa_pointer qry = dsa_allocate_extended(query_dsa_area, parent_query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
-
-					if (DsaPointerIsValid(qry))
-					{
-						char	   *qry_buff = dsa_get_address(query_dsa_area, qry);
-
-						memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
-						qry_buff[parent_query_len] = 0;
-						/* store the dsa pointer for parent query text */
-						counters->info.parent_query = qry;
-					}
-				}
-			}
-		}
-		else
-		{
-			Assert(!DsaPointerIsValid(counters->info.parent_query));
-		}
 	}
 
 	if (error_info)
@@ -1418,21 +1295,6 @@ pgsm_update_counters(Counters *counters,
 #if PG_VERSION_NUM >= 150000
 		counters->blocks.temp_blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
 		counters->blocks.temp_blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_write_time);
-#endif
-
-#if PG_VERSION_NUM >= 170000
-		counters->blocks.instr_shared_blk_read_time = bufusage->shared_blk_read_time;
-		counters->blocks.instr_shared_blk_write_time = bufusage->shared_blk_write_time;
-		counters->blocks.instr_local_blk_read_time = bufusage->local_blk_read_time;
-		counters->blocks.instr_local_blk_write_time = bufusage->local_blk_write_time;
-#else
-		counters->blocks.instr_shared_blk_read_time = bufusage->blk_read_time;
-		counters->blocks.instr_shared_blk_write_time = bufusage->blk_write_time;
-#endif
-
-#if PG_VERSION_NUM >= 150000
-		counters->blocks.instr_temp_blk_read_time = bufusage->temp_blk_read_time;
-		counters->blocks.instr_temp_blk_write_time = bufusage->temp_blk_write_time;
 #endif
 	}
 
@@ -1472,24 +1334,171 @@ pgsm_update_counters(Counters *counters,
 			counters->jitinfo.jit_deform_count++;
 		counters->jitinfo.jit_deform_time += INSTR_TIME_GET_MILLISEC(jitusage->deform_counter);
 #endif
-
-		/* Only do this for local storage scenarios */
-		if (kind != PGSM_STORE)
-		{
-			counters->jitinfo.instr_generation_counter = jitusage->generation_counter;
-			counters->jitinfo.instr_inlining_counter = jitusage->inlining_counter;
-			counters->jitinfo.instr_optimization_counter = jitusage->optimization_counter;
-			counters->jitinfo.instr_emission_counter = jitusage->emission_counter;
-
-#if PG_VERSION_NUM >= 170000
-			counters->jitinfo.instr_deform_counter = jitusage->deform_counter;
-#endif
-		}
 	}
 
 	/* parallel worker counters */
 	counters->parallel_workers_to_launch += parallel_workers_to_launch;
 	counters->parallel_workers_launched += parallel_workers_launched;
+}
+
+/*
+ * Merges source counters into destination counters.
+ */
+static void
+pgsm_merge_counters(Counters *dst, const Counters *src,
+					const char *comments, int64 parentid)
+{
+	int			index;
+
+	/* plan stats: fold src as a single sample */
+	dst->plancalls.calls += 1;
+	dst->plantime.total_time += src->plantime.total_time;
+	if (dst->plancalls.calls == 1)
+	{
+		dst->plantime.min_time = src->plantime.total_time;
+		dst->plantime.max_time = src->plantime.total_time;
+		dst->plantime.mean_time = src->plantime.total_time;
+	}
+	else
+	{
+		double		old_mean = dst->plantime.mean_time;
+
+		dst->plantime.mean_time += (src->plantime.total_time - old_mean) / dst->plancalls.calls;
+		dst->plantime.sum_var_time += (src->plantime.total_time - old_mean) * (src->plantime.total_time - dst->plantime.mean_time);
+
+		if (dst->plantime.min_time > src->plantime.total_time)
+			dst->plantime.min_time = src->plantime.total_time;
+		if (dst->plantime.max_time < src->plantime.total_time)
+			dst->plantime.max_time = src->plantime.total_time;
+	}
+
+	/* exec stats: fold src as a single sample */
+	dst->calls.calls += 1;
+	dst->time.total_time += src->time.total_time;
+	if (dst->calls.calls == 1)
+	{
+		dst->time.min_time = src->time.total_time;
+		dst->time.max_time = src->time.total_time;
+		dst->time.mean_time = src->time.total_time;
+	}
+	else
+	{
+		double		old_mean = dst->time.mean_time;
+
+		dst->time.mean_time += (src->time.total_time - old_mean) / dst->calls.calls;
+		dst->time.sum_var_time += (src->time.total_time - old_mean) * (src->time.total_time - dst->time.mean_time);
+
+		if (dst->time.min_time > src->time.total_time)
+			dst->time.min_time = src->time.total_time;
+		if (dst->time.max_time < src->time.total_time)
+			dst->time.max_time = src->time.total_time;
+	}
+
+	index = get_histogram_bucket(src->time.total_time);
+	dst->resp_calls[index]++;
+
+	/* copy the plan text once */
+	if (!dst->planinfo.plan_text[0])
+	{
+		dst->planinfo.planid = src->planinfo.planid;
+		dst->planinfo.plan_len = src->planinfo.plan_len;
+		strlcpy(dst->planinfo.plan_text, src->planinfo.plan_text, PLAN_TEXT_LEN);
+	}
+
+	/* copy the query metadata once */
+	if (pgsm_extract_comments && comments && comments[0] && !dst->info.comments[0])
+		strlcpy(dst->info.comments, comments, COMMENTS_LEN);
+
+	if (pgsm_track_application_names && app_name[0] != '\0' && !dst->info.application_name[0])
+		strlcpy(dst->info.application_name, app_name, APPLICATIONNAME_LEN);
+
+	dst->info.num_relations = num_relations;
+	for (int i = 0; i < num_relations; i++)
+		strlcpy(dst->info.relations[i], relations[i], REL_LEN);
+
+	if (nesting_level > 0 && nesting_level < max_nesting_level && parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
+	{
+		if (!DsaPointerIsValid(dst->info.parent_query))
+		{
+			int			parent_query_len = nested_query_txts[nesting_level - 1] ?
+				strlen(nested_query_txts[nesting_level - 1]) : 0;
+
+			/* If we have a parent query, store it in the raw dsa area */
+			if (parent_query_len > 0)
+			{
+				dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
+
+				/*
+				 * Use dsa_allocate_extended with DSA_ALLOC_NO_OOM flag, as we
+				 * don't want to get an error if memory allocation fails.
+				 */
+				dsa_pointer qry = dsa_allocate_extended(query_dsa_area, parent_query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
+
+				if (DsaPointerIsValid(qry))
+				{
+					char	   *qry_buff = dsa_get_address(query_dsa_area, qry);
+
+					memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
+					qry_buff[parent_query_len] = 0;
+					/* store the dsa pointer for parent query text */
+					dst->info.parent_query = qry;
+				}
+			}
+		}
+	}
+	else
+	{
+		Assert(!DsaPointerIsValid(dst->info.parent_query));
+	}
+
+	/* error info */
+	dst->error.elevel = src->error.elevel;
+	strlcpy(dst->error.sqlcode, src->error.sqlcode, SQLCODE_LEN);
+	strlcpy(dst->error.message, src->error.message, ERROR_MESSAGE_LEN);
+
+	/* additive counters */
+	dst->calls.rows += src->calls.rows;
+
+	dst->blocks.shared_blks_hit += src->blocks.shared_blks_hit;
+	dst->blocks.shared_blks_read += src->blocks.shared_blks_read;
+	dst->blocks.shared_blks_dirtied += src->blocks.shared_blks_dirtied;
+	dst->blocks.shared_blks_written += src->blocks.shared_blks_written;
+	dst->blocks.local_blks_hit += src->blocks.local_blks_hit;
+	dst->blocks.local_blks_read += src->blocks.local_blks_read;
+	dst->blocks.local_blks_dirtied += src->blocks.local_blks_dirtied;
+	dst->blocks.local_blks_written += src->blocks.local_blks_written;
+	dst->blocks.temp_blks_read += src->blocks.temp_blks_read;
+	dst->blocks.temp_blks_written += src->blocks.temp_blks_written;
+
+	dst->blocks.shared_blk_read_time += src->blocks.shared_blk_read_time;
+	dst->blocks.shared_blk_write_time += src->blocks.shared_blk_write_time;
+	dst->blocks.local_blk_read_time += src->blocks.local_blk_read_time;
+	dst->blocks.local_blk_write_time += src->blocks.local_blk_write_time;
+	dst->blocks.temp_blk_read_time += src->blocks.temp_blk_read_time;
+	dst->blocks.temp_blk_write_time += src->blocks.temp_blk_write_time;
+
+	dst->sysinfo.utime += src->sysinfo.utime;
+	dst->sysinfo.stime += src->sysinfo.stime;
+
+	dst->walusage.wal_records += src->walusage.wal_records;
+	dst->walusage.wal_fpi += src->walusage.wal_fpi;
+	dst->walusage.wal_bytes += src->walusage.wal_bytes;
+	dst->walusage.wal_buffers_full += src->walusage.wal_buffers_full;
+
+	dst->jitinfo.jit_functions += src->jitinfo.jit_functions;
+	dst->jitinfo.jit_generation_time += src->jitinfo.jit_generation_time;
+	dst->jitinfo.jit_inlining_count += src->jitinfo.jit_inlining_count;
+	dst->jitinfo.jit_inlining_time += src->jitinfo.jit_inlining_time;
+	dst->jitinfo.jit_optimization_count += src->jitinfo.jit_optimization_count;
+	dst->jitinfo.jit_optimization_time += src->jitinfo.jit_optimization_time;
+	dst->jitinfo.jit_emission_count += src->jitinfo.jit_emission_count;
+	dst->jitinfo.jit_emission_time += src->jitinfo.jit_emission_time;
+	dst->jitinfo.jit_deform_count += src->jitinfo.jit_deform_count;
+	dst->jitinfo.jit_deform_time += src->jitinfo.jit_deform_time;
+
+	/* parallel worker counters */
+	dst->parallel_workers_to_launch += src->parallel_workers_to_launch;
+	dst->parallel_workers_launched += src->parallel_workers_launched;
 }
 
 static void
@@ -1710,9 +1719,6 @@ pgsm_store(pgsmQueryStats *stats)
 	uint64		bucketid;
 	uint64		prev_bucket_id;
 	char	   *query;
-	BufferUsage bufusage;
-	WalUsage	walusage;
-	JitInstrumentation jitusage;
 	char		comments[COMMENTS_LEN];
 	TimestampTz reset_timestamp;
 
@@ -1732,53 +1738,6 @@ pgsm_store(pgsmQueryStats *stats)
 
 	if (pgsm_extract_comments)
 		extract_query_comments(query, comments, sizeof(comments));
-
-	/* bufusage */
-	bufusage.shared_blks_hit = stats->counters.blocks.shared_blks_hit;
-	bufusage.shared_blks_read = stats->counters.blocks.shared_blks_read;
-	bufusage.shared_blks_dirtied = stats->counters.blocks.shared_blks_dirtied;
-	bufusage.shared_blks_written = stats->counters.blocks.shared_blks_written;
-	bufusage.local_blks_hit = stats->counters.blocks.local_blks_hit;
-	bufusage.local_blks_read = stats->counters.blocks.local_blks_read;
-	bufusage.local_blks_dirtied = stats->counters.blocks.local_blks_dirtied;
-	bufusage.local_blks_written = stats->counters.blocks.local_blks_written;
-	bufusage.temp_blks_read = stats->counters.blocks.temp_blks_read;
-	bufusage.temp_blks_written = stats->counters.blocks.temp_blks_written;
-
-#if PG_VERSION_NUM >= 170000
-	bufusage.shared_blk_read_time = stats->counters.blocks.instr_shared_blk_read_time;
-	bufusage.shared_blk_write_time = stats->counters.blocks.instr_shared_blk_write_time;
-	bufusage.local_blk_read_time = stats->counters.blocks.instr_local_blk_read_time;
-	bufusage.local_blk_write_time = stats->counters.blocks.instr_local_blk_write_time;
-#else
-	bufusage.blk_read_time = stats->counters.blocks.instr_shared_blk_read_time;
-	bufusage.blk_write_time = stats->counters.blocks.instr_shared_blk_write_time;
-#endif
-
-#if PG_VERSION_NUM >= 150000
-	bufusage.temp_blk_read_time = stats->counters.blocks.instr_temp_blk_read_time;
-	bufusage.temp_blk_write_time = stats->counters.blocks.instr_temp_blk_write_time;
-#endif
-
-	/* walusage */
-	walusage.wal_records = stats->counters.walusage.wal_records;
-	walusage.wal_fpi = stats->counters.walusage.wal_fpi;
-	walusage.wal_bytes = stats->counters.walusage.wal_bytes;
-
-#if PG_VERSION_NUM >= 180000
-	walusage.wal_buffers_full = stats->counters.walusage.wal_buffers_full;
-#endif
-
-	/* jit */
-	jitusage.created_functions = stats->counters.jitinfo.jit_functions;
-	jitusage.generation_counter = stats->counters.jitinfo.instr_generation_counter;
-	jitusage.inlining_counter = stats->counters.jitinfo.instr_inlining_counter;
-	jitusage.optimization_counter = stats->counters.jitinfo.instr_optimization_counter;
-	jitusage.emission_counter = stats->counters.jitinfo.instr_emission_counter;
-
-#if PG_VERSION_NUM >= 170000
-	jitusage.deform_counter = stats->counters.jitinfo.instr_deform_counter;
-#endif
 
 	/* Update parent id if needed */
 	if (pgsm_track == PGSM_TRACK_ALL && nesting_level > 0 && nesting_level < max_nesting_level)
@@ -1893,21 +1852,9 @@ pgsm_store(pgsmQueryStats *stats)
 		entry->minmax_stats_since = reset_timestamp;
 	}
 
-	pgsm_update_counters(&entry->counters,	/* counters */
-						 entry->key.parentid,	/* parentid */
-						 pgsm_extract_comments ? comments : NULL,	/* comments */
-						 &stats->counters.planinfo, /* PlanInfo */
-						 &stats->counters.sysinfo,	/* SysInfo */
-						 &stats->counters.error,	/* ErrorInfo */
-						 stats->counters.plantime.total_time,	/* plan_total_time */
-						 stats->counters.time.total_time,	/* exec_total_time */
-						 stats->counters.calls.rows,	/* rows */
-						 &bufusage, /* bufusage */
-						 &walusage, /* walusage */
-						 &jitusage, /* jitusage */
-						 stats->counters.parallel_workers_to_launch,	/* parallel_workers_to_launch */
-						 stats->counters.parallel_workers_launched, /* parallel_workers_launched */
-						 PGSM_STORE);
+	pgsm_merge_counters(&entry->counters, &stats->counters,
+						pgsm_extract_comments ? comments : NULL,
+						entry->key.parentid);
 
 	SpinLockRelease(&entry->mutex);
 
