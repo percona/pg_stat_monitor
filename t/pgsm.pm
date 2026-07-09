@@ -126,7 +126,7 @@ sub setup_files_dir
 		BAIL_OUT "Expected files folder $expected_folder doesn't exist: \n";
 	}
 
-	#Remove .pl from filename and store in a variable
+	# Remove .pl from filename and store in a variable
 	my @split_arr = split /\./, $perlfilename;
 
 	my $filename_without_extension = $split_arr[0];
