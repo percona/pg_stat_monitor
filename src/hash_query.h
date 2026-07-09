@@ -119,8 +119,8 @@ typedef struct Blocks
 										 * msec */
 
 	/*
-	 * Variables for local entry. The values to be passed to pgsm_update_entry
-	 * from pgsm_store.
+	 * Variables for local entry. The values to be passed to
+	 * pgsm_update_counters from pgsm_store.
 	 */
 	instr_time	instr_shared_blk_read_time; /* time spent reading shared
 											 * blocks */
@@ -150,8 +150,8 @@ typedef struct JitInfo
 	double		jit_emission_time;	/* total time to emit jit code */
 
 	/*
-	 * Variables for local entry. The values to be passed to pgsm_update_entry
-	 * from pgsm_store.
+	 * Variables for local entry. The values to be passed to
+	 * pgsm_update_counters from pgsm_store.
 	 */
 	instr_time	instr_generation_counter;	/* generation counter */
 	instr_time	instr_inlining_counter; /* inlining counter */
@@ -204,18 +204,14 @@ typedef struct Counters
 typedef struct pgsmEntry
 {
 	pgsmHashKey key;			/* hash key of entry - MUST BE FIRST */
-	int64		pgsm_query_id;	/* pgsm generate normalized query hash */
+	int64		pgsm_query_id;	/* pgsm generated normalized query hash */
 	char		datname[NAMEDATALEN];	/* database name */
 	char		username[NAMEDATALEN];	/* user name */
 	Counters	counters;		/* the statistics for this query */
 	TimestampTz stats_since;	/* timestamp of entry allocation */
 	TimestampTz minmax_stats_since; /* timestamp of last min/max values reset */
 	slock_t		mutex;			/* protects the counters only */
-	union
-	{
-		dsa_pointer query_pos;	/* query location within query buffer */
-		char	   *query_pointer;
-	}			query_text;
+	dsa_pointer query;			/* query text location within query buffer */
 } pgsmEntry;
 
 /*
