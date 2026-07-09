@@ -3,7 +3,6 @@
 use strict;
 use warnings;
 use File::Basename;
-use File::Compare;
 use Test::More;
 use lib 't';
 use pgsm;
