@@ -18,7 +18,14 @@
 #include <storage/shmem.h>
 #include <utils/memutils.h>
 
+#include "guc.h"
 #include "hash_query.h"
+
+#define MAX_QUERY_BUF			((int64) pgsm_query_shared_buffer * 1024 * 1024)
+#define MAX_BUCKETS_MEM 		((int64) pgsm_max * 1024 * 1024)
+#define MAX_BUCKET_ENTRIES 		(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
+#define PGSM_BUCKET_INFO_SIZE	(sizeof(TimestampTz) * pgsm_max_buckets)
+#define PGSM_SHARED_STATE_SIZE	(sizeof(pgsmSharedState) + PGSM_BUCKET_INFO_SIZE)
 
 typedef struct pgsmLocalState
 {
@@ -33,9 +40,6 @@ static pgsmLocalState pgsmStateLocal;
 static void pgsm_attach_shmem(void);
 static HTAB *pgsm_create_bucket_hash(void);
 static Size pgsm_get_shared_area_size(void);
-
-#define PGSM_BUCKET_INFO_SIZE	(sizeof(TimestampTz) * pgsm_max_buckets)
-#define PGSM_SHARED_STATE_SIZE	(sizeof(pgsmSharedState) + PGSM_BUCKET_INFO_SIZE)
 
 /*
  * Returns the shared memory area size for storing the query texts
