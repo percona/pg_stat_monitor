@@ -1477,12 +1477,7 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 {
 	pgsmEntry  *entry;
 	int64		queryid;
-	int			len;
-
-	if (!query || query[0] == '\0')
-		return;
-
-	len = strlen(query);
+	int			len = strlen(query);
 
 	queryid = pgsm_hash_string(query, len);
 
@@ -2964,8 +2959,8 @@ pgsm_emit_log_hook(ErrorData *edata)
 	if (MyProc == NULL)
 		goto exit;
 
-	if (edata->elevel >= WARNING && !disable_error_capture && !IsSystemOOM())
-		pgsm_store_error(debug_query_string ? debug_query_string : "", edata);
+	if (edata->elevel >= WARNING && debug_query_string && !disable_error_capture && !IsSystemOOM())
+		pgsm_store_error(debug_query_string, edata);
 
 	/* We need to make sure we re-enable error capture if query was aborted */
 	if (edata->elevel >= ERROR)
