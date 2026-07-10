@@ -20,8 +20,6 @@ SELECT query, top_query FROM pg_stat_monitor ORDER BY query COLLATE "C";
 
 -- make sure that we handle nested queries correctly
 
-BEGIN;
-
 DO $$
 DECLARE
     i int;
@@ -32,8 +30,6 @@ BEGIN
     END LOOP;
 END
 $$;
-
-COMMIT;
 
 SELECT pg_stat_monitor_reset();
 DROP EXTENSION pg_stat_monitor;
