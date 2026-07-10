@@ -3,12 +3,14 @@
 
 CREATE OR REPLACE FUNCTION decode_error_level(elevel int)
 RETURNS text
+STRICT
 PARALLEL SAFE
 LANGUAGE c
 AS 'MODULE_PATHNAME', 'pg_stat_monitor_decode_error_level';
 
 CREATE OR REPLACE FUNCTION get_cmd_type(cmd_type int)
 RETURNS text
+STRICT
 PARALLEL SAFE
 LANGUAGE c
 AS 'MODULE_PATHNAME', 'pg_stat_monitor_get_cmd_type';
