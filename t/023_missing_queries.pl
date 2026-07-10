@@ -34,6 +34,7 @@ use strict;
 use warnings;
 use File::Basename;
 use Test::More;
+use Text::Trim qw(trim);
 use lib 't';
 use pgsm;
 
@@ -78,8 +79,6 @@ is($cmdret, 0, "3 - SELECT pg_sleep(5)");
 	'SELECT bucket, queryid, calls, query FROM pg_stat_monitor;',
 	extra_params => [ '-a', '-Pformat=aligned' ]);
 is($cmdret, 0, "Query pg_stat_monitor view");
-
-sub trim { my $s = shift; $s =~ s/^\s+|\s+$//g; return $s }
 
 my $last_bucket = "";
 my $bucket_cnt = 0;
