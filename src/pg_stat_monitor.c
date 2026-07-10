@@ -246,8 +246,7 @@ static void pgsm_update_counters(Counters *counters,
 								 const struct JitInstrumentation *jitusage,
 								 int parallel_workers_to_launch,
 								 int parallel_workers_launched);
-static void pgsm_merge_counters(Counters *dst, const Counters *src,
-								const char *comments, int64 parentid);
+static void pgsm_merge_counters(Counters *dst, const Counters *src);
 static void pgsm_store(pgsmQueryStats *stats);
 
 static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
@@ -1345,8 +1344,7 @@ pgsm_update_counters(Counters *counters,
  * Merges source counters into destination counters.
  */
 static void
-pgsm_merge_counters(Counters *dst, const Counters *src,
-					const char *comments, int64 parentid)
+pgsm_merge_counters(Counters *dst, const Counters *src)
 {
 	int			index;
 
@@ -1403,52 +1401,6 @@ pgsm_merge_counters(Counters *dst, const Counters *src,
 		dst->planinfo.planid = src->planinfo.planid;
 		dst->planinfo.plan_len = src->planinfo.plan_len;
 		strlcpy(dst->planinfo.plan_text, src->planinfo.plan_text, PLAN_TEXT_LEN);
-	}
-
-	/* copy the query metadata once */
-	if (pgsm_extract_comments && comments && comments[0] && !dst->info.comments[0])
-		strlcpy(dst->info.comments, comments, COMMENTS_LEN);
-
-	if (pgsm_track_application_names && app_name[0] != '\0' && !dst->info.application_name[0])
-		strlcpy(dst->info.application_name, app_name, APPLICATIONNAME_LEN);
-
-	dst->info.num_relations = num_relations;
-	for (int i = 0; i < num_relations; i++)
-		strlcpy(dst->info.relations[i], relations[i], REL_LEN);
-
-	if (nesting_level > 0 && nesting_level < max_nesting_level && parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
-	{
-		if (!DsaPointerIsValid(dst->info.parent_query))
-		{
-			int			parent_query_len = nested_query_txts[nesting_level - 1] ?
-				strlen(nested_query_txts[nesting_level - 1]) : 0;
-
-			/* If we have a parent query, store it in the raw dsa area */
-			if (parent_query_len > 0)
-			{
-				dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
-
-				/*
-				 * Use dsa_allocate_extended with DSA_ALLOC_NO_OOM flag, as we
-				 * don't want to get an error if memory allocation fails.
-				 */
-				dsa_pointer qry = dsa_allocate_extended(query_dsa_area, parent_query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
-
-				if (DsaPointerIsValid(qry))
-				{
-					char	   *qry_buff = dsa_get_address(query_dsa_area, qry);
-
-					memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
-					qry_buff[parent_query_len] = 0;
-					/* store the dsa pointer for parent query text */
-					dst->info.parent_query = qry;
-				}
-			}
-		}
-	}
-	else
-	{
-		Assert(!DsaPointerIsValid(dst->info.parent_query));
 	}
 
 	/* error info */
@@ -1852,9 +1804,53 @@ pgsm_store(pgsmQueryStats *stats)
 		entry->minmax_stats_since = reset_timestamp;
 	}
 
-	pgsm_merge_counters(&entry->counters, &stats->counters,
-						pgsm_extract_comments ? comments : NULL,
-						entry->key.parentid);
+	pgsm_merge_counters(&entry->counters, &stats->counters);
+
+	/* copy the query metadata once */
+	if (pgsm_extract_comments && comments[0] && !entry->counters.info.comments[0])
+		strlcpy(entry->counters.info.comments, comments, COMMENTS_LEN);
+
+	if (pgsm_track_application_names && app_name[0] != '\0' && !entry->counters.info.application_name[0])
+		strlcpy(entry->counters.info.application_name, app_name, APPLICATIONNAME_LEN);
+
+	entry->counters.info.num_relations = num_relations;
+	for (int i = 0; i < num_relations; i++)
+		strlcpy(entry->counters.info.relations[i], relations[i], REL_LEN);
+
+	if (nesting_level > 0 && nesting_level < max_nesting_level && entry->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
+	{
+		if (!DsaPointerIsValid(entry->counters.info.parent_query))
+		{
+			int			parent_query_len = nested_query_txts[nesting_level - 1] ?
+				strlen(nested_query_txts[nesting_level - 1]) : 0;
+
+			/* If we have a parent query, store it in the raw dsa area */
+			if (parent_query_len > 0)
+			{
+				dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
+
+				/*
+				 * Use dsa_allocate_extended with DSA_ALLOC_NO_OOM flag, as we
+				 * don't want to get an error if memory allocation fails.
+				 */
+				dsa_pointer qry = dsa_allocate_extended(query_dsa_area, parent_query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
+
+				if (DsaPointerIsValid(qry))
+				{
+					char	   *qry_buff = dsa_get_address(query_dsa_area, qry);
+
+					memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
+					qry_buff[parent_query_len] = 0;
+					/* store the dsa pointer for parent query text */
+					entry->counters.info.parent_query = qry;
+				}
+			}
+		}
+	}
+	else
+	{
+		Assert(!DsaPointerIsValid(entry->counters.info.parent_query));
+	}
 
 	SpinLockRelease(&entry->mutex);
 
