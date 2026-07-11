@@ -246,7 +246,7 @@ static void pgsm_update_counters(Counters *counters,
 								 int parallel_workers_to_launch,
 								 int parallel_workers_launched);
 static void pgsm_merge_counters(Counters *dst, const Counters *src);
-static void pgsm_store(pgsmQueryStats *stats);
+static void pgsm_store(const pgsmQueryStats *stats);
 
 static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 									 pgsmVersion api_version,
@@ -751,6 +751,8 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 
 
 		pgsm_store(stats);
+
+		memset(&stats->counters, 0, sizeof(stats->counters));
 	}
 
 	if (prev_ExecutorEnd)
@@ -1651,13 +1653,14 @@ pgsm_cleanup_callback(void *arg)
  * query string.  total_time, rows, bufusage are ignored in this case.
  */
 static void
-pgsm_store(pgsmQueryStats *stats)
+pgsm_store(const pgsmQueryStats *stats)
 {
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
 	bool		found;
 	uint64		bucketid;
 	uint64		prev_bucket_id;
+	pgsmHashKey key = stats->key;
 	char	   *query;
 	char		comments[COMMENTS_LEN];
 	TimestampTz reset_timestamp;
@@ -1671,7 +1674,7 @@ pgsm_store(pgsmQueryStats *stats)
 	prev_bucket_id = pg_atomic_read_u64(&pgsm->current_wbucket);
 	bucketid = get_next_wbucket(pgsm);
 
-	stats->key.bucket_id = bucketid;
+	key.bucket_id = bucketid;
 	query = stats->query;
 
 	/* Let's do all the leg work here before we acquire any locks */
@@ -1682,11 +1685,11 @@ pgsm_store(pgsmQueryStats *stats)
 	/* Update parent id if needed */
 	if (pgsm_track == PGSM_TRACK_ALL && nesting_level > 0 && nesting_level < max_nesting_level)
 	{
-		stats->key.parentid = nested_queryids[nesting_level - 1];
+		key.parentid = nested_queryids[nesting_level - 1];
 	}
 	else
 	{
-		stats->key.parentid = INT64CONST(0);
+		key.parentid = INT64CONST(0);
 	}
 
 	/*
@@ -1694,7 +1697,7 @@ pgsm_store(pgsmQueryStats *stats)
 	 * we need to create the entry.
 	 */
 	pgsm_lock_aquire(pgsm, LW_SHARED);
-	entry = (pgsmEntry *) hash_search(get_pgsmHash(), &stats->key, HASH_FIND, &found);
+	entry = (pgsmEntry *) hash_search(get_pgsmHash(), &key, HASH_FIND, &found);
 
 	if (!entry)
 	{
@@ -1727,7 +1730,7 @@ pgsm_store(pgsmQueryStats *stats)
 		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
 
 		/* OK to create a new hashtable entry */
-		entry = hash_entry_alloc(pgsm, &stats->key);
+		entry = hash_entry_alloc(pgsm, &key);
 
 		if (entry == NULL)
 		{
@@ -1805,7 +1808,7 @@ pgsm_store(pgsmQueryStats *stats)
 	for (int i = 0; i < num_relations; i++)
 		strlcpy(entry->counters.info.relations[i], relations[i], REL_LEN);
 
-	if (nesting_level > 0 && nesting_level < max_nesting_level && entry->key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
+	if (nesting_level > 0 && nesting_level < max_nesting_level && key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
 	{
 		if (!DsaPointerIsValid(entry->counters.info.parent_query))
 		{
@@ -1843,8 +1846,6 @@ pgsm_store(pgsmQueryStats *stats)
 	SpinLockRelease(&entry->mutex);
 
 	pgsm_lock_release(pgsm);
-
-	memset(&stats->counters, 0, sizeof(stats->counters));
 }
 
 /*
