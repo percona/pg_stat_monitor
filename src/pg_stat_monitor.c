@@ -1721,7 +1721,7 @@ pgsm_store(pgsmQueryStats *stats)
 
 		/* Save the query text in raw dsa area */
 		query_dsa_area = get_dsa_area_for_query_text();
-		dsa_query_pointer = dsa_allocate_extended(query_dsa_area, query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
+		dsa_query_pointer = dsa_allocate_extended(query_dsa_area, query_len + 1, DSA_ALLOC_NO_OOM);
 		if (!DsaPointerIsValid(dsa_query_pointer))
 		{
 			pgsm_lock_release(pgsm);
@@ -1734,6 +1734,7 @@ pgsm_store(pgsmQueryStats *stats)
 		 */
 		query_buff = dsa_get_address(query_dsa_area, dsa_query_pointer);
 		memcpy(query_buff, query, query_len);
+		query_buff[query_len] = '\0';
 
 		pgsm_lock_release(pgsm);
 		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
@@ -1833,14 +1834,14 @@ pgsm_store(pgsmQueryStats *stats)
 				 * Use dsa_allocate_extended with DSA_ALLOC_NO_OOM flag, as we
 				 * don't want to get an error if memory allocation fails.
 				 */
-				dsa_pointer qry = dsa_allocate_extended(query_dsa_area, parent_query_len + 1, DSA_ALLOC_NO_OOM | DSA_ALLOC_ZERO);
+				dsa_pointer qry = dsa_allocate_extended(query_dsa_area, parent_query_len + 1, DSA_ALLOC_NO_OOM);
 
 				if (DsaPointerIsValid(qry))
 				{
 					char	   *qry_buff = dsa_get_address(query_dsa_area, qry);
 
 					memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
-					qry_buff[parent_query_len] = 0;
+					qry_buff[parent_query_len] = '\0';
 					/* store the dsa pointer for parent query text */
 					entry->counters.info.parent_query = qry;
 				}
