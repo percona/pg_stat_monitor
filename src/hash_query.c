@@ -21,12 +21,6 @@
 #include "guc.h"
 #include "hash_query.h"
 
-#define MAX_QUERY_BUF			((int64) pgsm_query_shared_buffer * 1024 * 1024)
-#define MAX_BUCKETS_MEM 		((int64) pgsm_max * 1024 * 1024)
-#define MAX_BUCKET_ENTRIES 		(MAX_BUCKETS_MEM / sizeof(pgsmEntry))
-#define PGSM_BUCKET_INFO_SIZE	(sizeof(TimestampTz) * pgsm_max_buckets)
-#define PGSM_SHARED_STATE_SIZE	(sizeof(pgsmSharedState) + PGSM_BUCKET_INFO_SIZE)
-
 typedef struct pgsmLocalState
 {
 	pgsmSharedState *shared_pgsmState;
@@ -39,15 +33,50 @@ static pgsmLocalState pgsmStateLocal;
 
 static void pgsm_attach_shmem(void);
 static HTAB *pgsm_create_bucket_hash(void);
-static Size pgsm_get_shared_area_size(void);
 
 /*
- * Returns the shared memory area size for storing the query texts
+ * Size of the shared state struct including the bucket timestamp array
+ */
+static Size
+pgsm_shared_state_size(void)
+{
+	Size		sz = sizeof(pgsmSharedState);
+
+	sz = add_size(sz, sizeof(TimestampTz) * pgsm_max_buckets);
+	return sz;
+}
+
+/*
+ * Shared memory area size for storing the query texts
  */
 static Size
 pgsm_query_area_size(void)
 {
-	return MAXALIGN(MAX_QUERY_BUF);
+	return MAXALIGN((int64) pgsm_query_shared_buffer * 1024 * 1024);
+}
+
+/*
+ * Number of maximum elements in the bucket hash
+ */
+static int64
+pgsm_bucket_hash_max_entries(void)
+{
+	int64		hash_max_mem = (int64) pgsm_max * 1024 * 1024;
+
+	return hash_max_mem / sizeof(pgsmEntry);
+}
+
+/*
+ * Shared memory area size for storing the query texts and pgsm shared state
+ * structure
+ */
+static Size
+pgsm_get_shared_area_size(void)
+{
+	Size		sz = MAXALIGN(pgsm_shared_state_size());
+
+	sz = add_size(sz, pgsm_query_area_size());
+	return sz;
 }
 
 /*
@@ -56,23 +85,9 @@ pgsm_query_area_size(void)
 Size
 pgsm_ShmemSize(void)
 {
-	Size		sz = MAXALIGN(PGSM_SHARED_STATE_SIZE);
+	Size		sz = pgsm_get_shared_area_size();
 
-	sz = add_size(sz, MAX_QUERY_BUF);
-	sz = add_size(sz, hash_estimate_size(MAX_BUCKET_ENTRIES, sizeof(pgsmEntry)));
-	return MAXALIGN(sz);
-}
-
-/*
- * Returns the shared memory area size for storing the query texts and pgsm
- * shared state structure
- */
-static Size
-pgsm_get_shared_area_size(void)
-{
-	Size		sz = MAXALIGN(PGSM_SHARED_STATE_SIZE);
-
-	sz = add_size(sz, pgsm_query_area_size());
+	sz = add_size(sz, hash_estimate_size(pgsm_bucket_hash_max_entries(), sizeof(pgsmEntry)));
 	return sz;
 }
 
@@ -98,7 +113,7 @@ pgsm_startup(void)
 		pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
 
 		/* the allocation of pgsmSharedState itself */
-		p += MAXALIGN(PGSM_SHARED_STATE_SIZE);
+		p += MAXALIGN(pgsm_shared_state_size());
 		pgsm->raw_dsa_area = p;
 		dsa = dsa_create_in_place(pgsm->raw_dsa_area,
 								  pgsm_query_area_size(),
@@ -142,7 +157,9 @@ pgsm_create_bucket_hash(void)
 		.entrysize = sizeof(pgsmEntry),
 	};
 
-	return ShmemInitHash("pg_stat_monitor: bucket hashtable", MAX_BUCKET_ENTRIES, MAX_BUCKET_ENTRIES, &info, HASH_ELEM | HASH_BLOBS);
+	return ShmemInitHash("pg_stat_monitor: bucket hashtable",
+						 pgsm_bucket_hash_max_entries(), pgsm_bucket_hash_max_entries(),
+						 &info, HASH_ELEM | HASH_BLOBS);
 }
 
 /*
