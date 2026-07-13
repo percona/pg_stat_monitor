@@ -68,30 +68,30 @@ PGSM::append_to_file($stdout);
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	"SELECT ${col_total_time} FROM pg_stat_monitor WHERE calls = 2;");
 trim($stdout);
-isnt($stdout, '0', "Compare: ${col_total_time} is not 0).");
+isnt($stdout, '0', "Compare: ${col_total_time} is not 0.");
 
 # Test: ${col_min_time} is not 0
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	"SELECT ${col_min_time} FROM pg_stat_monitor WHERE calls = 2;");
 trim($stdout);
-isnt($stdout, '0', "Compare: ${col_min_time} is not 0).");
+isnt($stdout, '0', "Compare: ${col_min_time} is not 0.");
 
 # Test: ${col_max_time} is not 0
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	"SELECT ${col_max_time} FROM pg_stat_monitor WHERE calls = 2;");
 trim($stdout);
-isnt($stdout, '0', "Compare: ${col_max_time} is not 0).");
+isnt($stdout, '0', "Compare: ${col_max_time} is not 0.");
 
 # Test: ${col_mean_time} is not 0
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	"SELECT ${col_mean_time} FROM pg_stat_monitor WHERE calls = 2;");
 trim($stdout);
-isnt($stdout, '0', "Compare: ${col_mean_time} is not 0).");
+isnt($stdout, '0', "Compare: ${col_mean_time} is not 0.");
 
 # Test: ${col_stddev_time} is not 0
 #($cmdret, $stdout, $stderr) = $node->psql('postgres', "SELECT ${col_stddev_time} FROM pg_stat_monitor WHERE calls = 2;");
 #trim($stdout);
-#isnt($stdout, '0', "Test: ${col_stddev_time} should not be 0).");
+#isnt($stdout, '0', "Test: ${col_stddev_time} should not be 0.");
 
 # Test: ${col_total_time}  =  ${col_min_time} + ${col_max_time}
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
@@ -99,7 +99,7 @@ isnt($stdout, '0', "Compare: ${col_mean_time} is not 0).");
 );
 trim($stdout);
 is($stdout, 't',
-	"Compare: (round(${col_total_time}::numeric, 3) = round(${col_min_time}::numeric + ${col_max_time}::numeric, 3))."
+	"Compare: round(${col_total_time}::numeric, 3) = round(${col_min_time}::numeric + ${col_max_time}::numeric, 3)."
 );
 
 # Test: ${col_mean_time} = ${col_total_time}/2
@@ -110,7 +110,7 @@ is($stdout, 't',
 # Test: ${col_stddev_time} = ${col_mean_time} - ${col_min_time}
 #($cmdret, $stdout, $stderr) = $node->psql('postgres', 'SELECT round(${col_stddev_time}::numeric, 3) = round(${col_mean_time}::numeric - ${col_min_time}::numeric, 3) FROM pg_stat_monitor WHERE calls = 2;');
 #trim($stdout);
-#is($stdout,'t',"Compare ${col_mean_time}: round(${col_stddev_time}::numeric, 3) = round(${col_mean_time}::numeric - ${col_min_time}::numeric, 3)).");
+#is($stdout,'t',"Compare ${col_mean_time}: round(${col_stddev_time}::numeric, 3) = round(${col_mean_time}::numeric - ${col_min_time}::numeric, 3).");
 
 # Dump output to out file
 ($cmdret, $stdout, $stderr) = $node->psql(
