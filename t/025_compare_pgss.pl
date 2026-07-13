@@ -147,7 +147,7 @@ is($stdout, 't', "Compare: calls are equal.");
 	'SELECT sum(pgsm.rows) = sum(pgss.rows) FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY pgsm.query;'
 );
 trim($stdout);
-is($stdout, 't', "Compare: rows are equal).");
+is($stdout, 't', "Compare: rows are equal.");
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	'SELECT sum(pgsm.total_exec_time) = sum(round(pgss.total_exec_time::numeric, 4)) OR sum(pgss.total_exec_time::numeric) % sum(pgsm.total_exec_time::numeric) < 1 FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY pgsm.query;'
@@ -229,7 +229,7 @@ is($stdout, 't', "Compare: calls are equal.");
 	'SELECT sum(pgsm.rows) = sum(pgss.rows) FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY pgsm.query;'
 );
 trim($stdout);
-is($stdout, 't', "Compare: rows are equal).");
+is($stdout, 't', "Compare: rows are equal.");
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	'SELECT sum(pgsm.total_exec_time) = sum(round(pgss.total_exec_time::numeric, 4)) OR sum(pgss.total_exec_time::numeric) % sum(pgsm.total_exec_time::numeric) < 1 FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY pgsm.query;'
@@ -323,7 +323,7 @@ is($stdout, 't', "Compare: calls are equal.");
 	'SELECT sum(pgsm.rows) = sum(pgss.rows) FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY pgsm.query;'
 );
 trim($stdout);
-is($stdout, 't', "Compare: rows are equal).");
+is($stdout, 't', "Compare: rows are equal.");
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	'SELECT sum(pgsm.total_exec_time) = sum(round(pgss.total_exec_time::numeric, 4)) OR sum(pgss.total_exec_time::numeric) % sum(pgsm.total_exec_time::numeric) < 1 FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%SELECT abalance FROM pgbench_accounts%\' GROUP BY pgsm.query;'
@@ -417,7 +417,7 @@ is($stdout, 't', "Compare: calls are equal.");
 	'SELECT sum(pgsm.rows) = sum(pgss.rows) FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%UPDATE pgbench_accounts%\' GROUP BY pgsm.query;'
 );
 trim($stdout);
-is($stdout, 't', "Compare: rows are equal).");
+is($stdout, 't', "Compare: rows are equal.");
 
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	'SELECT sum(pgsm.total_exec_time) = sum(round(pgss.total_exec_time::numeric, 4)) OR sum(pgss.total_exec_time::numeric) % sum(pgsm.total_exec_time::numeric) < 1 FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%UPDATE pgbench_accounts%\' GROUP BY pgsm.query;'
