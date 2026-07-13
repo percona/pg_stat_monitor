@@ -57,12 +57,10 @@ PGSM::append_to_file($stdout);
 my $port = $node->port;
 print "port $port \n";
 
-my $out = system("pgbench -i -s 10 -p $port example");
-print " out: $out \n";
+$cmdret = system("pgbench -i -s 10 -p $port example");
 is($cmdret, 0, "Perform pgbench init");
 
-$out = system("pgbench -c 10 -j 2 -t 1000 -p $port example");
-print " out: $out \n";
+$cmdret = system("pgbench -c 10 -j 2 -t 1000 -p $port example");
 is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -90,12 +88,10 @@ PGSM::append_to_file($stdout);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
-$out = system("pgbench -i -s 10 -p $port example");
-print " out: $out \n";
+$cmdret = system("pgbench -i -s 10 -p $port example");
 is($cmdret, 0, "Perform pgbench init");
 
-$out = system("pgbench -c 10 -j 2 -t 1000 -p $port example");
-print " out: $out \n";
+$cmdret = system("pgbench -c 10 -j 2 -t 1000 -p $port example");
 is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -123,12 +119,10 @@ PGSM::append_to_file($stdout);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
-$out = system("pgbench -i -s 10 -p $port example");
-print " out: $out \n";
+$cmdret = system("pgbench -i -s 10 -p $port example");
 is($cmdret, 0, "Perform pgbench init");
 
-$out = system("pgbench -c 10 -j 2 -t 1000 -p $port example");
-print " out: $out \n";
+$cmdret = system("pgbench -c 10 -j 2 -t 1000 -p $port example");
 is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
@@ -156,12 +150,10 @@ PGSM::append_to_file($stdout);
 is($cmdret, 0, "Print PGSM EXTENSION Settings");
 PGSM::append_to_file($stdout);
 
-$out = system("pgbench -i -s 10 -p $port example");
-print " out: $out \n";
+$cmdret = system("pgbench -i -s 10 -p $port example");
 is($cmdret, 0, "Perform pgbench init");
 
-$out = system("pgbench -c 10 -j 2 -t 1000 -p $port example");
-print " out: $out \n";
+$cmdret = system("pgbench -c 10 -j 2 -t 1000 -p $port example");
 is($cmdret, 0, "Run pgbench");
 
 ($cmdret, $stdout, $stderr) = $node->psql(
