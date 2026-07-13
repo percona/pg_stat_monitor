@@ -237,7 +237,6 @@ static bool callback_setup = false;
 static void pgsm_update_counters(Counters *counters,
 								 const PlanInfo *plan_info,
 								 const SysInfo *sys_info,
-								 const ErrorInfo *error_info,
 								 double plan_total_time,
 								 double exec_total_time,
 								 uint64 rows,
@@ -732,7 +731,6 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		pgsm_update_counters(&stats->counters,	/* counters */
 							 plan_ptr,	/* PlanInfo */
 							 &sys_info, /* SysInfo */
-							 NULL,	/* ErrorInfo */
 							 0, /* plan_total_time */
 							 queryDesc->totaltime->total * 1000.0,	/* exec_total_time */
 							 queryDesc->estate->es_processed,	/* rows */
@@ -924,7 +922,6 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 			pgsm_update_counters(&stats->counters,	/* counters */
 								 NULL,	/* PlanInfo */
 								 NULL,	/* SysInfo */
-								 NULL,	/* ErrorInfo */
 								 INSTR_TIME_GET_MILLISEC(duration), /* plan_total_time */
 								 0, /* exec_total_time */
 								 0, /* rows */
@@ -1107,7 +1104,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		pgsm_update_counters(&stats->counters,	/* counters */
 							 NULL,	/* PlanInfo */
 							 &sys_info, /* SysInfo */
-							 NULL,	/* ErrorInfo */
 							 0, /* plan_total_time */
 							 INSTR_TIME_GET_MILLISEC(duration), /* exec_total_time */
 							 rows,	/* rows */
@@ -1235,7 +1231,6 @@ static void
 pgsm_update_counters(Counters *counters,
 					 const PlanInfo *plan_info,
 					 const SysInfo *sys_info,
-					 const ErrorInfo *error_info,
 					 double plan_total_time,
 					 double exec_total_time,
 					 uint64 rows,
@@ -1257,13 +1252,6 @@ pgsm_update_counters(Counters *counters,
 		counters->planinfo.planid = plan_info->planid;
 		counters->planinfo.plan_len = plan_info->plan_len;
 		strlcpy(counters->planinfo.plan_text, plan_info->plan_text, PLAN_TEXT_LEN);
-	}
-
-	if (error_info)
-	{
-		counters->error.elevel = error_info->elevel;
-		strlcpy(counters->error.sqlcode, error_info->sqlcode, SQLCODE_LEN);
-		strlcpy(counters->error.message, error_info->message, ERROR_MESSAGE_LEN);
 	}
 
 	counters->calls.rows += rows;
