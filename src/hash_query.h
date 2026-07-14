@@ -23,7 +23,6 @@
 #include <storage/lwlock.h>
 #include <storage/spin.h>
 #include <utils/dsa.h>
-#include <utils/hsearch.h>
 #include <utils/timestamp.h>
 
 #define ERROR_MESSAGE_LEN	100
@@ -200,7 +199,6 @@ typedef struct pgsmSharedState
 	pg_atomic_uint64 current_wbucket;
 	pg_atomic_uint64 prev_bucket_sec;
 	void	   *raw_dsa_area;	/* DSA area pointer to store query texts */
-	HTAB	   *hash_handle;
 
 	bool		pgsm_oom;
 	TimestampTz bucket_start_time[];	/* start time of the bucket */
