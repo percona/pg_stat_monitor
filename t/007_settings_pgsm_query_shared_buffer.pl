@@ -50,12 +50,10 @@ PGSM::append_to_file($stdout);
 # CREATE example database and run pgbench init
 ($cmdret, $stdout, $stderr) =
   $node->psql('postgres', 'CREATE DATABASE example;', extra_params => ['-a']);
-print "cmdret $cmdret\n";
 is($cmdret, 0, "CREATE DATABASE example");
 PGSM::append_to_file($stdout);
 
 my $port = $node->port;
-print "port $port \n";
 
 $cmdret = system("pgbench -i -s 10 -p $port example");
 is($cmdret, 0, "Perform pgbench init");
