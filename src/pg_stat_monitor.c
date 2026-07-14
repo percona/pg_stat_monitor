@@ -1640,7 +1640,7 @@ pgsm_store(const pgsmQueryStats *stats)
 	uint64		bucketid;
 	uint64		prev_bucket_id;
 	pgsmHashKey key = stats->key;
-	char	   *query;
+	char	   *query = stats->query;
 	char		comments[COMMENTS_LEN];
 	TimestampTz reset_timestamp;
 
@@ -1654,7 +1654,6 @@ pgsm_store(const pgsmQueryStats *stats)
 	bucketid = get_next_wbucket(pgsm);
 
 	key.bucket_id = bucketid;
-	query = stats->query;
 
 	/* Let's do all the leg work here before we acquire any locks */
 
@@ -1792,12 +1791,10 @@ pgsm_store(const pgsmQueryStats *stats)
 	{
 		if (!DsaPointerIsValid(entry->counters.info.parent_query))
 		{
-			int			parent_query_len = nested_query_txts[nesting_level - 1] ?
-				strlen(nested_query_txts[nesting_level - 1]) : 0;
-
 			/* If we have a parent query, store it in the raw dsa area */
-			if (parent_query_len > 0)
+			if (nested_query_txts[nesting_level - 1] && nested_query_txts[nesting_level - 1][0])
 			{
+				int			parent_query_len = strlen(nested_query_txts[nesting_level - 1]);
 				dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
 
 				/*
