@@ -155,7 +155,6 @@ static ExecutorEnd_hook_type prev_ExecutorEnd = NULL;
 static ProcessUtility_hook_type prev_ProcessUtility = NULL;
 static emit_log_hook_type prev_emit_log_hook = NULL;
 static shmem_startup_hook_type prev_shmem_startup_hook = NULL;
-static ExecutorCheckPerms_hook_type prev_ExecutorCheckPerms_hook = NULL;
 
 #if PG_VERSION_NUM >= 150000
 static void pgsm_shmem_request(void);
@@ -170,11 +169,6 @@ static void pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint
 #endif
 static void pgsm_ExecutorFinish(QueryDesc *queryDesc);
 static void pgsm_ExecutorEnd(QueryDesc *queryDesc);
-#if PG_VERSION_NUM >= 160000
-static bool pgsm_ExecutorCheckPerms(List *rangeTable, List *rtePermInfos, bool ereport_on_violation);
-#else
-static bool pgsm_ExecutorCheckPerms(List *rangeTable, bool ereport_on_violation);
-#endif
 static PlannedStmt *pgsm_planner_hook(Query *parse, const char *query_string,
 									  int cursorOptions, ParamListInfo boundParams);
 static void pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
@@ -333,8 +327,6 @@ _PG_init(void)
 	planner_hook = pgsm_planner_hook;
 	prev_emit_log_hook = emit_log_hook;
 	emit_log_hook = pgsm_emit_log_hook;
-	prev_ExecutorCheckPerms_hook = ExecutorCheckPerms_hook;
-	ExecutorCheckPerms_hook = pgsm_ExecutorCheckPerms;
 
 	/*
 	 * Use max_stack_depth as a very high and very rough estimate for maximum
@@ -554,6 +546,9 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	if (pgsm_enabled(nesting_level) &&
 		queryDesc->plannedstmt->queryId != INT64CONST(0))
 	{
+		ListCell   *lr;
+		Oid			reloids[REL_LST];
+
 		/*
 		 * Set up to track total elapsed time in ExecutorRun.  Make sure the
 		 * space is allocated in the per-query context so it will go away at
@@ -566,6 +561,56 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 			oldcxt = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
 			queryDesc->totaltime = InstrAlloc(1, INSTRUMENT_ALL, false);
 			MemoryContextSwitchTo(oldcxt);
+		}
+
+		/*
+		 * Save names of relations involved in the qeury.
+		 *
+		 * TODO: Should this be done in the ExecutorEnd hook instead?
+		 */
+		num_relations = 0;
+
+		foreach(lr, queryDesc->plannedstmt->rtable)
+		{
+			RangeTblEntry *rte = lfirst_node(RangeTblEntry, lr);
+			bool		found = false;
+			char	   *namespace_name;
+			char	   *relation_name;
+
+			if (rte->rtekind != RTE_RELATION
+#if PG_VERSION_NUM >= 160000
+				&& rte->rtekind != RTE_SUBQUERY && rte->relkind != RELKIND_VIEW
+#endif
+				)
+				continue;
+
+			/* Skip duplicates */
+			for (int i = 0; i < num_relations; i++)
+			{
+				if (reloids[i] == rte->relid)
+				{
+					found = true;
+					break;
+				}
+			}
+			if (found)
+				continue;
+
+			reloids[num_relations] = rte->relid;
+
+			namespace_name = get_namespace_name(get_rel_namespace(rte->relid));
+			relation_name = get_rel_name(rte->relid);
+
+			if (rte->relkind == RELKIND_VIEW)
+				snprintf(relations[num_relations], REL_LEN, "%s.%s*", namespace_name, relation_name);
+			else
+				snprintf(relations[num_relations], REL_LEN, "%s.%s", namespace_name, relation_name);
+
+			num_relations++;
+
+			/* Only save the first REL_LST number of relations */
+			if (num_relations == REL_LST)
+				break;
 		}
 	}
 }
@@ -753,6 +798,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		pgsm_store(stats);
 
 		memset(&stats->counters, 0, sizeof(stats->counters));
+		num_relations = 0;
 	}
 
 	if (prev_ExecutorEnd)
@@ -761,73 +807,6 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		standard_ExecutorEnd(queryDesc);
 
 	pgsm_delete_query_stats(queryDesc->plannedstmt->queryId);
-
-	num_relations = 0;
-}
-
-static bool
-#if PG_VERSION_NUM >= 160000
-pgsm_ExecutorCheckPerms(List *rangeTable, List *rtePermInfos, bool ereport_on_violation)
-#else
-pgsm_ExecutorCheckPerms(List *rangeTable, bool ereport_on_violation)
-#endif
-{
-	ListCell   *lr;
-	Oid			reloids[REL_LST];
-
-	num_relations = 0;
-
-	foreach(lr, rangeTable)
-	{
-		RangeTblEntry *rte = lfirst_node(RangeTblEntry, lr);
-		bool		found = false;
-		char	   *namespace_name;
-		char	   *relation_name;
-
-		if (rte->rtekind != RTE_RELATION
-#if PG_VERSION_NUM >= 160000
-			&& rte->rtekind != RTE_SUBQUERY && rte->relkind != RELKIND_VIEW
-#endif
-			)
-			continue;
-
-		/* Skip duplicates */
-		for (int i = 0; i < num_relations; i++)
-		{
-			if (reloids[i] == rte->relid)
-			{
-				found = true;
-				break;
-			}
-		}
-		if (found)
-			continue;
-
-		reloids[num_relations] = rte->relid;
-
-		namespace_name = get_namespace_name(get_rel_namespace(rte->relid));
-		relation_name = get_rel_name(rte->relid);
-
-		if (rte->relkind == RELKIND_VIEW)
-			snprintf(relations[num_relations], REL_LEN, "%s.%s*", namespace_name, relation_name);
-		else
-			snprintf(relations[num_relations], REL_LEN, "%s.%s", namespace_name, relation_name);
-
-		num_relations++;
-
-		/* Only save the first REL_LST number of relations */
-		if (num_relations == REL_LST)
-			break;
-	}
-
-	if (prev_ExecutorCheckPerms_hook)
-#if PG_VERSION_NUM >= 160000
-		return prev_ExecutorCheckPerms_hook(rangeTable, rtePermInfos, ereport_on_violation);
-#else
-		return prev_ExecutorCheckPerms_hook(rangeTable, ereport_on_violation);
-#endif
-
-	return true;
 }
 
 static PlannedStmt *
