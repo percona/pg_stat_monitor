@@ -68,6 +68,25 @@ jobs:
         build_type: ${{ matrix.build_type }}
     secrets: inherit
 
+  exec_backend:
+    name: EXEC_BACKEND
+    strategy:
+      fail-fast: false
+      matrix:
+        pg_package: [source]
+        pg_version: [14, 15, 16, 17, 18]
+        os: [ubuntu-24.04]
+        compiler: [gcc]
+        build_type: [exec-backend]
+    uses: ./.github/workflows/build-and-test.yml
+    with:
+        pg_package: ${{ matrix.pg_package }}
+        pg_version: ${{ matrix.pg_version }}
+        os: ${{ matrix.os }}
+        compiler: ${{ matrix.compiler }}
+        build_type: ${{ matrix.build_type }}
+    secrets: inherit
+
   macos:
     name: MacOS
     strategy:

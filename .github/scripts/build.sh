@@ -12,7 +12,7 @@ case "$1" in
         echo "Building with debug option"
         ;;
 
-    debugoptimized)
+    debugoptimized | exec-backend)
         echo "Building with debugoptimized option"
         PG_CFLAGS+=" -O2"
         ;;
@@ -29,7 +29,7 @@ case "$1" in
 
     *)
         echo "Unknown build type: $1"
-        echo "Please use one of the following: debug, debugoptimized, sanitize"
+        echo "Please use one of the following: debug, debugoptimized, sanitize, exec-backend"
         exit 1
         ;;
 esac

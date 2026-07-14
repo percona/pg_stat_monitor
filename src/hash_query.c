@@ -121,8 +121,6 @@ pgsm_startup(void)
 		dsa_pin(dsa);
 		dsa_set_size_limit(dsa, pgsm_query_area_size());
 
-		pgsm->hash_handle = pgsm_create_bucket_hash();
-
 		/*
 		 * If overflow is enabled, set the DSA size to unlimited, and allow
 		 * the DSA to grow beyond the shared memory space into the swap area
@@ -137,13 +135,14 @@ pgsm_startup(void)
 		dsa_detach(dsa);
 	}
 
+	pgsmStateLocal.shared_hash = pgsm_create_bucket_hash();
+
 	LWLockRelease(AddinShmemInitLock);
 
 	pgsmStateLocal.shared_pgsmState = pgsm;
 
 	/* Reset in case this is a restart within the postmaster */
 	pgsmStateLocal.dsa = NULL;
-	pgsmStateLocal.shared_hash = NULL;
 }
 
 /*
@@ -190,7 +189,6 @@ pgsm_attach_shmem(void)
 	 * explicit detach.
 	 */
 	dsa_pin_mapping(pgsmStateLocal.dsa);
-	pgsmStateLocal.shared_hash = pgsmStateLocal.shared_pgsmState->hash_handle;
 	MemoryContextSwitchTo(oldcontext);
 }
 
@@ -254,9 +252,6 @@ hash_entry_dealloc(int bucket_id)
 {
 	HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
-
-	if (!pgsmStateLocal.shared_hash)
-		return;
 
 	/* Iterate over the hash table. */
 	hash_seq_init(&hstat, pgsmStateLocal.shared_hash);
