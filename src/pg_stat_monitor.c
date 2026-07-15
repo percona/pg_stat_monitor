@@ -113,8 +113,6 @@ static struct
 static int	hist_bucket_count_user;
 static int	hist_bucket_count_total;
 
-static uint32 pgsm_client_ip = PGSM_INVALID_IP;
-
 /* The array to store outer layer query id */
 static int64 *nested_queryids;
 static char **nested_query_txts;
@@ -126,8 +124,9 @@ static int	num_relations;		/* Number of relation in the query */
 static bool system_init = false;
 static struct rusage rusage_start;
 
-/* Application name and length; set each time when an stats is created locally */
-static char app_name[APPLICATIONNAME_LEN];
+/* Cached per-backend information */
+static char datname[NAMEDATALEN];
+static uint32 client_ip = PGSM_INVALID_IP;
 
 /* Query buffer, store queries' text. */
 static char *pgsm_explain(QueryDesc *queryDesc);
@@ -191,7 +190,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_decode_error_level);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_get_cmd_type);
 
 static uint pg_get_client_addr(void);
-static int	pg_get_application_name(char *name, int buff_size);
+static void pgsm_set_cached_info(void);
 static Datum intarray_get_datum(const int32 *arr, int len);
 
 static int64 pgsm_hash_string(const char *str, int len);
@@ -206,12 +205,26 @@ typedef struct pgsmQueryStats
 								 * pgsmEntry */
 	int64		pgsm_query_id;	/* pgsm generate normalized query hash */
 	char	   *query;			/* query text, palloc'd in local context */
-	char		datname[NAMEDATALEN];	/* database name */
+	char		appname[NAMEDATALEN];	/* application name */
 	char		username[NAMEDATALEN];	/* user name */
 	Counters	counters;		/* the statistics for this query */
 } pgsmQueryStats;
 
+/*
+ * Structure to store information about the current statement execution.
+ * This data may change during the execution of the query and for statistics
+ * we need to know this data at the time when the statement execution started.
+ */
+typedef struct pgsmQueryExecInfo
+{
+	Oid			userid;
+	char		appname[NAMEDATALEN];
+	char		username[NAMEDATALEN];
+} pgsmQueryExecInfo;
+
+static void pgsm_fill_query_exec_info(pgsmQueryExecInfo *info);
 static pgsmQueryStats *pgsm_create_query_stats(int64 queryid, const PlanInfo *plan_info);
+static pgsmQueryStats *pgsm_create_stats_with_query_exec_info(const pgsmQueryExecInfo *info, int64 queryid, const PlanInfo *plan_info);
 static void pgsm_add_query_stats(pgsmQueryStats *stats, const char *query_text, int query_len);
 static void pgsm_delete_query_stats(uint64 queryid);
 static pgsmQueryStats *pgsm_get_query_stats(int64 queryid, const PlanInfo *plan_info, const char *query_text, CmdType cmd_type);
@@ -1013,9 +1026,17 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		BufferUsage bufusage_start = pgBufferUsage;
 		WalUsage	walusage;
 		WalUsage	walusage_start = pgWalUsage;
-		pgsmQueryStats *stats = pgsm_create_query_stats(queryId, NULL);
+		pgsmQueryStats *stats;
+		pgsmQueryExecInfo info;
 
 		getrusage(RUSAGE_SELF, &rusage_start);
+
+		/*
+		 * Create a query execution info before utility statement execution
+		 * because statement may change the data itself and for statistics we
+		 * need to know this data at the statement execution start time.
+		 */
+		pgsm_fill_query_exec_info(&info);
 
 		INSTR_TIME_SET_CURRENT(start);
 		nesting_level++;
@@ -1042,6 +1063,8 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 			PG_RE_THROW();
 		}
 		PG_END_TRY();
+
+		stats = pgsm_create_stats_with_query_exec_info(&info, queryId, NULL);
 
 		/*
 		 * CAUTION: do not access the *pstmt data structure again below here.
@@ -1168,21 +1191,58 @@ pgsm_hash_string(const char *str, int len)
 }
 
 /*
- * The caller should allocate max_len memory to name including terminating null.
- * The function returns the length of the string.
+ * Set backend-level cached information.
  */
-static int
-pg_get_application_name(char *name, int buff_size)
+static void
+pgsm_set_cached_info(void)
 {
-	int			len;
+	if (client_ip == PGSM_INVALID_IP)
+		client_ip = pg_get_client_addr();
+
+	if (IsTransactionState() && datname[0] == '\0')
+	{
+		char	   *name = get_database_name(MyDatabaseId);
+
+		if (name)
+		{
+			strlcpy(datname, name, NAMEDATALEN);
+			pfree(name);
+		}
+	}
+}
+
+/*
+ * Fill the query execution info with the current statement execution data.
+ * Some data may be changed by statement execution itself, but for
+ * statistics we need this data state at the statement execution start time.
+ */
+static void
+pgsm_fill_query_exec_info(pgsmQueryExecInfo *info)
+{
+	int			sec_ctx;
+
+	/*
+	 * Get the user ID. Let's use this instead of GetUserID as this won't
+	 * throw an assertion in case of an error.
+	 */
+	GetUserIdAndSecContext(&info->userid, &sec_ctx);
 
 	if (application_name && *application_name)
-		len = strlcpy(name, application_name, buff_size);
+		strlcpy(info->appname, application_name, NAMEDATALEN);
 	else
-		len = strlcpy(name, "unknown", buff_size);
+		strlcpy(info->appname, "unknown", NAMEDATALEN);
 
-	/* Return length so that others don't have to calculate */
-	return len < buff_size ? len : buff_size - 1;
+	info->username[0] = '\0';
+	if (IsTransactionState())
+	{
+		char	   *username = GetUserNameFromId(info->userid, true);
+
+		if (username)
+		{
+			strlcpy(info->username, username, NAMEDATALEN);
+			pfree(username);
+		}
+	}
 }
 
 static uint
@@ -1452,63 +1512,44 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 static pgsmQueryStats *
 pgsm_create_query_stats(int64 queryid, const PlanInfo *plan_info)
 {
+	pgsmQueryExecInfo info;
+
+	pgsm_fill_query_exec_info(&info);
+
+	return pgsm_create_stats_with_query_exec_info(&info, queryid, plan_info);
+}
+
+static pgsmQueryStats *
+pgsm_create_stats_with_query_exec_info(const pgsmQueryExecInfo *info, int64 queryid, const PlanInfo *plan_info)
+{
 	pgsmQueryStats *stats;
-	int			sec_ctx;
 	MemoryContext oldctx;
+
+	pgsm_set_cached_info();
 
 	/* Create an stats in the pgsm memory context */
 	oldctx = MemoryContextSwitchTo(PgsmMemoryContext);
 	stats = palloc0_object(pgsmQueryStats);
 
-	/*
-	 * Get the user ID. Let's use this instead of GetUserID as this won't
-	 * throw an assertion in case of an error.
-	 */
-	GetUserIdAndSecContext((Oid *) &stats->key.userid, &sec_ctx);
-
 	if (pgsm_track_application_names)
 	{
-		int			len = pg_get_application_name(app_name, APPLICATIONNAME_LEN);
-
-		stats->key.appid = pgsm_hash_string(app_name, len);
+		stats->key.appid = pgsm_hash_string(info->appname, strlen(info->appname));
 	}
-
-	/* Fetch client address only once */
-	if (pgsm_client_ip == PGSM_INVALID_IP)
-		pgsm_client_ip = pg_get_client_addr();
-
-	stats->key.ip = pgsm_client_ip;
-
-	/* PlanID, if there is one */
+	stats->key.ip = client_ip;
 	stats->key.planid = plan_info ? plan_info->planid : 0;
-
-	/* Set remaining data */
 	stats->key.dbid = MyDatabaseId;
 	stats->key.queryid = queryid;
 	stats->key.parentid = 0;
+	stats->key.userid = info->userid;
+
+	strlcpy(stats->appname, info->appname, NAMEDATALEN);
+	strlcpy(stats->username, info->username, NAMEDATALEN);
 
 #if PG_VERSION_NUM >= 170000
 	stats->key.toplevel = (nesting_level == 0);
 #else
 	stats->key.toplevel = (nesting_level + plan_nested_level == 0);
 #endif
-
-	if (IsTransactionState())
-	{
-		char	   *datname = get_database_name(stats->key.dbid);
-		char	   *username = GetUserNameFromId(stats->key.userid, true);
-
-		if (datname)
-		{
-			strlcpy(stats->datname, datname, sizeof(stats->datname));
-			pfree(datname);
-		}
-		if (username)
-		{
-			strlcpy(stats->username, username, sizeof(stats->username));
-			pfree(username);
-		}
-	}
 
 	MemoryContextSwitchTo(oldctx);
 
@@ -1752,7 +1793,7 @@ pgsm_store(const pgsmQueryStats *stats)
 		entry->counters.info.cmd_type = stats->counters.info.cmd_type;
 		entry->counters.info.parent_query = InvalidDsaPointer;
 
-		strlcpy(entry->datname, stats->datname, sizeof(entry->datname));
+		strlcpy(entry->datname, datname, sizeof(entry->datname));
 		strlcpy(entry->username, stats->username, sizeof(entry->username));
 	}
 
@@ -1780,8 +1821,8 @@ pgsm_store(const pgsmQueryStats *stats)
 	if (pgsm_extract_comments && comments[0] && !entry->counters.info.comments[0])
 		strlcpy(entry->counters.info.comments, comments, COMMENTS_LEN);
 
-	if (pgsm_track_application_names && app_name[0] != '\0' && !entry->counters.info.application_name[0])
-		strlcpy(entry->counters.info.application_name, app_name, APPLICATIONNAME_LEN);
+	if (pgsm_track_application_names && stats->appname[0] != '\0' && !entry->counters.info.application_name[0])
+		strlcpy(entry->counters.info.application_name, stats->appname, NAMEDATALEN);
 
 	entry->counters.info.num_relations = num_relations;
 	for (int i = 0; i < num_relations; i++)

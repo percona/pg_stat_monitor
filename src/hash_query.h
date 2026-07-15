@@ -29,7 +29,6 @@
 #define REL_LST				10
 /* schema + dot + relname + view indication + string terminator */
 #define REL_LEN				(NAMEDATALEN + 1 + NAMEDATALEN + 1 + 1)
-#define APPLICATIONNAME_LEN	NAMEDATALEN
 #define COMMENTS_LEN		256
 #define PLAN_TEXT_LEN		1024
 #define SQLCODE_LEN			20
@@ -71,7 +70,7 @@ typedef struct QueryInfo
 	dsa_pointer parent_query;
 	int64		type;			/* type of query, options are query, info,
 								 * warning, error, fatal */
-	char		application_name[APPLICATIONNAME_LEN];
+	char		application_name[NAMEDATALEN];
 	char		comments[COMMENTS_LEN];
 	char		relations[REL_LST][REL_LEN];	/* List of relation involved
 												 * in the query */

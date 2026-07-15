@@ -26,7 +26,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
--- During manual rollback we will be able to get username and datname of the query that was rolled back.
+-- During manual rollback we will be able to get username of the query that was rolled back.
 BEGIN;
 INSERT INTO t VALUES (2);
 ROLLBACK;
@@ -45,7 +45,7 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
--- If transaction is rolled back due an error, we won't be able to get username and datname of the query that was rolled back.
+-- If transaction is rolled back due an error, we won't be able to get username of the query that was rolled back.
 BEGIN;
 INSERT INTO t VALUES (1);
 ERROR:  duplicate key value violates unique constraint "t_pkey"
@@ -56,7 +56,7 @@ SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
 --------------------------------+----------+--------------------
  BEGIN                          | u        | contrib_regression
  INSERT INTO t VALUES (1);      | u        | contrib_regression
- ROLLBACK                       |          | 
+ ROLLBACK                       |          | contrib_regression
  SELECT pg_stat_monitor_reset() | u        | contrib_regression
 (4 rows)
 
