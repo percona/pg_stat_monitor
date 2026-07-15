@@ -3027,13 +3027,13 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 static int
 get_histogram_bucket(double q_time)
 {
-	for (int index = 0; index < hist_bucket_count_total - 1; index++)
+	for (int index = 0; index < hist_bucket_count_total; index++)
 	{
-		if (q_time >= hist_bucket_timings[index].start && q_time <= hist_bucket_timings[index].end)
+		if (q_time <= hist_bucket_timings[index].end)
 			return index;
 	}
 
-	/* Given the uppermost bound is inifity we should never reach this */
+	/* Given the uppermost bound is infinity we should never reach this */
 	return hist_bucket_count_total - 1;
 }
 
