@@ -13,7 +13,7 @@ COMMIT;
 SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
 SELECT pg_stat_monitor_reset();
 
--- During manual rollback we will be able to get username and datname of the query that was rolled back.
+-- During manual rollback we will be able to get username of the query that was rolled back.
 BEGIN;
 INSERT INTO t VALUES (2);
 ROLLBACK;
@@ -21,7 +21,7 @@ ROLLBACK;
 SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
 SELECT pg_stat_monitor_reset();
 
--- If transaction is rolled back due an error, we won't be able to get username and datname of the query that was rolled back.
+-- If transaction is rolled back due an error, we won't be able to get username of the query that was rolled back.
 BEGIN;
 INSERT INTO t VALUES (1);
 ROLLBACK;

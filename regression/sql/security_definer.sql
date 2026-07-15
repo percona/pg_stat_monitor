@@ -1,0 +1,102 @@
+CREATE USER su WITH SUPERUSER;
+
+SET ROLE su;
+CREATE EXTENSION pg_stat_monitor;
+SET pg_stat_monitor.pgsm_track = 'all';
+
+CREATE USER owner_role;
+CREATE USER caller_role;
+
+GRANT ALL ON SCHEMA public TO owner_role;
+
+SET ROLE owner_role;
+CREATE TABLE owner_table (a int);
+INSERT INTO owner_table VALUES (1);
+
+CREATE FUNCTION owner_secdef_func() RETURNS bigint AS $$
+BEGIN
+    RETURN (SELECT count(*) FROM owner_table);
+END
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE FUNCTION owner_secdef_ddl_func() RETURNS void AS $$
+BEGIN
+    EXECUTE 'CREATE TABLE owner_ddl_table (a int)';
+    EXECUTE 'DROP TABLE owner_ddl_table';
+END
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE FUNCTION owner_secdef_appname_func() RETURNS void AS $$
+BEGIN
+    PERFORM set_config('application_name', 'secdef_app', false);
+    PERFORM 2 + 2;
+END
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION owner_secdef_func() TO caller_role;
+GRANT EXECUTE ON FUNCTION owner_secdef_ddl_func() TO caller_role;
+GRANT EXECUTE ON FUNCTION owner_secdef_appname_func() TO caller_role;
+
+SET ROLE su;
+SELECT pg_stat_monitor_reset();
+
+SET ROLE caller_role;
+SELECT owner_secdef_func();
+
+SET ROLE su;
+
+-- The outer call must be attributed to the caller, while the query executed
+-- inside the SECURITY DEFINER function body must be attributed to the
+-- function owner, since that is whose privileges it runs under.
+SELECT username, top_query, query FROM pg_stat_monitor
+  WHERE query NOT LIKE '%pg_stat_monitor%'
+  ORDER BY username, query COLLATE "C";
+
+SELECT pg_stat_monitor_reset();
+
+SET ROLE caller_role;
+SELECT owner_secdef_ddl_func();
+
+SET ROLE su;
+
+-- DDL executed inside a SECURITY DEFINER function must still be
+-- attributed to the function owner, not the caller.
+SELECT username, top_query, query FROM pg_stat_monitor
+  WHERE query NOT LIKE '%pg_stat_monitor%'
+  ORDER BY username, query COLLATE "C";
+
+SELECT pg_stat_monitor_reset();
+
+SET ROLE caller_role;
+SET application_name = 'caller_app';
+SELECT owner_secdef_appname_func();
+RESET application_name;
+
+SET ROLE su;
+
+-- application_name may be changed from inside a SECURITY DEFINER function;
+-- queries run after that change must be attributed to the new name.
+SELECT application_name, query FROM pg_stat_monitor
+  WHERE query NOT LIKE '%pg_stat_monitor%'
+  ORDER BY application_name, query COLLATE "C";
+
+SELECT pg_stat_monitor_reset();
+
+SET ROLE owner_role;
+DROP FUNCTION owner_secdef_func();
+DROP FUNCTION owner_secdef_ddl_func();
+DROP FUNCTION owner_secdef_appname_func();
+DROP TABLE owner_table;
+
+SET ROLE su;
+DROP OWNED BY caller_role;
+DROP USER caller_role;
+DROP OWNED BY owner_role;
+DROP USER owner_role;
+
+DROP EXTENSION pg_stat_monitor;
+
+SET ROLE NONE;
+
+DROP OWNED BY su;
+DROP USER su;

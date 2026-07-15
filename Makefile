@@ -32,6 +32,7 @@ REGRESS = basic \
 	squashing \
 	tags \
 	user \
+	security_definer \
 	rollback \
 	level_tracking \
 	decode_error_level \
