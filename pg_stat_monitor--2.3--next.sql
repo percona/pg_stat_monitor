@@ -41,30 +41,24 @@ FROM stat
 WHERE queryid = _quryid AND bucket = _bucket
 $$;
 
+DROP FUNCTION pgsm_create_view();
 DROP FUNCTION pgsm_create_13_view();
 DROP VIEW pg_stat_monitor;
 
-CREATE OR REPLACE FUNCTION pgsm_create_view()
-RETURNS int
-LANGUAGE plpgsql
-AS $$
+DO $$
 DECLARE
     version int := current_setting('server_version_num');
 BEGIN
     IF version >= 180000 THEN
-        RETURN pgsm_create_18_view();
+        PERFORM pgsm_create_18_view();
     ELSEIF version >= 170000 THEN
-        RETURN pgsm_create_17_view();
+        PERFORM pgsm_create_17_view();
     ELSEIF version >= 150000 THEN
-        RETURN pgsm_create_15_view();
+        PERFORM pgsm_create_15_view();
     ELSEIF version >= 140000 THEN
-        RETURN pgsm_create_14_view();
+        PERFORM pgsm_create_14_view();
     END IF;
-    RETURN 0;
 END;
 $$;
-
-SELECT pgsm_create_view();
-REVOKE ALL ON FUNCTION pgsm_create_view FROM PUBLIC;
 
 GRANT SELECT ON pg_stat_monitor TO PUBLIC;
