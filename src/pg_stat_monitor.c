@@ -664,16 +664,8 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 			standard_ExecutorRun(queryDesc, direction, count, execute_once);
 #endif
 		}
-		nesting_level--;
-		if (nesting_level >= 0 && nesting_level < max_nesting_level)
-		{
-			nested_queryids[nesting_level] = INT64CONST(0);
-			if (nested_query_txts[nesting_level])
-				free(nested_query_txts[nesting_level]);
-			nested_query_txts[nesting_level] = NULL;
-		}
 	}
-	PG_CATCH();
+	PG_FINALLY();
 	{
 		nesting_level--;
 		if (nesting_level >= 0 && nesting_level < max_nesting_level)
@@ -683,7 +675,6 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 				free(nested_query_txts[nesting_level]);
 			nested_query_txts[nesting_level] = NULL;
 		}
-		PG_RE_THROW();
 	}
 	PG_END_TRY();
 }
@@ -702,12 +693,10 @@ pgsm_ExecutorFinish(QueryDesc *queryDesc)
 			prev_ExecutorFinish(queryDesc);
 		else
 			standard_ExecutorFinish(queryDesc);
-		nesting_level--;
 	}
-	PG_CATCH();
+	PG_FINALLY();
 	{
 		nesting_level--;
-		PG_RE_THROW();
 	}
 	PG_END_TRY();
 }
@@ -1055,12 +1044,10 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										context, params, queryEnv,
 										dest,
 										qc);
-			nesting_level--;
 		}
-		PG_CATCH();
+		PG_FINALLY();
 		{
 			nesting_level--;
-			PG_RE_THROW();
 		}
 		PG_END_TRY();
 
@@ -1165,14 +1152,11 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 										qc);
 
 #if PG_VERSION_NUM >= 170000
-			if (bump_level)
-				nesting_level--;
 		}
-		PG_CATCH();
+		PG_FINALLY();
 		{
 			if (bump_level)
 				nesting_level--;
-			PG_RE_THROW();
 		}
 		PG_END_TRY();
 #endif
