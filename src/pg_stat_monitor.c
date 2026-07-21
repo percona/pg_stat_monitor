@@ -225,8 +225,8 @@ typedef struct pgsmQueryExecInfo
 
 static MemoryContext pgsm_memory_context(void);
 static void pgsm_fill_query_exec_info(pgsmQueryExecInfo *info);
-static pgsmQueryStats *pgsm_create_query_stats(int64 queryid, int64 planid);
-static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid);
+static pgsmQueryStats *pgsm_create_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
+static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
 static void pgsm_add_query_stats(pgsmQueryStats *stats, const char *query_text, int query_len);
 static void pgsm_delete_query_stats(uint64 queryid);
 static pgsmQueryStats *pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type);
@@ -417,10 +417,14 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 {
 	pgsmQueryStats *stats;
 	const char *query_text;
+	int			query_len;
+	const char *hash_text;
+	int			hash_text_len;
+	const char *store_text;
+	int			store_text_len;
 	char	   *norm_query = NULL;
 	int			norm_query_len;
 	int			location;
-	int			query_len;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -476,36 +480,25 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	}
 
 	/*
+	 * pgsm_query_id always groups by the normalized form when we have one.
+	 * But what gets stored as query text depends on the pgsm_normalized_query
+	 * GUC.
+	 */
+	hash_text = norm_query ? norm_query : query_text;
+	hash_text_len = norm_query ? norm_query_len : query_len;
+	store_text = pgsm_normalized_query ? hash_text : query_text;
+	store_text_len = pgsm_normalized_query ? hash_text_len : query_len;
+
+	/*
 	 * At this point, we don't know which bucket this query will land in, so
 	 * passing 0. The store function MUST later update it based on the current
 	 * bucket value. The correct bucket value will be needed then to search
 	 * the hash table, or create the appropriate entry.
 	 */
-	stats = pgsm_create_query_stats(query->queryId, 0);
-
-	/*
-	 * Update other member that are not counters, so that we don't have to
-	 * worry about these.
-	 */
-	stats->pgsm_query_id = get_pgsm_query_id_hash(norm_query ? norm_query : query_text, norm_query_len);
-	stats->counters.info.cmd_type = query->commandType;
-
-	/*
-	 * Add the query text and stats to the local list.
-	 *
-	 * Preserve the normalized query if needed and we got a valid one.
-	 * Otherwise, store the actual query so that we don't have to check what
-	 * query to store when saving into the hash.
-	 *
-	 * In case of query_text, request the function to duplicate it so that it
-	 * is put in the relevant memory context.
-	 */
-	if (pgsm_normalized_query && norm_query)
-		pgsm_add_query_stats(stats, norm_query, norm_query_len);
-	else
-	{
-		pgsm_add_query_stats(stats, query_text, query_len);
-	}
+	stats = pgsm_create_query_stats(query->queryId, 0,
+									get_pgsm_query_id_hash(hash_text, hash_text_len),
+									store_text, query->commandType);
+	pgsm_add_query_stats(stats, store_text, store_text_len);
 
 	Assert(list_length(lentries) <= max_nesting_level);
 
@@ -991,6 +984,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		!IsA(parsetree, DeallocateStmt))
 	{
 		const char *query_text;
+		char	   *store_text;
 		int			location = pstmt->stmt_location;
 		int			query_len = pstmt->stmt_len;
 		int			cmd_type = pstmt->commandType;
@@ -1073,12 +1067,12 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		query_text = CleanQuerytext(queryString, &location, &query_len);
 
-		pgsm_fill_query_stats(&stats, &info, queryId, 0);
-
 		/* Make it null terminated */
-		stats.query = pnstrdup(query_text, query_len);
-		stats.pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
-		stats.counters.info.cmd_type = cmd_type;
+		store_text = pnstrdup(query_text, query_len);
+
+		pgsm_fill_query_stats(&stats, &info, queryId, 0,
+							  get_pgsm_query_id_hash(query_text, query_len),
+							  store_text, cmd_type);
 
 		/* The plan details are captured when the query finishes */
 		pgsm_update_counters(&stats.counters,	/* counters */
@@ -1095,7 +1089,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		pgsm_store(&stats);
 
-		pfree(stats.query);
+		pfree(store_text);
 	}
 	else
 	{
@@ -1459,20 +1453,14 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 {
 	pgsmQueryStats stats = {0};
 	pgsmQueryExecInfo info;
-	int64		queryid;
 	int			len = strlen(query);
 
-	queryid = pgsm_hash_string(query, len);
-
 	pgsm_fill_query_exec_info(&info);
-	pgsm_fill_query_stats(&stats, &info, queryid, 0);
-
-	/*
-	 * Do not allocate new memory for query text as it will be copied to the
-	 * shared memory in pgsm_store().
-	 */
-	stats.query = unconstify(char *, query);
-	stats.pgsm_query_id = get_pgsm_query_id_hash(query, len);
+	pgsm_fill_query_stats(&stats, &info,
+						  pgsm_hash_string(query, len),
+						  0,
+						  get_pgsm_query_id_hash(query, len),
+						  query, CMD_UNKNOWN);
 
 	stats.counters.error.elevel = edata->elevel;
 	strlcpy(stats.counters.error.message, edata->message, ERROR_MESSAGE_LEN);
@@ -1517,7 +1505,7 @@ pgsm_memory_context(void)
  * Function to create a new pgsmQueryStats structure.
  */
 static pgsmQueryStats *
-pgsm_create_query_stats(int64 queryid, int64 planid)
+pgsm_create_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type)
 {
 	pgsmQueryStats *stats;
 	pgsmQueryExecInfo info;
@@ -1530,7 +1518,7 @@ pgsm_create_query_stats(int64 queryid, int64 planid)
 	stats = palloc0_object(pgsmQueryStats);
 	MemoryContextSwitchTo(oldctx);
 
-	pgsm_fill_query_stats(stats, &info, queryid, planid);
+	pgsm_fill_query_stats(stats, &info, queryid, planid, pgsm_query_id, query_text, cmd_type);
 
 	return stats;
 }
@@ -1539,7 +1527,7 @@ pgsm_create_query_stats(int64 queryid, int64 planid)
  * Populate non-counter fields of a pgsmQueryStats.
  */
 static void
-pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid)
+pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type)
 {
 	pgsm_set_cached_info();
 
@@ -1556,6 +1544,10 @@ pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int6
 	stats->key.queryid = queryid;
 	stats->key.parentid = 0;
 	stats->key.userid = info->userid;
+
+	stats->pgsm_query_id = pgsm_query_id;
+	stats->counters.info.cmd_type = cmd_type;
+	stats->query = unconstify(char *, query_text);
 
 	strlcpy(stats->appname, info->appname, NAMEDATALEN);
 	strlcpy(stats->username, info->username, NAMEDATALEN);
@@ -1648,15 +1640,10 @@ pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdTyp
 		}
 	}
 
-	stats = pgsm_create_query_stats(queryid, planid);
-
-	/*
-	 * Update other member that are not counters, so that we don't have to
-	 * worry about these.
-	 */
 	query_len = strlen(query_text);
-	stats->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
-	stats->counters.info.cmd_type = cmd_type;
+	stats = pgsm_create_query_stats(queryid, planid,
+									get_pgsm_query_id_hash(query_text, query_len),
+									query_text, cmd_type);
 	pgsm_add_query_stats(stats, query_text, query_len);
 
 	return stats;
