@@ -204,6 +204,7 @@ typedef struct pgsmQueryStats
 	pgsmHashKey key;			/* key used to find/create the shared
 								 * pgsmEntry */
 	int64		pgsm_query_id;	/* pgsm generate normalized query hash */
+	SubTransactionId subxid;	/* subtransaction the query belongs to */
 	char	   *query;			/* query text, palloc'd in local context */
 	char		appname[NAMEDATALEN];	/* application name */
 	char		username[NAMEDATALEN];	/* user name */
@@ -222,15 +223,18 @@ typedef struct pgsmQueryExecInfo
 	char		username[NAMEDATALEN];
 } pgsmQueryExecInfo;
 
+static MemoryContext pgsm_memory_context(void);
 static void pgsm_fill_query_exec_info(pgsmQueryExecInfo *info);
 static pgsmQueryStats *pgsm_create_query_stats(int64 queryid, const PlanInfo *plan_info);
-static pgsmQueryStats *pgsm_create_stats_with_query_exec_info(const pgsmQueryExecInfo *info, int64 queryid, const PlanInfo *plan_info);
+static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, const PlanInfo *plan_info);
 static void pgsm_add_query_stats(pgsmQueryStats *stats, const char *query_text, int query_len);
 static void pgsm_delete_query_stats(uint64 queryid);
 static pgsmQueryStats *pgsm_get_query_stats(int64 queryid, const PlanInfo *plan_info, const char *query_text, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
+static void pgsm_subxact_callback(SubXactEvent event, SubTransactionId mySubid,
+								  SubTransactionId parentSubid, void *arg);
 static void pgsm_store_error(const char *query, const ErrorData *edata);
 
 /*---- Local variables ----*/
@@ -239,7 +243,6 @@ static MemoryContextCallback mem_cxt_reset_callback =
 	.func = pgsm_cleanup_callback,
 	.arg = NULL
 };
-static bool callback_setup = false;
 
 static void pgsm_update_counters(Counters *counters,
 								 const PlanInfo *plan_info,
@@ -341,6 +344,8 @@ _PG_init(void)
 	prev_emit_log_hook = emit_log_hook;
 	emit_log_hook = pgsm_emit_log_hook;
 
+	RegisterSubXactCallback(pgsm_subxact_callback, NULL);
+
 	/*
 	 * Use max_stack_depth as a very high and very rough estimate for maximum
 	 * query nesting.
@@ -348,10 +353,6 @@ _PG_init(void)
 	max_nesting_level = max_stack_depth;
 
 	oldctx = MemoryContextSwitchTo(TopMemoryContext);
-
-	PgsmMemoryContext = AllocSetContextCreate(TopMemoryContext,
-											  "pg_stat_monitor local store",
-											  ALLOCSET_DEFAULT_SIZES);
 
 	nested_queryids = palloc_array(int64, max_nesting_level);
 	nested_query_txts = palloc0_array(char *, max_nesting_level);
@@ -424,19 +425,6 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	/* Safety check... */
 	if (!IsSystemInitialized())
 		return;
-
-	if (!callback_setup)
-	{
-		/*
-		 * If MessageContext is valid setup a callback to cleanup our local
-		 * stats list when the MessagContext gets reset
-		 */
-		if (MemoryContextIsValid(MessageContext))
-		{
-			MemoryContextRegisterResetCallback(MessageContext, &mem_cxt_reset_callback);
-			callback_setup = true;
-		}
-	}
 
 	if (!pgsm_enabled(nesting_level))
 		return;
@@ -757,11 +745,12 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		pgsmQueryStats *stats;
 		struct rusage rusage_end;
 		SysInfo		sys_info;
+		int64		planid = plan_ptr ? plan_ptr->planid : 0;
 
 		stats = pgsm_get_query_stats(queryId, plan_ptr, queryDesc->sourceText, queryDesc->operation);
 
-		if (stats->key.planid == 0 && plan_ptr)
-			stats->key.planid = plan_ptr->planid;
+		if (stats->key.planid == 0 && planid != 0)
+			stats->key.planid = planid;
 
 		/*
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
@@ -857,8 +846,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 
-		if (MemoryContextIsValid(MessageContext))
-			stats = pgsm_get_query_stats(queryId, NULL, query_string, parse->commandType);
+		stats = pgsm_get_query_stats(queryId, NULL, query_string, parse->commandType);
 
 #if PG_VERSION_NUM >= 170000
 		nesting_level++;
@@ -1015,7 +1003,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		BufferUsage bufusage_start = pgBufferUsage;
 		WalUsage	walusage;
 		WalUsage	walusage_start = pgWalUsage;
-		pgsmQueryStats *stats;
+		pgsmQueryStats stats = {0};
 		pgsmQueryExecInfo info;
 
 		getrusage(RUSAGE_SELF, &rusage_start);
@@ -1051,8 +1039,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		}
 		PG_END_TRY();
 
-		stats = pgsm_create_stats_with_query_exec_info(&info, queryId, NULL);
-
 		/*
 		 * CAUTION: do not access the *pstmt data structure again below here.
 		 * If it was a ROLLBACK or similar, that data structure may have been
@@ -1087,12 +1073,15 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		query_text = CleanQuerytext(queryString, &location, &query_len);
 
-		stats->query = pnstrdup(query_text, query_len);
-		stats->pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
-		stats->counters.info.cmd_type = cmd_type;
+		pgsm_fill_query_stats(&stats, &info, queryId, NULL);
+
+		/* Make it null terminated */
+		stats.query = pnstrdup(query_text, query_len);
+		stats.pgsm_query_id = get_pgsm_query_id_hash(query_text, query_len);
+		stats.counters.info.cmd_type = cmd_type;
 
 		/* The plan details are captured when the query finishes */
-		pgsm_update_counters(&stats->counters,	/* counters */
+		pgsm_update_counters(&stats.counters,	/* counters */
 							 NULL,	/* PlanInfo */
 							 &sys_info, /* SysInfo */
 							 0, /* plan_total_time */
@@ -1104,10 +1093,9 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 							 0, /* parallel_workers_to_launch */
 							 0);	/* parallel_workers_launched */
 
-		pgsm_store(stats);
+		pgsm_store(&stats);
 
-		pfree(stats->query);
-		pfree(stats);
+		pfree(stats.query);
 	}
 	else
 	{
@@ -1469,25 +1457,60 @@ pgsm_merge_counters(Counters *dst, const Counters *src)
 static void
 pgsm_store_error(const char *query, const ErrorData *edata)
 {
-	pgsmQueryStats *stats;
+	pgsmQueryStats stats = {0};
+	pgsmQueryExecInfo info;
 	int64		queryid;
 	int			len = strlen(query);
 
 	queryid = pgsm_hash_string(query, len);
 
-	stats = pgsm_create_query_stats(queryid, NULL);
-	stats->query = pnstrdup(query, len);
+	pgsm_fill_query_exec_info(&info);
+	pgsm_fill_query_stats(&stats, &info, queryid, NULL);
 
-	stats->pgsm_query_id = get_pgsm_query_id_hash(query, len);
+	/*
+	 * Do not allocate new memory for query text as it will be copied to the
+	 * shared memory in pgsm_store().
+	 */
+	stats.query = unconstify(char *, query);
+	stats.pgsm_query_id = get_pgsm_query_id_hash(query, len);
 
-	stats->counters.error.elevel = edata->elevel;
-	strlcpy(stats->counters.error.message, edata->message, ERROR_MESSAGE_LEN);
-	strlcpy(stats->counters.error.sqlcode, unpack_sql_state(edata->sqlerrcode), SQLCODE_LEN);
+	stats.counters.error.elevel = edata->elevel;
+	strlcpy(stats.counters.error.message, edata->message, ERROR_MESSAGE_LEN);
+	strlcpy(stats.counters.error.sqlcode, unpack_sql_state(edata->sqlerrcode), SQLCODE_LEN);
 
-	pgsm_store(stats);
+	pgsm_store(&stats);
+}
 
-	pfree(stats->query);
-	pfree(stats);
+/*
+ * Return pgsm local memory context.
+ *
+ * This context is used to store intermediate query statistics before it will be added
+ * to the buckets in shared memory.
+ */
+static MemoryContext
+pgsm_memory_context(void)
+{
+	Assert(IsTransactionState());
+
+	if (PgsmMemoryContext == NULL)
+	{
+		/*
+		 * We expect top transaction context to be available in any possible
+		 * scenario. CurrentMemoryContext here is just a failsafe mechanism,
+		 * it should never happen.
+		 */
+		MemoryContext parent = IsTransactionState() ? TopTransactionContext
+			: CurrentMemoryContext;
+
+		PgsmMemoryContext = AllocSetContextCreate(parent,
+												  "pg_stat_monitor local store",
+												  ALLOCSET_START_SMALL_SIZES);
+		MemoryContextRegisterResetCallback(PgsmMemoryContext,
+										   &mem_cxt_reset_callback);
+		lentries = NIL;
+	}
+
+	return PgsmMemoryContext;
 }
 
 /*
@@ -1496,24 +1519,32 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 static pgsmQueryStats *
 pgsm_create_query_stats(int64 queryid, const PlanInfo *plan_info)
 {
+	pgsmQueryStats *stats;
 	pgsmQueryExecInfo info;
+	MemoryContext oldctx;
 
 	pgsm_fill_query_exec_info(&info);
 
-	return pgsm_create_stats_with_query_exec_info(&info, queryid, plan_info);
+	/* Create the stats in the pgsm memory context */
+	oldctx = MemoryContextSwitchTo(pgsm_memory_context());
+	stats = palloc0_object(pgsmQueryStats);
+	MemoryContextSwitchTo(oldctx);
+
+	pgsm_fill_query_stats(stats, &info, queryid, plan_info);
+
+	return stats;
 }
 
-static pgsmQueryStats *
-pgsm_create_stats_with_query_exec_info(const pgsmQueryExecInfo *info, int64 queryid, const PlanInfo *plan_info)
+/*
+ * Populate non-counter fields of a pgsmQueryStats.
+ */
+static void
+pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, const PlanInfo *plan_info)
 {
-	pgsmQueryStats *stats;
-	MemoryContext oldctx;
-
 	pgsm_set_cached_info();
 
-	/* Create an stats in the pgsm memory context */
-	oldctx = MemoryContextSwitchTo(PgsmMemoryContext);
-	stats = palloc0_object(pgsmQueryStats);
+	stats->subxid = IsTransactionState() ? GetCurrentSubTransactionId()
+		: InvalidSubTransactionId;
 
 	if (pgsm_track_application_names)
 	{
@@ -1534,10 +1565,6 @@ pgsm_create_stats_with_query_exec_info(const pgsmQueryExecInfo *info, int64 quer
 #else
 	stats->key.toplevel = (nesting_level + plan_nested_level == 0);
 #endif
-
-	MemoryContextSwitchTo(oldctx);
-
-	return stats;
 }
 
 /*
@@ -1546,8 +1573,7 @@ pgsm_create_stats_with_query_exec_info(const pgsmQueryExecInfo *info, int64 quer
 static void
 pgsm_add_query_stats(pgsmQueryStats *stats, const char *query_text, int query_len)
 {
-	/* Switch to pgsm memory context */
-	MemoryContext oldctx = MemoryContextSwitchTo(PgsmMemoryContext);
+	MemoryContext oldctx = MemoryContextSwitchTo(pgsm_memory_context());
 
 	stats->query = pnstrdup(query_text, query_len);
 	lentries = lappend(lentries, stats);
@@ -1639,11 +1665,38 @@ pgsm_get_query_stats(int64 queryid, const PlanInfo *plan_info, const char *query
 static void
 pgsm_cleanup_callback(void *arg)
 {
-	/* Reset the memory context holding the list */
-	MemoryContextReset(PgsmMemoryContext);
-
+	PgsmMemoryContext = NULL;
 	lentries = NIL;
-	callback_setup = false;
+}
+
+/*
+ * On subtransaction abort, discard any in-flight local stats that belong to the
+ * aborting subtransaction.
+ */
+static void
+pgsm_subxact_callback(SubXactEvent event, SubTransactionId mySubid,
+					  SubTransactionId parentSubid, void *arg)
+{
+	ListCell   *lc;
+
+	if (event != SUBXACT_EVENT_ABORT_SUB)
+		return;
+
+	foreach(lc, lentries)
+	{
+		pgsmQueryStats *stats = lfirst(lc);
+
+		/*
+		 * Prune entries stamped by the aborting subxact. Using >= is
+		 * defensive (cleanup everything that is not yet pruned)
+		 */
+		if (stats->subxid >= mySubid)
+		{
+			lentries = foreach_delete_current(lentries, lc);
+			pfree(stats->query);
+			pfree(stats);
+		}
+	}
 }
 
 /*
