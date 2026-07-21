@@ -1165,7 +1165,7 @@ pgsm_set_cached_info(void)
 	if (client_ip == PGSM_INVALID_IP)
 		client_ip = pg_get_client_addr();
 
-	if (IsTransactionState() && datname[0] == '\0')
+	if (datname[0] == '\0' && IsTransactionState())
 	{
 		char	   *name = get_database_name(MyDatabaseId);
 
