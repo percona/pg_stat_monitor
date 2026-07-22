@@ -225,9 +225,8 @@ typedef struct pgsmQueryExecInfo
 
 static MemoryContext pgsm_memory_context(void);
 static void pgsm_fill_query_exec_info(pgsmQueryExecInfo *info);
-static pgsmQueryStats *pgsm_create_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
+static pgsmQueryStats *pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, int query_len, CmdType cmd_type);
 static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
-static void pgsm_add_query_stats(pgsmQueryStats *stats, const char *query_text, int query_len);
 static void pgsm_delete_query_stats(uint64 queryid);
 static pgsmQueryStats *pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
@@ -415,7 +414,6 @@ pgsm_shmem_request(void)
 static void
 pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *jstate)
 {
-	pgsmQueryStats *stats;
 	const char *query_text;
 	int			query_len;
 	const char *hash_text;
@@ -495,10 +493,9 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	 * bucket value. The correct bucket value will be needed then to search
 	 * the hash table, or create the appropriate entry.
 	 */
-	stats = pgsm_create_query_stats(query->queryId, 0,
-									get_pgsm_query_id_hash(hash_text, hash_text_len),
-									store_text, query->commandType);
-	pgsm_add_query_stats(stats, store_text, store_text_len);
+	pgsm_add_query_stats(query->queryId, 0,
+						 get_pgsm_query_id_hash(hash_text, hash_text_len),
+						 store_text, store_text_len, query->commandType);
 
 	Assert(list_length(lentries) <= max_nesting_level);
 
@@ -1502,23 +1499,26 @@ pgsm_memory_context(void)
 }
 
 /*
- * Function to create a new pgsmQueryStats structure.
+ * Function to add a new pgsmQueryStats structure to the backend-local list.
  */
 static pgsmQueryStats *
-pgsm_create_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type)
+pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, int query_len, CmdType cmd_type)
 {
 	pgsmQueryStats *stats;
 	pgsmQueryExecInfo info;
 	MemoryContext oldctx;
+	char	   *store_text;
 
 	pgsm_fill_query_exec_info(&info);
 
-	/* Create the stats in the pgsm memory context */
+	/* Create the stats and own the query text in the pgsm memory context */
 	oldctx = MemoryContextSwitchTo(pgsm_memory_context());
 	stats = palloc0_object(pgsmQueryStats);
-	MemoryContextSwitchTo(oldctx);
+	store_text = pnstrdup(query_text, query_len);
 
-	pgsm_fill_query_stats(stats, &info, queryid, planid, pgsm_query_id, query_text, cmd_type);
+	pgsm_fill_query_stats(stats, &info, queryid, planid, pgsm_query_id, store_text, cmd_type);
+	lentries = lappend(lentries, stats);
+	MemoryContextSwitchTo(oldctx);
 
 	return stats;
 }
@@ -1557,19 +1557,6 @@ pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int6
 #else
 	stats->key.toplevel = (nesting_level + plan_nested_level == 0);
 #endif
-}
-
-/*
- * Function to add a new pgsmQueryStats structure to the local list.
- */
-static void
-pgsm_add_query_stats(pgsmQueryStats *stats, const char *query_text, int query_len)
-{
-	MemoryContext oldctx = MemoryContextSwitchTo(pgsm_memory_context());
-
-	stats->query = pnstrdup(query_text, query_len);
-	lentries = lappend(lentries, stats);
-	MemoryContextSwitchTo(oldctx);
 }
 
 /*
@@ -1641,10 +1628,9 @@ pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdTyp
 	}
 
 	query_len = strlen(query_text);
-	stats = pgsm_create_query_stats(queryid, planid,
-									get_pgsm_query_id_hash(query_text, query_len),
-									query_text, cmd_type);
-	pgsm_add_query_stats(stats, query_text, query_len);
+	stats = pgsm_add_query_stats(queryid, planid,
+								 get_pgsm_query_id_hash(query_text, query_len),
+								 query_text, query_len, cmd_type);
 
 	return stats;
 }
