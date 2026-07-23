@@ -1662,12 +1662,9 @@ pgsm_store(const pgsmQueryStats *stats)
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
 	bool		found;
-	uint64		bucketid;
-	uint64		prev_bucket_id;
 	pgsmHashKey key = stats->key;
 	char	   *query = stats->query;
 	char		comments[COMMENTS_LEN];
-	TimestampTz reset_timestamp;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1675,10 +1672,7 @@ pgsm_store(const pgsmQueryStats *stats)
 
 	pgsm = pgsm_get_ss();
 
-	prev_bucket_id = pg_atomic_read_u64(&pgsm->current_wbucket);
-	bucketid = get_next_wbucket(pgsm);
-
-	key.bucket_id = bucketid;
+	key.bucket_id = get_next_wbucket(pgsm);
 
 	/* Let's do all the leg work here before we acquire any locks */
 
@@ -1781,23 +1775,7 @@ pgsm_store(const pgsmQueryStats *stats)
 		strlcpy(entry->username, stats->username, sizeof(entry->username));
 	}
 
-	/* Do work outside spinlock */
-	if (bucketid != prev_bucket_id)
-		reset_timestamp = GetCurrentTimestamp();
-
 	SpinLockAcquire(&entry->mutex);
-
-	/*
-	 * Start collecting data for next bucket and reset all counters and
-	 * timestamps.
-	 */
-	if (bucketid != prev_bucket_id)
-	{
-		memset(&entry->counters, 0, sizeof(Counters));
-		entry->counters.info.cmd_type = stats->counters.info.cmd_type;
-		entry->stats_since = reset_timestamp;
-		entry->minmax_stats_since = reset_timestamp;
-	}
 
 	pgsm_merge_counters(&entry->counters, &stats->counters);
 
@@ -2508,9 +2486,14 @@ get_next_wbucket(pgsmSharedState *pgsm)
 		/* Update bucket id and retrieve the previous one. */
 		pg_atomic_exchange_u64(&pgsm->current_wbucket, new_bucket_id);
 
+		/*
+		 * There is a race condition here where entries might get lost if the
+		 * bucket update/insert lock in pgsm_store() is taken before we grab
+		 * this lock by another backend which also attempts to insert into the
+		 * new bucket.
+		 */
 		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
 		hash_entry_dealloc(new_bucket_id);
-
 		pgsm_lock_release(pgsm);
 
 		/* Align the value in prev_bucket_sec to the bucket start time */
