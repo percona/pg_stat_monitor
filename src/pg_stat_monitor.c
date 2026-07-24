@@ -2020,7 +2020,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	hash_seq_init(&hstat, get_pgsmHash());
 
 	now = GetCurrentTimestamp();
-	current_bucket = pg_atomic_read_u64(&pgsm->current_wbucket);
+	current_bucket = pg_atomic_read_u64(&pgsm->current_bucket_id);
 
 	while ((entry = hash_seq_search(&hstat)) != NULL)
 	{
@@ -2471,69 +2471,61 @@ static uint64
 get_next_wbucket(pgsmSharedState *pgsm)
 {
 	struct timeval tv;
-	uint64		current_bucket_sec;
-	bool		update_bucket = false;
+	uint64		new_bucket_id;
+	time_t		new_bucket_start;
 
 	gettimeofday(&tv, NULL);
-	current_bucket_sec = pg_atomic_read_u64(&pgsm->prev_bucket_sec);
 
 	/*
-	 * If current bucket expired we loop attempting to update prev_bucket_sec.
+	 * If current bucket expired we loop attempting to update
+	 * current_bucket_start.
 	 *
 	 * pg_atomic_compare_exchange_u64 may fail in two possible ways: 1.
 	 * Another thread/process updated the variable before us. 2. A spurious
 	 * failure / hardware event.
 	 *
-	 * In both failure cases we read prev_bucket_sec from memory again, if it
-	 * was a spurious failure then the value of prev_bucket_sec must be the
-	 * same as before, which will cause the while loop to execute again.
+	 * In both failure cases we read current_bucket_start from memory again,
+	 * if it was a spurious failure then the value of current_bucket_start
+	 * must be the same as before, which will cause the while loop to execute
+	 * again.
 	 *
-	 * If another thread updated prev_bucket_sec, then its current value will
-	 * definitely make the while condition to fail, we can stop the loop as
-	 * another thread has already updated prev_bucket_sec.
+	 * If another thread updated current_bucket_start, then its current value
+	 * will definitely make the while condition to fail, we can stop the loop
+	 * as another thread has already updated current_bucket_start.
 	 */
-	while ((tv.tv_sec - (uint) current_bucket_sec) >= ((uint) pgsm_bucket_time))
+	for (;;)
 	{
-		if (pg_atomic_compare_exchange_u64(&pgsm->prev_bucket_sec, &current_bucket_sec, (uint64) tv.tv_sec))
-		{
-			update_bucket = true;
+		uint64		current_bucket_start = pg_atomic_read_u64(&pgsm->current_bucket_start);
+
+		if ((uint64) tv.tv_sec < current_bucket_start + (uint64) pgsm_bucket_time)
+			return pg_atomic_read_u64(&pgsm->current_bucket_id);
+
+		if (pg_atomic_compare_exchange_u64(&pgsm->current_bucket_start, &current_bucket_start, (uint64) tv.tv_sec))
 			break;
-		}
-
-		current_bucket_sec = pg_atomic_read_u64(&pgsm->prev_bucket_sec);
 	}
 
-	if (update_bucket)
-	{
-		uint64		new_bucket_id;
+	new_bucket_id = (tv.tv_sec / pgsm_bucket_time) % pgsm_max_buckets;
 
-		new_bucket_id = (tv.tv_sec / pgsm_bucket_time) % pgsm_max_buckets;
+	pg_atomic_write_u64(&pgsm->current_bucket_id, new_bucket_id);
 
-		/* Update bucket id and retrieve the previous one. */
-		pg_atomic_exchange_u64(&pgsm->current_wbucket, new_bucket_id);
+	/*
+	 * There is a race condition here where entries might get lost if the
+	 * bucket update/insert lock in pgsm_store() is taken before we grab this
+	 * lock by another backend which also attempts to insert into the new
+	 * bucket.
+	 */
+	pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
+	hash_entry_dealloc(new_bucket_id);
+	pgsm_lock_release(pgsm);
 
-		/*
-		 * There is a race condition here where entries might get lost if the
-		 * bucket update/insert lock in pgsm_store() is taken before we grab
-		 * this lock by another backend which also attempts to insert into the
-		 * new bucket.
-		 */
-		pgsm_lock_aquire(pgsm, LW_EXCLUSIVE);
-		hash_entry_dealloc(new_bucket_id);
-		pgsm_lock_release(pgsm);
+	new_bucket_start = tv.tv_sec - tv.tv_sec % pgsm_bucket_time;
 
-		/* Align the value in prev_bucket_sec to the bucket start time */
-		tv.tv_sec = (tv.tv_sec) - (tv.tv_sec % pgsm_bucket_time);
+	pg_atomic_write_u64(&pgsm->current_bucket_start, (uint64) new_bucket_start);
 
-		pg_atomic_exchange_u64(&pgsm->prev_bucket_sec, (uint64) tv.tv_sec);
+	pgsm->bucket_start_time[new_bucket_id] = (TimestampTz) (new_bucket_start -
+															(POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE) * SECS_PER_DAY) * USECS_PER_SEC;
 
-		pgsm->bucket_start_time[new_bucket_id] = (TimestampTz) tv.tv_sec -
-			((POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE) * SECS_PER_DAY);
-		pgsm->bucket_start_time[new_bucket_id] = pgsm->bucket_start_time[new_bucket_id] * USECS_PER_SEC;
-		return new_bucket_id;
-	}
-
-	return pg_atomic_read_u64(&pgsm->current_wbucket);
+	return new_bucket_id;
 }
 
 /*
