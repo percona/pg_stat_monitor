@@ -109,8 +109,8 @@ pgsm_startup(void)
 		/* Initialize fields */
 		pgsm->pgsm_oom = false;
 		pgsm->lock = &GetNamedLWLockTranche("pg_stat_monitor")->lock;
-		pg_atomic_init_u64(&pgsm->current_wbucket, 0);
-		pg_atomic_init_u64(&pgsm->prev_bucket_sec, 0);
+		pg_atomic_init_u64(&pgsm->current_bucket_id, 0);
+		pg_atomic_init_u64(&pgsm->current_bucket_start, 0);
 
 		/* the allocation of pgsmSharedState itself */
 		p += MAXALIGN(pgsm_shared_state_size());
