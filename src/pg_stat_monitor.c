@@ -225,11 +225,11 @@ typedef struct pgsmQueryExecInfo
 
 static MemoryContext pgsm_memory_context(void);
 static void pgsm_fill_query_exec_info(pgsmQueryExecInfo *info);
-static pgsmQueryStats *pgsm_create_query_stats(int64 queryid, const PlanInfo *plan_info);
-static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, const PlanInfo *plan_info);
+static pgsmQueryStats *pgsm_create_query_stats(int64 queryid, int64 planid);
+static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid);
 static void pgsm_add_query_stats(pgsmQueryStats *stats, const char *query_text, int query_len);
 static void pgsm_delete_query_stats(uint64 queryid);
-static pgsmQueryStats *pgsm_get_query_stats(int64 queryid, const PlanInfo *plan_info, const char *query_text, CmdType cmd_type);
+static pgsmQueryStats *pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
@@ -481,7 +481,7 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	 * bucket value. The correct bucket value will be needed then to search
 	 * the hash table, or create the appropriate entry.
 	 */
-	stats = pgsm_create_query_stats(query->queryId, NULL);
+	stats = pgsm_create_query_stats(query->queryId, 0);
 
 	/*
 	 * Update other member that are not counters, so that we don't have to
@@ -747,7 +747,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		SysInfo		sys_info;
 		int64		planid = plan_ptr ? plan_ptr->planid : 0;
 
-		stats = pgsm_get_query_stats(queryId, plan_ptr, queryDesc->sourceText, queryDesc->operation);
+		stats = pgsm_get_query_stats(queryId, planid, queryDesc->sourceText, queryDesc->operation);
 
 		if (stats->key.planid == 0 && planid != 0)
 			stats->key.planid = planid;
@@ -846,7 +846,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 
-		stats = pgsm_get_query_stats(queryId, NULL, query_string, parse->commandType);
+		stats = pgsm_get_query_stats(queryId, 0, query_string, parse->commandType);
 
 #if PG_VERSION_NUM >= 170000
 		nesting_level++;
@@ -1073,7 +1073,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		query_text = CleanQuerytext(queryString, &location, &query_len);
 
-		pgsm_fill_query_stats(&stats, &info, queryId, NULL);
+		pgsm_fill_query_stats(&stats, &info, queryId, 0);
 
 		/* Make it null terminated */
 		stats.query = pnstrdup(query_text, query_len);
@@ -1465,7 +1465,7 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 	queryid = pgsm_hash_string(query, len);
 
 	pgsm_fill_query_exec_info(&info);
-	pgsm_fill_query_stats(&stats, &info, queryid, NULL);
+	pgsm_fill_query_stats(&stats, &info, queryid, 0);
 
 	/*
 	 * Do not allocate new memory for query text as it will be copied to the
@@ -1517,7 +1517,7 @@ pgsm_memory_context(void)
  * Function to create a new pgsmQueryStats structure.
  */
 static pgsmQueryStats *
-pgsm_create_query_stats(int64 queryid, const PlanInfo *plan_info)
+pgsm_create_query_stats(int64 queryid, int64 planid)
 {
 	pgsmQueryStats *stats;
 	pgsmQueryExecInfo info;
@@ -1530,7 +1530,7 @@ pgsm_create_query_stats(int64 queryid, const PlanInfo *plan_info)
 	stats = palloc0_object(pgsmQueryStats);
 	MemoryContextSwitchTo(oldctx);
 
-	pgsm_fill_query_stats(stats, &info, queryid, plan_info);
+	pgsm_fill_query_stats(stats, &info, queryid, planid);
 
 	return stats;
 }
@@ -1539,7 +1539,7 @@ pgsm_create_query_stats(int64 queryid, const PlanInfo *plan_info)
  * Populate non-counter fields of a pgsmQueryStats.
  */
 static void
-pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, const PlanInfo *plan_info)
+pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid)
 {
 	pgsm_set_cached_info();
 
@@ -1551,7 +1551,7 @@ pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int6
 		stats->key.appid = pgsm_hash_string(info->appname, strlen(info->appname));
 	}
 	stats->key.ip = client_ip;
-	stats->key.planid = plan_info ? plan_info->planid : 0;
+	stats->key.planid = planid;
 	stats->key.dbid = MyDatabaseId;
 	stats->key.queryid = queryid;
 	stats->key.parentid = 0;
@@ -1624,7 +1624,7 @@ pgsm_delete_query_stats(uint64 queryid)
  * Function to get a pgsmQueryStats structure from the local list.
  */
 static pgsmQueryStats *
-pgsm_get_query_stats(int64 queryid, const PlanInfo *plan_info, const char *query_text, CmdType cmd_type)
+pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type)
 {
 	pgsmQueryStats *stats;
 	int			query_len;
@@ -1648,7 +1648,7 @@ pgsm_get_query_stats(int64 queryid, const PlanInfo *plan_info, const char *query
 		}
 	}
 
-	stats = pgsm_create_query_stats(queryid, plan_info);
+	stats = pgsm_create_query_stats(queryid, planid);
 
 	/*
 	 * Update other member that are not counters, so that we don't have to
