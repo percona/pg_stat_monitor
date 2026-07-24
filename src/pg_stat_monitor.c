@@ -1563,10 +1563,7 @@ pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int6
 	stats->subxid = IsTransactionState() ? GetCurrentSubTransactionId()
 		: InvalidSubTransactionId;
 
-	if (pgsm_track_application_names)
-	{
-		stats->key.appid = pgsm_hash_string(info->appname, strlen(info->appname));
-	}
+	stats->key.appid = pgsm_hash_string(info->appname, strlen(info->appname));
 	stats->key.ip = client_ip;
 	stats->key.planid = planid;
 	stats->key.dbid = MyDatabaseId;
@@ -1838,7 +1835,7 @@ pgsm_store(const pgsmQueryStats *stats)
 	if (pgsm_extract_comments && comments[0] && !entry->counters.info.comments[0])
 		strlcpy(entry->counters.info.comments, comments, COMMENTS_LEN);
 
-	if (pgsm_track_application_names && stats->appname[0] != '\0' && !entry->counters.info.application_name[0])
+	if (stats->appname[0] != '\0' && !entry->counters.info.application_name[0])
 		strlcpy(entry->counters.info.application_name, stats->appname, NAMEDATALEN);
 
 	entry->counters.info.num_relations = num_relations;

@@ -24,32 +24,9 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
-SELECT 1 AS num;
- num 
------
-   1
-(1 row)
-
+-- The parameter is deprecated and has no effect, but setting it must still
+-- emit a deprecation warning.
 SET pg_stat_monitor.pgsm_track_application_names = off;
-SELECT 1 AS num;
- num 
------
-   1
-(1 row)
-
-SELECT query, application_name FROM pg_stat_monitor ORDER BY query, application_name COLLATE "C";
-                         query                          |      application_name       
---------------------------------------------------------+-----------------------------
- SELECT 1 AS num                                        | pg_regress/application_name
- SELECT 1 AS num                                        | 
- SELECT pg_stat_monitor_reset()                         | pg_regress/application_name
- SET pg_stat_monitor.pgsm_track_application_names = off | 
-(4 rows)
-
-SELECT pg_stat_monitor_reset();
- pg_stat_monitor_reset 
------------------------
- 
-(1 row)
-
+WARNING:  pg_stat_monitor.pgsm_track_application_names is deprecated and has no effect
+DETAIL:  Application names are always tracked.
 DROP EXTENSION pg_stat_monitor;
