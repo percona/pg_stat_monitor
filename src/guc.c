@@ -34,7 +34,7 @@ bool		pgsm_enable_query_plan;
 bool		pgsm_enable_overflow;
 bool		pgsm_normalized_query;
 bool		pgsm_track_utility;
-bool		pgsm_track_application_names;
+static bool pgsm_track_application_names;	/* deprecated */
 bool		pgsm_enable_pgsm_query_id;
 int			pgsm_track = PGSM_TRACK_TOP;
 
@@ -49,6 +49,9 @@ static const struct config_enum_entry track_options[] =
 /* Check hooks to ensure histogram_min < histogram_max */
 static bool check_histogram_min(double *newval, void **extra, GucSource source);
 static bool check_histogram_max(double *newval, void **extra, GucSource source);
+
+/* Check hook warning that a deprecated parameter has no effect */
+static bool check_track_application_names(bool *newval, void **extra, GucSource source);
 
 /*
  * Define (or redefine) custom GUC variables.
@@ -181,13 +184,13 @@ init_guc(void)
 		);
 
 	DefineCustomBoolVariable("pg_stat_monitor.pgsm_track_application_names",	/* name */
-							 "Enable/Disable application names tracking.",	/* short_desc */
+							 "Deprecated, has no effect. Application names are always tracked.",	/* short_desc */
 							 NULL,	/* long_desc */
 							 &pgsm_track_application_names, /* value address */
 							 true,	/* boot value */
 							 PGC_USERSET,	/* context */
 							 0, /* flags */
-							 NULL,	/* check_hook */
+							 check_track_application_names, /* check_hook */
 							 NULL,	/* assign_hook */
 							 NULL	/* show_hook */
 		);
@@ -292,4 +295,16 @@ static bool
 check_histogram_max(double *newval, void **extra, GucSource source)
 {
 	return *newval >= (pgsm_histogram_min + 1.0);
+}
+
+static bool
+check_track_application_names(bool *newval, void **extra, GucSource source)
+{
+	if (source >= PGC_S_FILE)
+		ereport(WARNING,
+				(errcode(ERRCODE_WARNING_DEPRECATED_FEATURE),
+				 errmsg("pg_stat_monitor.pgsm_track_application_names is deprecated and has no effect"),
+				 errdetail("Application names are always tracked.")));
+
+	return true;
 }
