@@ -1,28 +1,36 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "ALTER EXTENSION pg_stat_monitor" to load this file. \quit
 
+ALTER FUNCTION pg_stat_monitor_version() STABLE LEAKPROOF;
+
 CREATE OR REPLACE FUNCTION decode_error_level(elevel int)
 RETURNS text
 STRICT
+STABLE
 PARALLEL SAFE
+LEAKPROOF
 LANGUAGE c
 AS 'MODULE_PATHNAME', 'pg_stat_monitor_decode_error_level';
 
 CREATE OR REPLACE FUNCTION get_cmd_type(cmd_type int)
 RETURNS text
 STRICT
+STABLE
 PARALLEL SAFE
+LEAKPROOF
 LANGUAGE c
 AS 'MODULE_PATHNAME', 'pg_stat_monitor_get_cmd_type';
 
 CREATE OR REPLACE FUNCTION range()
 RETURNS text[]
+PARALLEL SAFE
 LANGUAGE sql
 RETURN string_to_array(get_histogram_timings(), ',');
 
 -- Intentionally uses a string body so we can drop and recreate the pg_stat_monitor view
 CREATE OR REPLACE FUNCTION histogram(_bucket int, _quryid int8)
 RETURNS SETOF record
+PARALLEL SAFE
 LANGUAGE sql
 AS $$
 WITH stat AS (
