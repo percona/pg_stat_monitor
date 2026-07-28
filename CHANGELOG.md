@@ -32,3 +32,4 @@
 - Potential buffer overread in comment extraction ([PG-2540](https://perconadev.atlassian.net/browse/PG-2540))
 - Do not access `PlannedStmt` after we call `standard_ProcessUtility()` ([PG-2486](https://perconadev.atlassian.net/browse/PG-2486))
 - Various improvements to the stability of our test suite
+- Make sure that for prepared statements utility statement exec info read at the executor start hook, where data is not yet modified by query itself

@@ -35,4 +35,41 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
+-- Check for prepared statements
+-- Use generic plan to avoid re-parsing and planner call
+SET plan_cache_mode = force_generic_plan;
+PREPARE p AS SELECT set_config('application_name', 'selfset', false);
+EXECUTE p;
+ set_config 
+------------
+ selfset
+(1 row)
+
+SET application_name = 'another_name';
+EXECUTE p;
+ set_config 
+------------
+ selfset
+(1 row)
+
+-- Prepared statements should not have application_name 'selfset'
+SELECT query, application_name FROM pg_stat_monitor ORDER BY query, application_name COLLATE "C";
+                                 query                                 | application_name 
+-----------------------------------------------------------------------+------------------
+ PREPARE p AS SELECT set_config('application_name', 'selfset', false); | another_name
+ PREPARE p AS SELECT set_config('application_name', 'selfset', false); | psql
+ SELECT pg_stat_monitor_reset()                                        | psql
+ SET application_name = 'another_name'                                 | selfset
+ SET plan_cache_mode = force_generic_plan                              | psql
+(5 rows)
+
+DEALLOCATE p;
+RESET application_name;
+RESET plan_cache_mode;
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
 DROP EXTENSION pg_stat_monitor;
