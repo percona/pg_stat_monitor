@@ -546,6 +546,14 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		queryDesc->plannedstmt->queryId != INT64CONST(0))
 	{
 		/*
+		 * Make sure a local stats entry exists before the query runs, so its
+		 * snapshot of the execution info (application_name, user) reflects
+		 * the state at statement start.
+		 */
+		(void) pgsm_get_query_stats(queryDesc->plannedstmt->queryId, 0,
+									queryDesc->sourceText, queryDesc->operation);
+
+		/*
 		 * Set up to track total elapsed time in ExecutorRun.  Make sure the
 		 * space is allocated in the per-query context so it will go away at
 		 * ExecutorEnd.
