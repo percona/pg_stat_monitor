@@ -218,6 +218,21 @@ if ($PGSM::PG_MAJOR_VERSION >= 18)
 	is($stdout, 't', "Compare: parallel_workers_launched are equal.");
 }
 
+if ($PGSM::PG_MAJOR_VERSION >= 19)
+{
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		'SELECT sum(pgsm.generic_plan_calls) = sum(pgss.generic_plan_calls) FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY pgsm.query;'
+	);
+	trim($stdout);
+	is($stdout, 't', "Compare: generic_plan_calls are equal.");
+
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		'SELECT sum(pgsm.custom_plan_calls) = sum(pgss.custom_plan_calls) FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%DELETE FROM pgbench_accounts%\' GROUP BY pgsm.query;'
+	);
+	trim($stdout);
+	is($stdout, 't', "Compare: custom_plan_calls are equal.");
+}
+
 # Compare values for query 'INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	'SELECT sum(pgsm.calls) = sum(pgss.calls) FROM pg_stat_monitor AS pgsm INNER JOIN pg_stat_statements AS pgss ON pgss.query = pgsm.query WHERE pgsm.query LIKE \'%INSERT INTO pgbench_history%\' GROUP BY pgsm.query;'
