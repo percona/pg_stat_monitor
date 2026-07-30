@@ -4,7 +4,7 @@ DO $$
 DECLARE
     i int;
 BEGIN
-    FOR i IN 10..24 LOOP
+    FOR i IN 10..25 LOOP
         RAISE NOTICE 'error_code: %, error_level: %', i, decode_error_level(i);
     END LOOP;
 END

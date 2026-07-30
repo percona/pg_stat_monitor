@@ -117,7 +117,11 @@ pgsm_startup(void)
 		pgsm->raw_dsa_area = p;
 		dsa = dsa_create_in_place(pgsm->raw_dsa_area,
 								  pgsm_query_area_size(),
+#if PG_VERSION_NUM >= 190000
+								  LWLockNewTrancheId("pg_stat_monitor_dsa"), 0);
+#else
 								  LWLockNewTrancheId(), 0);
+#endif
 		dsa_pin(dsa);
 		dsa_set_size_limit(dsa, pgsm_query_area_size());
 
@@ -156,9 +160,15 @@ pgsm_create_bucket_hash(void)
 		.entrysize = sizeof(pgsmEntry),
 	};
 
+#if PG_VERSION_NUM >= 190000
+	return ShmemInitHash("pg_stat_monitor: bucket hashtable",
+						 pgsm_bucket_hash_max_entries(),
+						 &info, HASH_ELEM | HASH_BLOBS);
+#else
 	return ShmemInitHash("pg_stat_monitor: bucket hashtable",
 						 pgsm_bucket_hash_max_entries(), pgsm_bucket_hash_max_entries(),
 						 &info, HASH_ELEM | HASH_BLOBS);
+#endif
 }
 
 /*
