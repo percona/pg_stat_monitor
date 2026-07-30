@@ -21,7 +21,7 @@ NOTICE:  error_code: 19, error_level: WARNING
 NOTICE:  error_code: 20, error_level: WARNING_CLIENT_ONLY
 NOTICE:  error_code: 21, error_level: ERROR
 NOTICE:  error_code: 22, error_level: FATAL
-NOTICE:  error_code: 23, error_level: PANIC
-NOTICE:  error_code: 24, error_level: <NULL>
+NOTICE:  error_code: 23, error_level: FATAL_CLIENT_ONLY
+NOTICE:  error_code: 24, error_level: PANIC
 NOTICE:  error_code: 25, error_level: <NULL>
 DROP EXTENSION pg_stat_monitor;
