@@ -171,6 +171,8 @@ typedef struct Counters
 											 * to be launched */
 	int64		parallel_workers_launched;	/* # of parallel workers actually
 											 * launched */
+	int64		generic_plan_calls; /* # of calls using a generic plan */
+	int64		custom_plan_calls;	/* # of calls using a custom plan */
 } Counters;
 
 /*

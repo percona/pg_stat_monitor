@@ -69,7 +69,8 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V2_0	64
 #define PG_STAT_MONITOR_COLS_V2_1	70
 #define PG_STAT_MONITOR_COLS_V2_3	73
-#define PG_STAT_MONITOR_COLS		PG_STAT_MONITOR_COLS_V2_3	/* maximum of above */
+#define PG_STAT_MONITOR_COLS_NEXT	75
+#define PG_STAT_MONITOR_COLS		PG_STAT_MONITOR_COLS_NEXT	/* maximum of above */
 
 #define pgsm_enabled(level) \
     (!IsParallelWorker() && \
@@ -87,6 +88,7 @@ typedef enum pgsmVersion
 	PGSM_V2_0,
 	PGSM_V2_1,
 	PGSM_V2_3,
+	PGSM_NEXT,
 } pgsmVersion;
 
 /*---- Initialization Function Declarations ----*/
@@ -206,6 +208,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_1_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_1);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_3);
+PG_FUNCTION_INFO_V1(pg_stat_monitor_NEXT);
 PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(get_histogram_timings);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
@@ -276,7 +279,8 @@ static void pgsm_update_counters(Counters *counters,
 								 const WalUsage *walusage,
 								 const struct JitInstrumentation *jitusage,
 								 int parallel_workers_to_launch,
-								 int parallel_workers_launched);
+								 int parallel_workers_launched,
+								 int plan_origin);
 static void pgsm_merge_counters(Counters *dst, const Counters *src);
 static void pgsm_store(const pgsmQueryStats *stats);
 
@@ -769,12 +773,16 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 #endif
 #if PG_VERSION_NUM >= 180000
 							 queryDesc->estate->es_parallel_workers_to_launch,	/* parallel_workers_to_launch */
-							 queryDesc->estate->es_parallel_workers_launched);	/* parallel_workers_launched */
+							 queryDesc->estate->es_parallel_workers_launched,	/* parallel_workers_launched */
 #else
 							 0, /* parallel_workers_to_launch */
-							 0);	/* parallel_workers_launched */
+							 0, /* parallel_workers_launched */
 #endif
-
+#if PG_VERSION_NUM >= 190000
+							 queryDesc->plannedstmt->planOrigin);	/* plan_origin */
+#else
+							 0);	/* plan_origin */
+#endif
 
 		pgsm_store(stats);
 
@@ -966,7 +974,8 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 								 &walusage, /* walusage */
 								 NULL,	/* jitusage */
 								 0, /* parallel_workers_to_launch */
-								 0);	/* parallel_workers_launched */
+								 0, /* parallel_workers_launched */
+								 0);	/* plan_origin */
 	}
 	else
 	{
@@ -1164,7 +1173,8 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 							 &walusage, /* walusage */
 							 NULL,	/* jitusage */
 							 0, /* parallel_workers_to_launch */
-							 0);	/* parallel_workers_launched */
+							 0, /* parallel_workers_launched */
+							 0);	/* plan_origin */
 
 		pgsm_store(&stats);
 
@@ -1324,7 +1334,8 @@ pgsm_update_counters(Counters *counters,
 					 const WalUsage *walusage,
 					 const struct JitInstrumentation *jitusage,
 					 int parallel_workers_to_launch,
-					 int parallel_workers_launched)
+					 int parallel_workers_launched,
+					 int plan_origin)
 {
 	/*
 	 * Only update the totals here, min/max/mean will be computed in
@@ -1412,6 +1423,14 @@ pgsm_update_counters(Counters *counters,
 	/* parallel worker counters */
 	counters->parallel_workers_to_launch += parallel_workers_to_launch;
 	counters->parallel_workers_launched += parallel_workers_launched;
+
+	/* cached plan origin counters (generic vs custom) */
+#if PG_VERSION_NUM >= 190000
+	if (plan_origin == PLAN_STMT_CACHE_GENERIC)
+		counters->generic_plan_calls++;
+	else if (plan_origin == PLAN_STMT_CACHE_CUSTOM)
+		counters->custom_plan_calls++;
+#endif
 }
 
 /*
@@ -1525,6 +1544,10 @@ pgsm_merge_counters(Counters *dst, const Counters *src)
 	/* parallel worker counters */
 	dst->parallel_workers_to_launch += src->parallel_workers_to_launch;
 	dst->parallel_workers_launched += src->parallel_workers_launched;
+
+	/* cached plan origin counters (generic vs custom) */
+	dst->generic_plan_calls += src->generic_plan_calls;
+	dst->custom_plan_calls += src->custom_plan_calls;
 }
 
 static void
@@ -1970,6 +1993,13 @@ pg_stat_monitor_2_3(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
+Datum
+pg_stat_monitor_NEXT(PG_FUNCTION_ARGS)
+{
+	pg_stat_monitor_internal(fcinfo, PGSM_NEXT, true);
+	return (Datum) 0;
+}
+
 /*
   * Legacy entry point for pg_stat_monitor() API versions 1.0
   */
@@ -2026,6 +2056,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			break;
 		case PGSM_V2_3:
 			expected_columns = PG_STAT_MONITOR_COLS_V2_3;
+			break;
+		case PGSM_NEXT:
+			expected_columns = PG_STAT_MONITOR_COLS_NEXT;
 			break;
 		default:
 			ereport(ERROR,
@@ -2424,17 +2457,24 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Int64GetDatumFast(tmp.parallel_workers_launched);
 		}
 
-		if (api_version >= PGSM_V2_1)
+		if (api_version >= PGSM_NEXT)
 		{
 			/* at column number 69 */
+			values[i++] = Int64GetDatumFast(tmp.generic_plan_calls);
+			values[i++] = Int64GetDatumFast(tmp.custom_plan_calls);
+		}
+
+		if (api_version >= PGSM_V2_1)
+		{
+			/* at column number 71 */
 			values[i++] = TimestampTzGetDatum(entry->stats_since);
 			values[i++] = TimestampTzGetDatum(entry->minmax_stats_since);
 		}
 
-		/* toplevel at column number 71 */
+		/* toplevel at column number 73 */
 		values[i++] = BoolGetDatum(toplevel);
 
-		/* bucket_done at column number 72 */
+		/* bucket_done at column number 74 */
 		values[i++] = BoolGetDatum(bucketid != current_bucket);
 
 		/* clean up and return the tuplestore */
