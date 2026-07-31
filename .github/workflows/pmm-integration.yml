@@ -18,7 +18,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        postgresql: [13, 14, 15, 16, 17, 18]
+        postgresql: [14, 15, 16, 17, 18]
 
     steps:
       - name: Clone QA Integration
