@@ -290,8 +290,11 @@ static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 
 static char *generate_normalized_query(const JumbleState *jstate, const char *query,
 									   int query_loc, int *query_len_p);
-static void fill_in_constant_lengths(const JumbleState *jstate, const char *query, int query_loc);
+#if PG_VERSION_NUM < 190000
+static LocationLen *ComputeConstantLengths(const JumbleState *jstate,
+										   const char *query, int query_loc);
 static int	comp_location(const void *a, const void *b);
+#endif
 
 static uint64 get_next_wbucket(pgsmSharedState *pgsm);
 
@@ -2751,15 +2754,17 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 				n_quer_loc = 0, /* Normalized query byte location */
 				last_off = 0,	/* Offset from start for previous tok */
 				last_tok_len = 0;	/* Length (in bytes) of that tok */
+	LocationLen *locs;
 #if PG_VERSION_NUM >= 180000
 	int			num_constants_replaced = 0;
 #endif
 
 	/*
-	 * Get constants' lengths (core system only gives us locations).  Note
-	 * this also ensures the items are sorted by location.
+	 * Determine constants' lengths (core system only gives us locations),
+	 * and return a sorted copy of jstate's LocationLen data with lengths
+	 * filled in.
 	 */
-	fill_in_constant_lengths(jstate, query, query_loc);
+	locs = ComputeConstantLengths(jstate, query, query_loc);
 
 	/*
 	 * Allow for $n symbols to be longer than the constants they replace.
@@ -2787,15 +2792,15 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 		 * the parameter in the next iteration (or after the loop is done),
 		 * which is a bit odd but seems to work okay in most cases.
 		 */
-		if (jstate->clocations[i].extern_param && !jstate->has_squashed_lists)
+		if (locs[i].extern_param && !jstate->has_squashed_lists)
 			continue;
 #endif
 
-		off = jstate->clocations[i].location;
+		off = locs[i].location;
 		/* Adjust recorded location if we're dealing with partial string */
 		off -= query_loc;
 
-		tok_len = jstate->clocations[i].length;
+		tok_len = locs[i].length;
 
 		if (tok_len < 0)
 			continue;			/* ignore any duplicates */
@@ -2817,7 +2822,7 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 		 */
 		n_quer_loc += sprintf(norm_query + n_quer_loc, "$%d%s",
 							  num_constants_replaced + 1 + jstate->highest_extern_param_id,
-							  jstate->clocations[i].squashed ? " /*, ... */" : "");
+							  locs[i].squashed ? " /*, ... */" : "");
 		num_constants_replaced++;
 #else
 		/* And insert a param symbol in place of the constant token */
@@ -2830,6 +2835,10 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 		last_off = off;
 		last_tok_len = tok_len;
 	}
+
+	/* Clean up, if needed */
+	if (locs)
+		pfree(locs);
 
 	/*
 	 * We've copied up until the last ignorable constant.  Copy over the
@@ -2845,10 +2854,15 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 	norm_query[n_quer_loc] = '\0';
 
 	*query_len_p = n_quer_loc;
+
 	return norm_query;
 }
 
+#if PG_VERSION_NUM < 190000
+
 /*
+ * Compatibility version of ComputeConstantLengths for Postgres < 19.
+ *
  * Given a valid SQL string and an array of constant-location records,
  * fill in the textual lengths of those constants.
  *
@@ -2874,10 +2888,13 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
  * N.B. There is an assumption that a '-' character at a Const location begins
  * a negative numeric constant.  This precludes there ever being another
  * reason for a constant to start with a '-'.
+ *
+ * Returns a sorted copy of jstate's LocationLen data with lengths filled in.
+ * The caller is responsible for pfree'ing the result.
  */
-static void
-fill_in_constant_lengths(const JumbleState *jstate, const char *query,
-						 int query_loc)
+static LocationLen *
+ComputeConstantLengths(const JumbleState *jstate, const char *query,
+					   int query_loc)
 {
 	LocationLen *locs;
 	core_yyscan_t yyscanner;
@@ -2885,16 +2902,22 @@ fill_in_constant_lengths(const JumbleState *jstate, const char *query,
 	core_YYSTYPE yylval;
 	YYLTYPE		yylloc;
 	int			last_loc = -1;
-	int			i;
+
+	if (jstate->clocations_count == 0)
+		return NULL;
+
+	/* Copy constant locations to avoid modifying jstate */
+	locs = palloc(sizeof(LocationLen) * jstate->clocations_count);
+	memcpy(locs, jstate->clocations,
+		   jstate->clocations_count * sizeof(LocationLen));
 
 	/*
 	 * Sort the records by location so that we can process them in order while
 	 * scanning the query text.
 	 */
 	if (jstate->clocations_count > 1)
-		qsort(jstate->clocations, jstate->clocations_count,
+		qsort(locs, jstate->clocations_count,
 			  sizeof(LocationLen), comp_location);
-	locs = jstate->clocations;
 
 	/* initialize the flex scanner --- should match raw_parser() */
 	yyscanner = scanner_init(query,
@@ -2902,13 +2925,11 @@ fill_in_constant_lengths(const JumbleState *jstate, const char *query,
 							 &ScanKeywords,
 							 ScanKeywordTokens);
 
-#if PG_VERSION_NUM < 190000
 	/* we don't want to re-emit any escape string warnings */
 	yyextra.escape_string_warning = false;
-#endif
 
 	/* Search for each constant, in sequence */
-	for (i = 0; i < jstate->clocations_count; i++)
+	for (int i = 0; i < jstate->clocations_count; i++)
 	{
 		int			loc = locs[i].location;
 		int			tok;
@@ -2977,6 +2998,8 @@ fill_in_constant_lengths(const JumbleState *jstate, const char *query,
 	}
 
 	scanner_finish(yyscanner);
+
+	return locs;
 }
 
 /*
@@ -2995,6 +3018,8 @@ comp_location(const void *a, const void *b)
 	else
 		return 0;
 }
+
+#endif							/* PG_VERSION_NUM < 190000 */
 
 /* Convert array of integers into Text datum */
 static Datum
