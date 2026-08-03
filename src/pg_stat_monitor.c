@@ -419,8 +419,11 @@ pgsm_shmem_request(void)
 }
 #endif
 
+/*
+ * Post-parse-analysis hook: mark query with a queryId
+ */
 static void
-pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *jstate)
+pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 {
 	const char *query_text;
 	int			query_len;
@@ -431,6 +434,9 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 	char	   *norm_query = NULL;
 	int			norm_query_len;
 	int			location;
+
+	if (prev_post_parse_analyze_hook)
+		prev_post_parse_analyze_hook(pstate, query, jstate);
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -509,18 +515,6 @@ pgsm_post_parse_analyze_internal(ParseState *pstate, Query *query, JumbleState *
 
 	if (norm_query)
 		pfree(norm_query);
-}
-
-/*
- * Post-parse-analysis hook: mark query with a queryId
- */
-static void
-pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
-{
-	if (prev_post_parse_analyze_hook)
-		prev_post_parse_analyze_hook(pstate, query, jstate);
-
-	pgsm_post_parse_analyze_internal(pstate, query, jstate);
 }
 
 /*
