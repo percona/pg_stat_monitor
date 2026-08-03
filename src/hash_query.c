@@ -31,7 +31,7 @@ typedef struct pgsmLocalState
 
 static pgsmLocalState pgsmStateLocal;
 
-static void pgsm_attach_shmem(void);
+static void pgsm_attach_dsa(void);
 static HTAB *pgsm_create_bucket_hash(void);
 
 /*
@@ -168,7 +168,7 @@ pgsm_create_bucket_hash(void)
  * address in this process.
  */
 static void
-pgsm_attach_shmem(void)
+pgsm_attach_dsa(void)
 {
 	MemoryContext oldcontext;
 
@@ -195,21 +195,19 @@ pgsm_attach_shmem(void)
 dsa_area *
 get_dsa_area_for_query_text(void)
 {
-	pgsm_attach_shmem();
+	pgsm_attach_dsa();
 	return pgsmStateLocal.dsa;
 }
 
 HTAB *
 get_pgsmHash(void)
 {
-	pgsm_attach_shmem();
 	return pgsmStateLocal.shared_hash;
 }
 
 pgsmSharedState *
 pgsm_get_ss(void)
 {
-	pgsm_attach_shmem();
 	return pgsmStateLocal.shared_pgsmState;
 }
 
@@ -252,6 +250,8 @@ hash_entry_dealloc(int bucket_id)
 {
 	HASH_SEQ_STATUS hstat;
 	pgsmEntry  *entry;
+
+	pgsm_attach_dsa();
 
 	/* Iterate over the hash table. */
 	hash_seq_init(&hstat, pgsmStateLocal.shared_hash);
