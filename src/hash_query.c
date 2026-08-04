@@ -177,7 +177,7 @@ pgsm_attach_shmem(void)
 
 	/*
 	 * We want the dsa to remain valid throughout the lifecycle of this
-	 * process. so switch to TopMemoryContext before attaching
+	 * process so switch to TopMemoryContext before attaching.
 	 */
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 

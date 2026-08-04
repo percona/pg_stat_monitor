@@ -1274,7 +1274,7 @@ pgsm_update_counters(Counters *counters,
 					 int parallel_workers_launched)
 {
 	/*
-	 * Only the update totals here, min/max/mean will be computed in
+	 * Only update the totals here, min/max/mean will be computed in
 	 * pgsm_merge_counters.
 	 */
 	counters->plantime.total_time += plan_total_time;
