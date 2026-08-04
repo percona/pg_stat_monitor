@@ -1,0 +1,6 @@
+--
+-- Property graph relations (PostgreSQL 19+)
+--
+SELECT setting::int < 190000 AS skip_test FROM pg_settings where name = 'server_version_num' \gset
+\if :skip_test
+\quit
