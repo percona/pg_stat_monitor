@@ -184,11 +184,9 @@ pgsm_attach_shmem(void)
 	pgsmStateLocal.dsa = dsa_attach_in_place(pgsmStateLocal.shared_pgsmState->raw_dsa_area,
 											 NULL);
 
-	/*
-	 * pin the attached area to keep the area attached until end of session or
-	 * explicit detach.
-	 */
+	/* Keep area attached until end of session */
 	dsa_pin_mapping(pgsmStateLocal.dsa);
+
 	MemoryContextSwitchTo(oldcontext);
 }
 
