@@ -1700,13 +1700,6 @@ pgsm_subxact_callback(SubXactEvent event, SubTransactionId mySubid,
 
 /*
  * Store some statistics for a statement.
- *
- * If queryId is 0 then this is a utility statement and we should compute
- * a suitable queryId internally.
- *
- * If jstate is not NULL then we're trying to create an entry for which
- * we have no statistics as yet; we just want to record the normalized
- * query string.  total_time, rows, bufusage are ignored in this case.
  */
 static void
 pgsm_store(const pgsmQueryStats *stats)
