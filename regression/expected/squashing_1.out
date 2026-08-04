@@ -775,6 +775,99 @@ SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
  SELECT pg_stat_monitor_reset() IS NOT NULL AS t |     1
 (2 rows)
 
+-- composite function with row expansion
+create table test_composite(x integer);
+CREATE FUNCTION composite_f(a integer[], out x integer, out y integer) returns
+record as $$            begin
+        x = a[1];
+        y = a[2];
+    end;
+$$ language plpgsql;
+SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
+ t 
+---
+ t
+(1 row)
+
+SELECT ((composite_f(array[1, 2]))).* FROM test_composite;
+ x | y 
+---+---
+(0 rows)
+
+SELECT ((composite_f(array[1, 2, 3]))).* FROM test_composite;
+ x | y 
+---+---
+(0 rows)
+
+SELECT ((composite_f(array[1, 2, 3]))).*, 1, 2, 3, ((composite_f(array[1, 2, 3]))).*, 1, 2
+FROM test_composite
+WHERE x IN (1, 2, 3);
+ x | y | ?column? | ?column? | ?column? | x | y | ?column? | ?column? 
+---+---+----------+----------+----------+---+---+----------+----------
+(0 rows)
+
+-- The \bind case from upstream is omitted here, see: https://perconadev.atlassian.net/browse/PG-1936
+-- ROW() expression with row expansion
+SELECT (ROW(ARRAY[1,2])).*;
+  f1   
+-------
+ {1,2}
+(1 row)
+
+SELECT (ROW(ARRAY[1, 2], ARRAY[1, 2, 3])).*;
+  f1   |   f2    
+-------+---------
+ {1,2} | {1,2,3}
+(1 row)
+
+SELECT 1, 2, (ROW(ARRAY[1, 2], ARRAY[1, 2, 3])).*, 3, 4;
+ ?column? | ?column? |  f1   |   f2    | ?column? | ?column? 
+----------+----------+-------+---------+----------+----------
+        1 |        2 | {1,2} | {1,2,3} |        3 |        4
+(1 row)
+
+-- The \bind case from upstream is omitted here, see: https://perconadev.atlassian.net/browse/PG-1936
+SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
+                                                    query                                                    | calls 
+-------------------------------------------------------------------------------------------------------------+-------
+ SELECT $1, $2, (ROW(ARRAY[$3 /*, ... */], ARRAY[$4 /*, ... */])).*, $5, $6                                  |     1
+ SELECT ((composite_f(array[$1 /*, ... */]))).* FROM test_composite                                          |     2
+ SELECT ((composite_f(array[$1 /*, ... */]))).*, $2, $3, $4, ((composite_f(array[$5 /*, ... */]))).*, $6, $7+|     1
+ FROM test_composite                                                                                        +| 
+ WHERE x IN ($8 /*, ... */)                                                                                  | 
+ SELECT (ROW(ARRAY[$1 /*, ... */])).*                                                                        |     1
+ SELECT (ROW(ARRAY[$1 /*, ... */], ARRAY[$2 /*, ... */])).*                                                  |     1
+ SELECT pg_stat_monitor_reset() IS NOT NULL AS t                                                             |     1
+(6 rows)
+
+-- IN and ANY clauses with Vars are not squashed.
+SELECT * FROM test_squash a, test_squash b WHERE a.id IN (1, 2, 3, b.id, b.id + 1);
+ id | data | id | data 
+----+------+----+------
+(0 rows)
+
+SELECT * FROM test_squash a, test_squash b WHERE a.id = ANY (array[1, ((b.id + b.id * 2)), 5]);
+ id | data | id | data 
+----+------+----+------
+(0 rows)
+
+-- The \bind case from upstream is omitted here, see: https://perconadev.atlassian.net/browse/PG-1936
+SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
+                                                    query                                                    | calls 
+-------------------------------------------------------------------------------------------------------------+-------
+ SELECT $1, $2, (ROW(ARRAY[$3 /*, ... */], ARRAY[$4 /*, ... */])).*, $5, $6                                  |     1
+ SELECT ((composite_f(array[$1 /*, ... */]))).* FROM test_composite                                          |     2
+ SELECT ((composite_f(array[$1 /*, ... */]))).*, $2, $3, $4, ((composite_f(array[$5 /*, ... */]))).*, $6, $7+|     1
+ FROM test_composite                                                                                        +| 
+ WHERE x IN ($8 /*, ... */)                                                                                  | 
+ SELECT (ROW(ARRAY[$1 /*, ... */])).*                                                                        |     1
+ SELECT (ROW(ARRAY[$1 /*, ... */], ARRAY[$2 /*, ... */])).*                                                  |     1
+ SELECT * FROM test_squash a, test_squash b WHERE a.id = ANY (array[$1, ((b.id + b.id * $2)), $3])           |     1
+ SELECT * FROM test_squash a, test_squash b WHERE a.id IN ($1, $2, $3, b.id, b.id + $4)                      |     1
+ SELECT pg_stat_monitor_reset() IS NOT NULL AS t                                                             |     1
+ SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C"                                         |     1
+(9 rows)
+
 --
 -- cleanup
 --
@@ -784,6 +877,8 @@ DROP TABLE test_squash_numeric;
 DROP TABLE test_squash_bigint;
 DROP TABLE test_squash_cast CASCADE;
 DROP TABLE test_squash_jsonb;
+DROP TABLE test_composite;
+DROP FUNCTION composite_f;
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------

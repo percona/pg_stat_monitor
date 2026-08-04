@@ -147,6 +147,50 @@ SELECT plus_three(8);
 SELECT plus_three(10);
 
 SELECT toplevel, calls, rows, query FROM pg_stat_monitor ORDER BY query COLLATE "C";
+SELECT pg_stat_monitor_reset();
+
+-- planner - all-level tracking.
+SET pg_stat_monitor.pgsm_track_planning = on;
+-- Release all cached plans before the first function call.  This matters
+-- when debug_discard_caches is enabled, which would store a normalized
+-- version of the inner query of the function.  Forcing a plan rebuild
+-- ensures that a normalized version is always stored with the stats entry,
+-- while checking that the nesting level is computed correctly in the
+-- planner hook.
+DISCARD PLANS;
+SELECT plus_three(8);
+SELECT plus_three(10);
+
+SELECT toplevel, calls, rows, plans, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+RESET pg_stat_monitor.pgsm_track_planning;
+
+-- AFTER trigger SQL (ExecutorFinish) - all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+
+CREATE TABLE test_trigger (id int, name text);
+CREATE TABLE audit_table (table_name text, action text, row_id int);
+CREATE OR REPLACE FUNCTION audit_trigger_func()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO audit_table VALUES ('test_trigger', TG_OP, NEW.id);
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER audit_after_trigger
+  AFTER INSERT ON test_trigger
+  FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
+
+INSERT INTO test_trigger VALUES (1, 'test1');
+INSERT INTO test_trigger VALUES (2, 'test2');
+
+SELECT toplevel, calls, rows, plans, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+DROP TRIGGER audit_after_trigger ON test_trigger;
+DROP FUNCTION audit_trigger_func();
+DROP TABLE audit_table, test_trigger;
 
 --
 -- pg_stat_monitor.pgsm_track = none
