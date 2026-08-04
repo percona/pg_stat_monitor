@@ -1597,6 +1597,7 @@ pgsm_delete_query_stats(uint64 queryid)
 	if (lentries == NIL)
 		return;
 
+	/* Look at end of list first */
 	stats = (pgsmQueryStats *) llast(lentries);
 	if (stats->key.queryid == queryid)
 	{
@@ -1605,12 +1606,6 @@ pgsm_delete_query_stats(uint64 queryid)
 		pfree(stats);
 		return;
 	}
-
-	/*
-	 * The rest of the code is just paranoia. In theory this list is a stack,
-	 * and we always want to remove the last item. Similarly, in the getter
-	 * method we are always looking for the last item.
-	 */
 
 	foreach(lc, lentries)
 	{
