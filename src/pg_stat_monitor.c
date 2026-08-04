@@ -845,7 +845,11 @@ pgsm_ExecutorCheckPerms(List *rangeTable, bool ereport_on_violation)
 		namespace_name = get_namespace_name(get_rel_namespace(rte->relid));
 		relation_name = get_rel_name(rte->relid);
 
-		if (rte->relkind == RELKIND_VIEW)
+		if (rte->relkind == RELKIND_VIEW
+#if PG_VERSION_NUM >= 190000
+			|| rte->relkind == RELKIND_PROPGRAPH
+#endif
+			)
 			snprintf(relations[num_relations], REL_LEN, "%s.%s*", namespace_name, relation_name);
 		else
 			snprintf(relations[num_relations], REL_LEN, "%s.%s", namespace_name, relation_name);
