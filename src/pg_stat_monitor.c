@@ -2760,9 +2760,9 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 #endif
 
 	/*
-	 * Determine constants' lengths (core system only gives us locations),
-	 * and return a sorted copy of jstate's LocationLen data with lengths
-	 * filled in.
+	 * Determine constants' lengths (core system only gives us locations), and
+	 * return a sorted copy of jstate's LocationLen data with lengths filled
+	 * in.
 	 */
 	locs = ComputeConstantLengths(jstate, query, query_loc);
 
@@ -2901,7 +2901,9 @@ ComputeConstantLengths(const JumbleState *jstate, const char *query,
 	core_yy_extra_type yyextra;
 	core_YYSTYPE yylval;
 	YYLTYPE		yylloc;
+#if PG_VERSION_NUM < 180000
 	int			last_loc = -1;
+#endif
 
 	if (jstate->clocations_count == 0)
 		return NULL;
@@ -2940,12 +2942,20 @@ ComputeConstantLengths(const JumbleState *jstate, const char *query,
 		Assert(loc >= 0);
 
 #if PG_VERSION_NUM >= 180000
+
+		/* Ignore constants after the first one in the same location */
+		if (i > 0 && locs[i].location == locs[i - 1].location)
+		{
+			locs[i].length = -1;
+			continue;
+		}
+
 		if (locs[i].squashed)
 			continue;			/* squashable list, ignore */
-#endif
-
+#else
 		if (loc <= last_loc)
 			continue;			/* Duplicate constant, ignore */
+#endif
 
 		/* Lex tokens until we find the desired constant */
 		for (;;)
@@ -2994,7 +3004,9 @@ ComputeConstantLengths(const JumbleState *jstate, const char *query,
 		if (tok == 0)
 			break;
 
+#if PG_VERSION_NUM < 180000
 		last_loc = loc;
+#endif
 	}
 
 	scanner_finish(yyscanner);
