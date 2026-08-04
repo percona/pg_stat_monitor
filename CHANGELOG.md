@@ -16,6 +16,7 @@
 - Do not leave the `pgsm_create_view()` function after running `CREATE EXTENSION`
 - Specifying `USE_PGXS` is no longer necessary when building with make
 - Deprecate the `pgsm_track_application_names` parameter, application name now tracked always ([PG-2602](https://perconadev.atlassian.net/browse/PG-2602))
+- Show `NULL` instead of `'unknown'` when `application_name` is not set
 
 ### Removed
 

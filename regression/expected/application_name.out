@@ -11,12 +11,21 @@ SELECT 1 AS num;
    1
 (1 row)
 
-SELECT query, application_name FROM pg_stat_monitor ORDER BY query COLLATE "C";
-             query              |      application_name       
---------------------------------+-----------------------------
- SELECT 1 AS num                | pg_regress/application_name
- SELECT pg_stat_monitor_reset() | pg_regress/application_name
-(2 rows)
+SET application_name = '';
+SELECT 1 AS num;
+ num 
+-----
+   1
+(1 row)
+
+SELECT query, application_name, application_name IS NULL AS isnull FROM pg_stat_monitor ORDER BY query, application_name COLLATE "C";
+             query              |      application_name       | isnull 
+--------------------------------+-----------------------------+--------
+ SELECT 1 AS num                | pg_regress/application_name | f
+ SELECT 1 AS num                |                             | t
+ SELECT pg_stat_monitor_reset() | pg_regress/application_name | f
+ SET application_name = ''      | pg_regress/application_name | f
+(4 rows)
 
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 

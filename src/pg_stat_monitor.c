@@ -1219,10 +1219,10 @@ pgsm_fill_query_exec_info(pgsmQueryExecInfo *info)
 	 */
 	GetUserIdAndSecContext(&info->userid, &sec_ctx);
 
-	if (application_name && *application_name)
+	if (application_name)
 		strlcpy(info->appname, application_name, NAMEDATALEN);
 	else
-		strlcpy(info->appname, "unknown", NAMEDATALEN);
+		strlcpy(info->appname, "", NAMEDATALEN);
 
 	info->username[0] = '\0';
 	if (IsTransactionState())
