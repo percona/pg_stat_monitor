@@ -58,7 +58,7 @@
 #define BUILD_VERSION "2.4.0"
 
 #if PG_VERSION_NUM >= 180000
-PG_MODULE_MAGIC_EXT(.name = "pg_stat_monitor",.version = BUILD_VERSION);
+PG_MODULE_MAGIC_EXT(.name = "pg_stat_monitor", .version = BUILD_VERSION);
 #else
 PG_MODULE_MAGIC;
 #endif
@@ -1930,8 +1930,8 @@ pg_stat_monitor_2_3(PG_FUNCTION_ARGS)
 }
 
 /*
-  * Legacy entry point for pg_stat_monitor() API versions 1.0
-  */
+ * Legacy entry point for pg_stat_monitor() API versions 1.0
+ */
 Datum
 pg_stat_monitor(PG_FUNCTION_ARGS)
 {

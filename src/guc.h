@@ -25,7 +25,7 @@ typedef enum
 	PSGM_TRACK_NONE = 0,		/* track no statements */
 	PGSM_TRACK_TOP,				/* only top level statements */
 	PGSM_TRACK_ALL				/* all statements, including nested ones */
-}			PGSMTrackLevel;
+} PGSMTrackLevel;
 
 extern int	pgsm_max;
 extern int	pgsm_query_max_len;
