@@ -234,7 +234,8 @@ static void pgsm_fill_query_exec_info(pgsmQueryExecInfo *info);
 static pgsmQueryStats *pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, int query_len, CmdType cmd_type);
 static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
 static void pgsm_delete_query_stats(uint64 queryid);
-static pgsmQueryStats *pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type);
+static pgsmQueryStats *pgsm_get_query_stats(int64 queryid);
+static pgsmQueryStats *pgsm_get_or_add_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
@@ -550,8 +551,8 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		 * snapshot of the execution info (application_name, user) reflects
 		 * the state at statement start.
 		 */
-		(void) pgsm_get_query_stats(queryDesc->plannedstmt->queryId, 0,
-									queryDesc->sourceText, queryDesc->operation);
+		(void) pgsm_get_or_add_query_stats(queryDesc->plannedstmt->queryId, 0,
+										   queryDesc->sourceText, queryDesc->operation);
 
 		/*
 		 * Set up to track total elapsed time in ExecutorRun.  Make sure the
@@ -700,7 +701,9 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		SysInfo		sys_info;
 		int64		planid = plan_ptr ? plan_ptr->planid : 0;
 
-		stats = pgsm_get_query_stats(queryId, planid, queryDesc->sourceText, queryDesc->operation);
+		/* We know at least pgsm_ExecutorStart() has created query stats */
+		stats = pgsm_get_query_stats(queryId);
+		Assert(stats != NULL);
 
 		if (stats->key.planid == 0 && planid != 0)
 			stats->key.planid = planid;
@@ -865,7 +868,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 
-		stats = pgsm_get_query_stats(queryId, 0, query_string, parse->commandType);
+		stats = pgsm_get_or_add_query_stats(queryId, 0, query_string, parse->commandType);
 
 #if PG_VERSION_NUM >= 170000
 		nesting_level++;
@@ -1620,23 +1623,37 @@ pgsm_delete_query_stats(uint64 queryid)
 	}
 }
 
-/*
- * Function to get a pgsmQueryStats structure from the local list.
- */
 static pgsmQueryStats *
-pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type)
+pgsm_get_or_add_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type)
 {
 	pgsmQueryStats *stats;
 	int			query_len;
 
 	Assert(query_text != NULL);
 
+	stats = pgsm_get_query_stats(queryid);
+	if (stats != NULL)
+		return stats;
+
+	query_len = strlen(query_text);
+	return pgsm_add_query_stats(queryid, planid,
+								get_pgsm_query_id_hash(query_text, query_len),
+								query_text, query_len, cmd_type);
+}
+
+/*
+ * Function to get a pgsmQueryStats structure from the local list.
+ */
+static pgsmQueryStats *
+pgsm_get_query_stats(int64 queryid)
+{
 	if (lentries != NIL)
 	{
+		pgsmQueryStats *stats;
 		ListCell   *lc;
 
 		/* First bet is on the last item */
-		stats = (pgsmQueryStats *) llast(lentries);
+		stats = llast(lentries);
 		if (stats->key.queryid == queryid)
 			return stats;
 
@@ -1648,12 +1665,7 @@ pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdTyp
 		}
 	}
 
-	query_len = strlen(query_text);
-	stats = pgsm_add_query_stats(queryid, planid,
-								 get_pgsm_query_id_hash(query_text, query_len),
-								 query_text, query_len, cmd_type);
-
-	return stats;
+	return NULL;
 }
 
 static void
