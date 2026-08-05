@@ -821,11 +821,18 @@ pgsm_ExecutorCheckPerms(List *rangeTable, bool ereport_on_violation)
 		char	   *namespace_name;
 		char	   *relation_name;
 
-		if (rte->rtekind != RTE_RELATION
+		/*
+		 * Report only RTEs that name a real, permission-checked object: plain
+		 * relations, and the subquery RTEs that were once relations (views
+		 * and property graphs).  In PG16+ that set is exactly the RTEs
+		 * carrying a perminfoindex (see the assertion in
+		 * ExecCheckPermissions).
+		 */
 #if PG_VERSION_NUM >= 160000
-			&& rte->rtekind != RTE_SUBQUERY && rte->relkind != RELKIND_VIEW
+		if (rte->perminfoindex == 0)
+#else
+		if (rte->rtekind != RTE_RELATION)
 #endif
-			)
 			continue;
 
 		/* Skip duplicates */
