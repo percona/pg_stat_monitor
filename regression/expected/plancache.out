@@ -1,0 +1,8 @@
+--
+-- Tests with plan cache
+--
+-- The generic_plan_calls and custom_plan_calls counters require
+-- PostgreSQL 19 or later.
+SELECT setting::int < 190000 AS skip_test FROM pg_settings where name = 'server_version_num' \gset
+\if :skip_test
+\quit

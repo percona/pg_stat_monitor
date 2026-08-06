@@ -7,6 +7,7 @@
 - Our name and version are now in `pg_get_loaded_modules()` for PostgreSQL 18+
 - Support for `EXEC_BACKEND` builds ([PG-2547](https://perconadev.atlassian.net/browse/PG-2547))
 - Add PostgreSQL 19 support ([PG-2424](https://perconadev.atlassian.net/browse/PG-2424)): add generic and custom plan counts, support property graphs, use ComputeConstantLengths API for constants squashing
+- Backport test cases from pg_stat_statements
 
 ### Changed
 

@@ -1,0 +1,7 @@
+--
+-- DMLs on test table
+--
+-- MERGE requires PostgreSQL 15+.
+SELECT setting::int < 150000 AS skip_test FROM pg_settings where name = 'server_version_num' \gset
+\if :skip_test
+\quit

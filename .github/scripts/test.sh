@@ -7,7 +7,9 @@ PG_BIN_DIR=$(pg_config --bindir)
 
 cd "$SCRIPT_DIR/../../"
 
-OPTS='-c shared_preload_libraries=pg_stat_monitor'
+# The two-phase transaction cases of the "utility" test need
+# max_prepared_transactions to be nonzero.
+OPTS='-c shared_preload_libraries=pg_stat_monitor -c max_prepared_transactions=5'
 
 if [ "$1" = sanitize ]; then
     OPTS+=' -c max_stack_depth=8MB'
