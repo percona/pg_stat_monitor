@@ -127,7 +127,7 @@ SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 -- SELECT * FROM test_squash WHERE id = ANY(ARRAY[$1, $2, $3, $4, $5]);
 -- EXECUTE p1(1, 2, 3, 4, 5);
 -- DEALLOCATE p1;
--- SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
+-- SELECT query, calls FROM pg_stat_monitor ORDER BY query COLLATE "C";
 -- More conditions in the query
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
  t 

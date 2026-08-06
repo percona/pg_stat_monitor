@@ -8,7 +8,7 @@ SELECT setting::int < 180000 AS skip_test FROM pg_settings where name = 'server_
 \endif
 
 CREATE EXTENSION pg_stat_monitor;
-SET pgsm.track_utility = off;
+SET pg_stat_monitor.pgsm_track_utility = off;
 
 -- encourage use of parallel plans
 SET parallel_setup_cost = 0;
