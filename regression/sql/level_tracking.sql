@@ -2,6 +2,14 @@
 -- Statement level tracking
 --
 
+-- Some of the cases below need MERGE whose USING clause has an unaliased
+-- sub-SELECT, which requires PostgreSQL 16+, and MERGE with a RETURNING
+-- clause, which requires PostgreSQL 17+.  They are skipped on the older
+-- versions instead of skipping the whole file.
+SELECT setting::int >= 160000 AS have_merge,
+       setting::int >= 170000 AS have_merge_returning
+    FROM pg_settings WHERE name = 'server_version_num' \gset
+
 CREATE EXTENSION pg_stat_monitor;
 SET pg_stat_monitor.pgsm_track_utility = on;
 SET pg_stat_monitor.pgsm_normalized_query = on;
@@ -36,6 +44,290 @@ END
 $$;
 SELECT toplevel, calls, query FROM pg_stat_monitor
     ORDER BY query COLLATE "C", toplevel;
+
+-- Procedure with multiple utility statements.
+CREATE OR REPLACE PROCEDURE proc_with_utility_stmt()
+LANGUAGE SQL
+AS $$
+    SHOW pg_stat_monitor.pgsm_track;
+    show pg_stat_monitor.pgsm_track;
+    SHOW pg_stat_monitor.pgsm_track_utility;
+$$;
+SET pg_stat_monitor.pgsm_track_utility = on;
+-- all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+CALL proc_with_utility_stmt();
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C", toplevel;
+-- top-level tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+CALL proc_with_utility_stmt();
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C", toplevel;
+
+-- EXPLAIN - all-level tracking.
+CREATE TABLE test_table (x int);
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (COSTS OFF) SELECT 1;
+EXPLAIN (COSTS OFF) (SELECT 1, 2);
+EXPLAIN (COSTS OFF) TABLE stats_track_tab;
+EXPLAIN (COSTS OFF) (TABLE test_table);
+EXPLAIN (COSTS OFF) VALUES (1);
+EXPLAIN (COSTS OFF) (VALUES (1, 2));
+EXPLAIN (COSTS OFF) UPDATE stats_track_tab SET x = 1 WHERE x = 1;
+EXPLAIN (COSTS OFF) DELETE FROM stats_track_tab;
+EXPLAIN (COSTS OFF) INSERT INTO stats_track_tab VALUES ((1));
+\if :have_merge
+EXPLAIN (COSTS OFF) MERGE INTO stats_track_tab
+  USING (SELECT id FROM generate_series(1, 10) id) ON x = id
+  WHEN MATCHED THEN UPDATE SET x = id
+  WHEN NOT MATCHED THEN INSERT (x) VALUES (id);
+\endif
+EXPLAIN (COSTS OFF) SELECT 1 UNION SELECT 2;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- EXPLAIN - top-level tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (COSTS OFF) SELECT 1;
+EXPLAIN (COSTS OFF) (SELECT 1, 2);
+EXPLAIN (COSTS OFF) TABLE stats_track_tab;
+EXPLAIN (COSTS OFF) (TABLE test_table);
+EXPLAIN (COSTS OFF) VALUES (1);
+EXPLAIN (COSTS OFF) (VALUES (1, 2));
+EXPLAIN (COSTS OFF) UPDATE stats_track_tab SET x = 1 WHERE x = 1;
+EXPLAIN (COSTS OFF) DELETE FROM stats_track_tab;
+EXPLAIN (COSTS OFF) INSERT INTO stats_track_tab VALUES ((1));
+\if :have_merge
+EXPLAIN (COSTS OFF) MERGE INTO stats_track_tab
+  USING (SELECT id FROM generate_series(1, 10) id) ON x = id
+  WHEN MATCHED THEN UPDATE SET x = id
+  WHEN NOT MATCHED THEN INSERT (x) VALUES (id);
+\endif
+EXPLAIN (COSTS OFF) SELECT 1 UNION SELECT 2;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- EXPLAIN - all-level tracking with multi-statement strings.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+-- SELECT queries
+EXPLAIN (COSTS OFF) SELECT 1\; EXPLAIN (COSTS OFF) SELECT 1, 2;
+EXPLAIN (COSTS OFF) (SELECT 1, 2, 3)\; EXPLAIN (COSTS OFF) (SELECT 1, 2, 3, 4);
+EXPLAIN (COSTS OFF) SELECT 1, 2 UNION SELECT 3, 4\; EXPLAIN (COSTS OFF) (SELECT 1, 2, 3) UNION SELECT 3, 4, 5;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+SELECT pg_stat_monitor_reset();
+-- Most DMLs
+EXPLAIN (COSTS OFF) TABLE stats_track_tab\; EXPLAIN (COSTS OFF) (TABLE test_table);
+EXPLAIN (COSTS OFF) VALUES (1)\; EXPLAIN (COSTS OFF) (VALUES (1, 2));
+EXPLAIN (COSTS OFF) UPDATE stats_track_tab SET x = 1 WHERE x = 1\; EXPLAIN (COSTS OFF) UPDATE stats_track_tab SET x = 1;
+EXPLAIN (COSTS OFF) DELETE FROM stats_track_tab\; EXPLAIN (COSTS OFF) DELETE FROM stats_track_tab WHERE x = 1;
+EXPLAIN (COSTS OFF) INSERT INTO stats_track_tab VALUES ((1))\; EXPLAIN (COSTS OFF) INSERT INTO stats_track_tab VALUES (1), (2);
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+SELECT pg_stat_monitor_reset();
+-- MERGE, worth its own.
+\if :have_merge
+EXPLAIN (COSTS OFF) MERGE INTO stats_track_tab
+  USING (SELECT id FROM generate_series(1, 10) id) ON x = id
+  WHEN MATCHED THEN UPDATE SET x = id
+  WHEN NOT MATCHED THEN INSERT (x) VALUES (id)\; EXPLAIN (COSTS OFF) SELECT 1, 2, 3, 4, 5;
+\endif
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- EXPLAIN - top-level tracking with multi-statement strings.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (COSTS OFF) SELECT 1\; EXPLAIN (COSTS OFF) SELECT 1, 2;
+EXPLAIN (COSTS OFF) (SELECT 1, 2, 3)\; EXPLAIN (COSTS OFF) (SELECT 1, 2, 3, 4);
+EXPLAIN (COSTS OFF) TABLE stats_track_tab\; EXPLAIN (COSTS OFF) (TABLE test_table);
+EXPLAIN (COSTS OFF) VALUES (1)\; EXPLAIN (COSTS OFF) (VALUES (1, 2));
+EXPLAIN (COSTS OFF) UPDATE stats_track_tab SET x = 1 WHERE x = 1\; EXPLAIN (COSTS OFF) UPDATE stats_track_tab SET x = 1;
+EXPLAIN (COSTS OFF) DELETE FROM stats_track_tab\; EXPLAIN (COSTS OFF) DELETE FROM stats_track_tab WHERE x = 1;
+EXPLAIN (COSTS OFF) INSERT INTO stats_track_tab VALUES ((1))\; EXPLAIN (COSTS OFF) INSERT INTO stats_track_tab VALUES ((1), (2));
+\if :have_merge
+EXPLAIN (COSTS OFF) MERGE INTO stats_track_tab USING (SELECT id FROM generate_series(1, 10) id) ON x = id
+  WHEN MATCHED THEN UPDATE SET x = id
+  WHEN NOT MATCHED THEN INSERT (x) VALUES (id)\; EXPLAIN (COSTS OFF) SELECT 1, 2, 3, 4, 5;
+\endif
+EXPLAIN (COSTS OFF) SELECT 1, 2 UNION SELECT 3, 4\; EXPLAIN (COSTS OFF) (SELECT 1, 2, 3) UNION SELECT 3, 4, 5;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- EXPLAIN with CTEs - all-level tracking
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) SELECT 1;
+EXPLAIN (COSTS OFF) (WITH a AS (SELECT 4) (SELECT 1, 2));
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) UPDATE stats_track_tab SET x = 1 WHERE x = 1;
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) DELETE FROM stats_track_tab;
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) INSERT INTO stats_track_tab VALUES ((1));
+\if :have_merge
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) MERGE INTO stats_track_tab
+  USING (SELECT id FROM generate_series(1, 10) id) ON x = id
+  WHEN MATCHED THEN UPDATE SET x = id
+  WHEN NOT MATCHED THEN INSERT (x) VALUES (id);
+\endif
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) SELECT 1 UNION SELECT 2;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- EXPLAIN with CTEs - top-level tracking
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) SELECT 1;
+EXPLAIN (COSTS OFF) (WITH a AS (SELECT 4) (SELECT 1, 2));
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) UPDATE stats_track_tab SET x = 1 WHERE x = 1;
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) DELETE FROM stats_track_tab;
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) INSERT INTO stats_track_tab VALUES ((1));
+\if :have_merge
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) MERGE INTO stats_track_tab
+  USING (SELECT id FROM generate_series(1, 10) id) ON x = id
+  WHEN MATCHED THEN UPDATE SET x = id
+  WHEN NOT MATCHED THEN INSERT (x) VALUES (id);
+\endif
+EXPLAIN (COSTS OFF) WITH a AS (SELECT 4) SELECT 1 UNION SELECT 2;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- Explain analyze, all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF) SELECT 100;
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF)
+  DECLARE foocur CURSOR FOR SELECT * FROM stats_track_tab;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- Explain analyze, top tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF) SELECT 100;
+EXPLAIN (ANALYZE, COSTS OFF, SUMMARY OFF, TIMING OFF, BUFFERS OFF)
+  DECLARE foocur CURSOR FOR SELECT * FROM stats_track_tab;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- Create Materialized View, all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+CREATE MATERIALIZED VIEW pgsm_materialized_view AS
+  SELECT * FROM generate_series(1, 5) AS id;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- CREATE MATERIALIZED VIEW, top-level tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+CREATE MATERIALIZED VIEW pgsm_materialized_view_2 AS
+  SELECT * FROM generate_series(1, 5) AS id;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- REFRESH MATERIALIZED VIEW, all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+REFRESH MATERIALIZED VIEW pgsm_materialized_view;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- REFRESH MATERIALIZED VIEW, top-level tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+REFRESH MATERIALIZED VIEW pgsm_materialized_view;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- CREATE TABLE AS, all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+PREPARE test_prepare_pgsm AS SELECT generate_series(1, 10);
+SELECT pg_stat_monitor_reset();
+CREATE TEMPORARY TABLE pgsm_ctas_1 AS SELECT 1;
+CREATE TEMPORARY TABLE pgsm_ctas_2 AS EXECUTE test_prepare_pgsm;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- CREATE TABLE AS, top-level tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+CREATE TEMPORARY TABLE pgsm_ctas_3 AS SELECT 1;
+CREATE TEMPORARY TABLE pgsm_ctas_4 AS EXECUTE test_prepare_pgsm;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- EXPLAIN with CREATE TABLE AS - all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (COSTS OFF) CREATE TEMPORARY TABLE pgsm_explain_ctas AS SELECT 1;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- EXPLAIN with CREATE TABLE AS - top-level tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+EXPLAIN (COSTS OFF) CREATE TEMPORARY TABLE pgsm_explain_ctas AS SELECT 1;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- DECLARE CURSOR, all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+BEGIN;
+DECLARE FOOCUR CURSOR FOR SELECT * FROM stats_track_tab;
+FETCH FORWARD 1 FROM foocur;
+CLOSE foocur;
+COMMIT;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- DECLARE CURSOR, top-level tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+BEGIN;
+DECLARE FOOCUR CURSOR FOR SELECT * FROM stats_track_tab;
+FETCH FORWARD 1 FROM foocur;
+CLOSE foocur;
+COMMIT;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- COPY - all-level tracking.
+SET pg_stat_monitor.pgsm_track = 'all';
+SELECT pg_stat_monitor_reset();
+COPY (SELECT 1) TO stdout;
+COPY (SELECT 1 UNION SELECT 2) TO stdout;
+\if :have_merge_returning
+COPY (MERGE INTO stats_track_tab USING (SELECT 1 id) ON x = id
+  WHEN MATCHED THEN UPDATE SET x = id
+  WHEN NOT MATCHED THEN INSERT (x) VALUES (id) RETURNING x) TO stdout;
+\endif
+COPY (INSERT INTO stats_track_tab (x) VALUES (1) RETURNING x) TO stdout;
+COPY (UPDATE stats_track_tab SET x = 2 WHERE x = 1 RETURNING x) TO stdout;
+COPY (DELETE FROM stats_track_tab WHERE x = 2 RETURNING x) TO stdout;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
+
+-- COPY - top-level tracking.
+SET pg_stat_monitor.pgsm_track = 'top';
+SELECT pg_stat_monitor_reset();
+COPY (SELECT 1) TO stdout;
+COPY (SELECT 1 UNION SELECT 2) TO stdout;
+\if :have_merge_returning
+COPY (MERGE INTO stats_track_tab USING (SELECT 1 id) ON x = id
+  WHEN MATCHED THEN UPDATE SET x = id
+  WHEN NOT MATCHED THEN INSERT (x) VALUES (id) RETURNING x) TO stdout;
+\endif
+COPY (INSERT INTO stats_track_tab (x) VALUES (1) RETURNING x) TO stdout;
+COPY (UPDATE stats_track_tab SET x = 2 WHERE x = 1 RETURNING x) TO stdout;
+COPY (DELETE FROM stats_track_tab WHERE x = 2 RETURNING x) TO stdout;
+SELECT toplevel, calls, query FROM pg_stat_monitor
+  ORDER BY query COLLATE "C";
 
 -- DO block - top-level tracking without utility.
 SET pg_stat_monitor.pgsm_track = 'top';
@@ -73,6 +365,32 @@ END
 $$;
 SELECT toplevel, calls, query FROM pg_stat_monitor
     ORDER BY query COLLATE "C", toplevel;
+
+-- DO block --- multiple inner queries with separators
+SET pg_stat_monitor.pgsm_track = 'all';
+SET pg_stat_monitor.pgsm_track_utility = on;
+CREATE TABLE pgsm_do_util_tab_1 (a int);
+CREATE TABLE pgsm_do_util_tab_2 (a int);
+SELECT pg_stat_monitor_reset();
+DO $$
+DECLARE BEGIN
+    EXECUTE 'CREATE TABLE pgsm_do_table (id INT); DROP TABLE pgsm_do_table';
+    EXECUTE 'SELECT a FROM pgsm_do_util_tab_1; SELECT a FROM pgsm_do_util_tab_2';
+END $$;
+SELECT toplevel, calls, rows, query FROM pg_stat_monitor
+  WHERE toplevel IS FALSE
+  ORDER BY query COLLATE "C";
+SELECT pg_stat_monitor_reset();
+-- Note the extra semicolon at the end of the query.
+DO $$
+DECLARE BEGIN
+    EXECUTE 'CREATE TABLE pgsm_do_table (id INT); DROP TABLE pgsm_do_table;';
+    EXECUTE 'SELECT a FROM pgsm_do_util_tab_1; SELECT a FROM pgsm_do_util_tab_2;';
+END $$;
+SELECT toplevel, calls, rows, query FROM pg_stat_monitor
+  WHERE toplevel IS FALSE
+  ORDER BY query COLLATE "C";
+DROP TABLE pgsm_do_util_tab_1, pgsm_do_util_tab_2;
 
 -- PL/pgSQL function - top-level tracking.
 SET pg_stat_monitor.pgsm_track = 'top';
@@ -203,5 +521,11 @@ SELECT 1 + 1 AS two;
 
 SELECT calls, rows, query FROM pg_stat_monitor ORDER BY query COLLATE "C";
 SELECT pg_stat_monitor_reset();
+
+DROP MATERIALIZED VIEW pgsm_materialized_view;
+DROP MATERIALIZED VIEW pgsm_materialized_view_2;
+DROP PROCEDURE proc_with_utility_stmt();
+DEALLOCATE test_prepare_pgsm;
+DROP TABLE stats_track_tab, test_table;
 
 DROP EXTENSION pg_stat_monitor;

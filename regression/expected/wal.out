@@ -1,0 +1,38 @@
+--
+-- Validate WAL generation metrics
+--
+CREATE EXTENSION pg_stat_monitor;
+SET pg_stat_monitor.pgsm_track_utility = off;
+SET pg_stat_monitor.pgsm_normalized_query = on;
+SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
+ t 
+---
+ t
+(1 row)
+
+CREATE TABLE pgsm_wal_tab (a int, b char(20));
+INSERT INTO pgsm_wal_tab VALUES(generate_series(1, 10), 'aaa');
+UPDATE pgsm_wal_tab SET b = 'bbb' WHERE a > 7;
+DELETE FROM pgsm_wal_tab WHERE a > 9;
+DROP TABLE pgsm_wal_tab;
+-- Check WAL is generated for the above statements
+SELECT query, calls, rows,
+    wal_bytes > 0 AS wal_bytes_generated,
+    wal_records > 0 AS wal_records_generated,
+    wal_records >= rows AS wal_records_ge_rows
+FROM pg_stat_monitor ORDER BY query COLLATE "C";
+                            query                             | calls | rows | wal_bytes_generated | wal_records_generated | wal_records_ge_rows 
+--------------------------------------------------------------+-------+------+---------------------+-----------------------+---------------------
+ DELETE FROM pgsm_wal_tab WHERE a > $1                        |     1 |    1 | t                   | t                     | t
+ INSERT INTO pgsm_wal_tab VALUES(generate_series($1, $2), $3) |     1 |   10 | t                   | t                     | t
+ SELECT pg_stat_monitor_reset() IS NOT NULL AS t              |     1 |    1 | f                   | f                     | f
+ UPDATE pgsm_wal_tab SET b = $1 WHERE a > $2                  |     1 |    3 | t                   | t                     | t
+(4 rows)
+
+SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
+ t 
+---
+ t
+(1 row)
+
+DROP EXTENSION pg_stat_monitor;

@@ -38,6 +38,14 @@ REGRESS = basic \
 	level_tracking \
 	decode_error_level \
 	parallel \
+	select \
+	dml \
+	cursors \
+	utility \
+	planning \
+	wal \
+	privileges \
+	plancache \
 	histogram
 
 PG_CONFIG ?= pg_config
