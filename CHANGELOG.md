@@ -39,3 +39,4 @@
 - Make sure that for prepared statements utility statement exec info read at the executor start hook, where data is not yet modified by query itself
 - Do not acquire LWLock under spinlock
 - Race condition where we could leak memory for the parent query
+- `plans` now counts only actual planner invocations instead of every execution: utility statements and executions that reuse a cached plan no longer bump the counter

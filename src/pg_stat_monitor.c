@@ -971,6 +971,7 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 
 		/* The plan details are captured when the query finishes */
 		if (stats)
+		{
 			pgsm_update_counters(&stats->counters,	/* counters */
 								 NULL,	/* PlanInfo */
 								 NULL,	/* SysInfo */
@@ -983,6 +984,10 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 								 0, /* parallel_workers_to_launch */
 								 0, /* parallel_workers_launched */
 								 0);	/* plan_origin */
+
+			/* Record the planning event itself. */
+			stats->counters.plancalls.calls++;
+		}
 	}
 	else
 	{
@@ -1448,26 +1453,29 @@ pgsm_merge_counters(Counters *dst, const Counters *src)
 {
 	int			index;
 
-	/* plan stats: fold src as a single sample */
-	dst->plancalls.calls += 1;
-	dst->plantime.total_time += src->plantime.total_time;
-	if (dst->plancalls.calls == 1)
+	if (src->plancalls.calls > 0)
 	{
-		dst->plantime.min_time = src->plantime.total_time;
-		dst->plantime.max_time = src->plantime.total_time;
-		dst->plantime.mean_time = src->plantime.total_time;
-	}
-	else
-	{
-		double		old_mean = dst->plantime.mean_time;
-
-		dst->plantime.mean_time += (src->plantime.total_time - old_mean) / dst->plancalls.calls;
-		dst->plantime.sum_var_time += (src->plantime.total_time - old_mean) * (src->plantime.total_time - dst->plantime.mean_time);
-
-		if (dst->plantime.min_time > src->plantime.total_time)
+		dst->plantime.total_time += src->plantime.total_time;
+		if (dst->plancalls.calls == 0)
+		{
+			dst->plancalls.calls = src->plancalls.calls;
 			dst->plantime.min_time = src->plantime.total_time;
-		if (dst->plantime.max_time < src->plantime.total_time)
 			dst->plantime.max_time = src->plantime.total_time;
+			dst->plantime.mean_time = src->plantime.total_time;
+		}
+		else
+		{
+			double		old_mean = dst->plantime.mean_time;
+
+			dst->plancalls.calls += src->plancalls.calls;
+			dst->plantime.mean_time += (src->plantime.total_time - old_mean) / dst->plancalls.calls;
+			dst->plantime.sum_var_time += (src->plantime.total_time - old_mean) * (src->plantime.total_time - dst->plantime.mean_time);
+
+			if (dst->plantime.min_time > src->plantime.total_time)
+				dst->plantime.min_time = src->plantime.total_time;
+			if (dst->plantime.max_time < src->plantime.total_time)
+				dst->plantime.max_time = src->plantime.total_time;
+		}
 	}
 
 	/* exec stats: fold src as a single sample */

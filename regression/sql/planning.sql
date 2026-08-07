@@ -28,8 +28,21 @@ SELECT plans, calls, rows, query FROM pg_stat_monitor
 SELECT plans >= 2 AND plans <= calls AS plans_ok, calls, rows, query FROM pg_stat_monitor
     WHERE query LIKE 'PREPARE%' ORDER BY query COLLATE "C";
 
+--
+-- Cached plans are not counted
+--
+SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
+SET plan_cache_mode TO force_generic_plan;
+PREPARE prep2 AS SELECT 42;
+EXECUTE prep2;
+EXECUTE prep2;
+RESET plan_cache_mode;
+SELECT plans, calls FROM pg_stat_monitor WHERE query LIKE 'PREPARE prep2%'
+    ORDER BY query COLLATE "C";
+
 -- Cleanup
 DROP TABLE stats_plan_test;
 DEALLOCATE prep1;
+DEALLOCATE prep2;
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
 DROP EXTENSION pg_stat_monitor;
