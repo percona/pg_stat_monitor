@@ -143,7 +143,7 @@ static char *pgsm_explain(QueryDesc *queryDesc);
 static void pgsm_shmem_startup(void);
 static void extract_query_comments(const char *query, char *comments, size_t max_len);
 static void set_histogram_bucket_timings(void);
-static void histogram_bucket_timings(int index, double *b_start, double *b_end);
+static double histogram_bucket_boundary(int index);
 static int	get_histogram_bucket(double q_time);
 
 static bool IsSystemInitialized(void);
@@ -3119,16 +3119,15 @@ set_histogram_bucket_timings(void)
 	hist_bucket_max = pgsm_histogram_max;
 	hist_bucket_count_user = pgsm_histogram_buckets;
 
-	if (pgsm_histogram_buckets >= 2)
+	if (hist_bucket_count_user >= 2)
 	{
 		int			b_count = hist_bucket_count_user;
 
 		for (; hist_bucket_count_user > 0; hist_bucket_count_user--)
 		{
-			double		b2_start;
-			double		b2_end;
-
-			histogram_bucket_timings(2, &b2_start, &b2_end);
+			/* TODO: This is likely broken as it ignores pgsm_histogram_min */
+			double		b2_start = histogram_bucket_boundary(2);
+			double		b2_end = histogram_bucket_boundary(3);
 
 			/*
 			 * The first bucket size will always be one or greater as we're
@@ -3160,15 +3159,16 @@ set_histogram_bucket_timings(void)
 
 	for (int index = 0; index < hist_bucket_count_total; index++)
 	{
-		histogram_bucket_timings(index, &hist_bucket_timings[index].start, &hist_bucket_timings[index].end);
+		hist_bucket_timings[index].start = histogram_bucket_boundary(index);
+		hist_bucket_timings[index].end = histogram_bucket_boundary(index + 1);
 	}
 }
 
 /*
- * Given an index, return the histogram start and end times.
+ * Given an index, return the lower histogram bucket boundary
  */
-static void
-histogram_bucket_timings(int index, double *b_start, double *b_end)
+static double
+histogram_bucket_boundary(int index)
 {
 	double		q_min = hist_bucket_min;
 	double		q_max = hist_bucket_max;
@@ -3177,21 +3177,15 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 	double		bucket_size;
 
 	/*
-	 * We must not skip any queries that fall outside the user defined
-	 * histogram buckets. So capturing min/max outliers.
+	 * Can't do exp(0) as that returns 1. So handling the case of first entry
+	 * specifically
 	 */
-	if (index == 0 && q_min > 0)
-	{
-		*b_start = 0;
-		*b_end = q_min;
-		return;
-	}
-	else if (index == b_count - 1 && q_max < HISTOGRAM_MAX_TIME)
-	{
-		*b_start = q_max;
-		*b_end = INFINITY;
-		return;
-	}
+	if (index == 0)
+		return 0;
+	if (index == b_count)
+		return INFINITY;
+	if (q_min > 0 && index == 1)
+		return q_min;
 
 	/*
 	 * Equisized logarithmic values will yield exponential values as required.
@@ -3200,12 +3194,7 @@ histogram_bucket_timings(int index, double *b_start, double *b_end)
 	 */
 	bucket_size = log(q_max - q_min) / (double) b_count_user;
 
-	/*
-	 * Can't do exp(0) as that returns 1. So handling the case of first entry
-	 * specifically
-	 */
-	*b_start = q_min + ((index == 0 || (index == 1 && q_min > 0)) ? 0 : exp(bucket_size * (index - 1 + (q_min == 0))));
-	*b_end = q_min + exp(bucket_size * (index + (q_min == 0)));
+	return q_min + exp(bucket_size * (index - 1 + (q_min == 0)));
 }
 
 /*
@@ -3216,11 +3205,10 @@ get_histogram_bucket(double q_time)
 {
 	for (int index = 0; index < hist_bucket_count_total - 1; index++)
 	{
-		if (q_time >= hist_bucket_timings[index].start && q_time <= hist_bucket_timings[index].end)
+		if (q_time <= hist_bucket_timings[index].end)
 			return index;
 	}
 
-	/* Given the uppermost bound is inifity we should never reach this */
 	return hist_bucket_count_total - 1;
 }
 
