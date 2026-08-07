@@ -221,7 +221,6 @@ static Datum intarray_get_datum(const int32 *arr, int len);
 
 static int64 pgsm_hash_string(const char *str, int len);
 
-
 /*
  * Structure to accumulate query statistics in local memory before putting them into bucket.
  */
