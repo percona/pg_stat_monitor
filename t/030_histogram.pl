@@ -215,6 +215,16 @@ generate_histogram_with_configurations(20, 40, 20, 2,
 generate_histogram_with_configurations(1000, 1010, 6, 2, "{2,0,0,0,0,0,0,0}",
 	8, 0, 3);
 
+($cmdret, $stdout, $stderr) = $node->psql(
+	'postgres',
+	'SELECT * FROM generate_histogram();',
+	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
+
+like(
+	$stdout,
+	qr/\(1010\.000 - \.\.\.}}/,
+	'final bucket goes from max to infinity');
+
 #Scenario 4
 generate_histogram_with_configurations(1, 10, 3, 2, "{2,0,0,0,0}", 5, 0, 4);
 
@@ -235,6 +245,14 @@ generate_histogram_with_configurations(0, 2147483647, 20, 2,
 generate_histogram_with_configurations(0, 50000000, 20, 2,
 	"{2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}",
 	20, 0, 8);
+
+($cmdret, $stdout, $stderr) = $node->psql(
+	'postgres',
+	'SELECT * FROM generate_histogram();',
+	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
+
+like($stdout, qr/\(20607319\.480 - \.\.\.}}/,
+	'final bucket goes to infinity');
 
 #Scenario 9
 generate_histogram_with_configurations(-1, 2147483648, 20, 2,
