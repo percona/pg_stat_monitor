@@ -1795,6 +1795,9 @@ pgsm_store(const pgsmQueryStats *stats)
 	pgsmHashKey key = stats->key;
 	char	   *query = stats->query;
 	char		comments[COMMENTS_LEN];
+	const char *parent_query = NULL;
+	dsa_pointer parent_query_pointer = InvalidDsaPointer;
+	dsa_area   *query_dsa_area = NULL;
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
@@ -1813,6 +1816,7 @@ pgsm_store(const pgsmQueryStats *stats)
 	if (pgsm_track == PGSM_TRACK_ALL && nesting_level > 0 && nesting_level < max_nesting_level)
 	{
 		key.parentid = nested_queryids[nesting_level - 1];
+		parent_query = nested_query_txts[nesting_level - 1];
 	}
 	else
 	{
@@ -1829,7 +1833,6 @@ pgsm_store(const pgsmQueryStats *stats)
 	if (!entry)
 	{
 		dsa_pointer dsa_query_pointer;
-		dsa_area   *query_dsa_area;
 		char	   *query_buff;
 		int			query_len = strlen(query);
 
@@ -1905,6 +1908,37 @@ pgsm_store(const pgsmQueryStats *stats)
 		strlcpy(entry->username, stats->username, sizeof(entry->username));
 	}
 
+	/*
+	 * If the statement has a parent, copy the parent query text into the dsa
+	 * area before taking the entry mutex.  dsa_allocate() acquires an LWLock
+	 * internally, and an LWLock must never be acquired while holding a
+	 * spinlock.
+	 */
+	if (key.parentid != INT64CONST(0) && parent_query && parent_query[0] &&
+		!DsaPointerIsValid(entry->counters.info.parent_query))
+	{
+		int			parent_query_len = strlen(parent_query);
+
+		query_dsa_area = get_dsa_area_for_query_text();
+
+		/*
+		 * Use dsa_allocate_extended with DSA_ALLOC_NO_OOM flag, as we don't
+		 * want to get an error if memory allocation fails.
+		 */
+		parent_query_pointer = dsa_allocate_extended(query_dsa_area,
+													 parent_query_len + 1,
+													 DSA_ALLOC_NO_OOM);
+
+		if (DsaPointerIsValid(parent_query_pointer))
+		{
+			char	   *parent_query_buff = dsa_get_address(query_dsa_area,
+															parent_query_pointer);
+
+			memcpy(parent_query_buff, parent_query, parent_query_len);
+			parent_query_buff[parent_query_len] = '\0';
+		}
+	}
+
 	SpinLockAcquire(&entry->mutex);
 
 	pgsm_merge_counters(&entry->counters, &stats->counters);
@@ -1920,40 +1954,20 @@ pgsm_store(const pgsmQueryStats *stats)
 	for (int i = 0; i < num_relations; i++)
 		strlcpy(entry->counters.info.relations[i], relations[i], REL_LEN);
 
-	if (nesting_level > 0 && nesting_level < max_nesting_level && key.parentid != 0 && pgsm_track == PGSM_TRACK_ALL)
+	if (DsaPointerIsValid(parent_query_pointer) &&
+		!DsaPointerIsValid(entry->counters.info.parent_query))
 	{
-		if (!DsaPointerIsValid(entry->counters.info.parent_query))
-		{
-			/* If we have a parent query, store it in the raw dsa area */
-			if (nested_query_txts[nesting_level - 1] && nested_query_txts[nesting_level - 1][0])
-			{
-				int			parent_query_len = strlen(nested_query_txts[nesting_level - 1]);
-				dsa_area   *query_dsa_area = get_dsa_area_for_query_text();
-
-				/*
-				 * Use dsa_allocate_extended with DSA_ALLOC_NO_OOM flag, as we
-				 * don't want to get an error if memory allocation fails.
-				 */
-				dsa_pointer qry = dsa_allocate_extended(query_dsa_area, parent_query_len + 1, DSA_ALLOC_NO_OOM);
-
-				if (DsaPointerIsValid(qry))
-				{
-					char	   *qry_buff = dsa_get_address(query_dsa_area, qry);
-
-					memcpy(qry_buff, nested_query_txts[nesting_level - 1], parent_query_len);
-					qry_buff[parent_query_len] = '\0';
-					/* store the dsa pointer for parent query text */
-					entry->counters.info.parent_query = qry;
-				}
-			}
-		}
+		entry->counters.info.parent_query = parent_query_pointer;
+		parent_query_pointer = InvalidDsaPointer;
 	}
-	else
-	{
-		Assert(!DsaPointerIsValid(entry->counters.info.parent_query));
-	}
+
+	Assert(key.parentid != INT64CONST(0) ||
+		   !DsaPointerIsValid(entry->counters.info.parent_query));
 
 	SpinLockRelease(&entry->mutex);
+
+	if (DsaPointerIsValid(parent_query_pointer))
+		dsa_free(query_dsa_area, parent_query_pointer);
 
 	pgsm_lock_release(pgsm);
 }
