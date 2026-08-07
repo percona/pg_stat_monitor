@@ -37,3 +37,4 @@
 - Various improvements to the stability of our test suite
 - Make sure that for prepared statements utility statement exec info read at the executor start hook, where data is not yet modified by query itself
 - Do not acquire LWLock under spinlock
+- Race condition where we could leak memory for the parent query

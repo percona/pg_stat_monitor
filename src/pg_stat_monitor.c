@@ -1902,7 +1902,6 @@ pgsm_store(const pgsmQueryStats *stats)
 
 		entry->pgsm_query_id = stats->pgsm_query_id;
 		entry->counters.info.cmd_type = stats->counters.info.cmd_type;
-		entry->counters.info.parent_query = InvalidDsaPointer;
 
 		strlcpy(entry->datname, datname, sizeof(entry->datname));
 		strlcpy(entry->username, stats->username, sizeof(entry->username));
