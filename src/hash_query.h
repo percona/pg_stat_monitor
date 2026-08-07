@@ -19,7 +19,6 @@
 #include <postgres.h>
 
 #include <executor/instrument.h>
-#include <nodes/nodes.h>
 #include <storage/lwlock.h>
 #include <storage/spin.h>
 #include <utils/dsa.h>
