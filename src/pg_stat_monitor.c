@@ -1880,7 +1880,7 @@ pgsm_store(const pgsmQueryStats *stats)
 				ereport(WARNING,
 						errcode(ERRCODE_OUT_OF_MEMORY),
 						errmsg("[pg_stat_monitor] pgsm_store: Hash table is out of memory and can no longer store queries!"),
-						errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+						errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving "
 								  "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max."));
 				disable_error_capture = false;
 			}
@@ -2109,7 +2109,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		ereport(WARNING,
 				errcode(ERRCODE_OUT_OF_MEMORY),
 				errmsg("[pg_stat_monitor] pg_stat_monitor_internal: Hash table is out of memory and can no longer store queries!"),
-				errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving " \
+				errdetail("You may reset the view or when the buckets are deallocated, pg_stat_monitor will resume saving "
 						  "queries. Alternatively, try increasing the value of pg_stat_monitor.pgsm_max."));
 
 	/* check to see if caller supports us returning a tuplestore */
