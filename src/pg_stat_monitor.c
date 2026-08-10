@@ -618,7 +618,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 	if (nesting_level >= 0 && nesting_level < max_nesting_level)
 	{
 		nested_queryids[nesting_level] = queryDesc->plannedstmt->queryId;
-		nested_query_txts[nesting_level] = strdup(queryDesc->sourceText);
+		nested_query_txts[nesting_level] = pstrdup(queryDesc->sourceText);
 	}
 
 	nesting_level++;
@@ -648,7 +648,7 @@ pgsm_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction, uint64 count,
 		{
 			nested_queryids[nesting_level] = INT64CONST(0);
 			if (nested_query_txts[nesting_level])
-				free(nested_query_txts[nesting_level]);
+				pfree(nested_query_txts[nesting_level]);
 			nested_query_txts[nesting_level] = NULL;
 		}
 	}
