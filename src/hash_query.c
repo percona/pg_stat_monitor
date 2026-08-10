@@ -223,13 +223,11 @@ pgsmEntry *
 hash_entry_alloc(pgsmSharedState *pgsm, const pgsmHashKey *key)
 {
 	pgsmEntry  *entry;
-	bool		found = false;
+	bool		found;
 
 	/* Find or create an entry with desired hash code */
 	entry = (pgsmEntry *) hash_search(pgsmStateLocal.shared_hash, key, HASH_ENTER_NULL, &found);
-	if (entry == NULL)
-		elog(DEBUG1, "[pg_stat_monitor] hash_entry_alloc: OUT OF MEMORY.");
-	else if (!found)
+	if (entry && !found)
 	{
 		/* New entry, initialize it */
 		/* reset the statistics */
