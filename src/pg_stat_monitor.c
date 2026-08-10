@@ -114,13 +114,11 @@ static int	plan_nested_level = 0;
 /* Histogram bucket variables */
 static double hist_bucket_min;
 static double hist_bucket_max;
-static struct
-{
-	double		start;
-	double		end;
-}			hist_bucket_timings[MAX_RESPONSE_BUCKET + 2];
 static int	hist_bucket_count_user;
 static int	hist_bucket_count_total;
+
+/* Upper bounds of histogram buckets, last one INFINITY */
+static double hist_bucket_timings[MAX_RESPONSE_BUCKET + 2];
 
 /* The array to store outer layer query id */
 static int64 *nested_queryids;
@@ -3139,8 +3137,8 @@ set_histogram_bucket_timings(void)
 		for (; hist_bucket_count_user > 0; hist_bucket_count_user--)
 		{
 			/* TODO: This is likely broken as it ignores pgsm_histogram_min */
-			double		b2_start = histogram_bucket_boundary(2);
-			double		b2_end = histogram_bucket_boundary(3);
+			double		b2_start = histogram_bucket_boundary(1);
+			double		b2_end = histogram_bucket_boundary(2);
 
 			/*
 			 * The first bucket size will always be one or greater as we're
@@ -3171,14 +3169,11 @@ set_histogram_bucket_timings(void)
 	hist_bucket_count_total = hist_bucket_count_user + (int) (hist_bucket_max < HISTOGRAM_MAX_TIME) + (int) (hist_bucket_min > 0);
 
 	for (int index = 0; index < hist_bucket_count_total; index++)
-	{
-		hist_bucket_timings[index].start = histogram_bucket_boundary(index);
-		hist_bucket_timings[index].end = histogram_bucket_boundary(index + 1);
-	}
+		hist_bucket_timings[index] = histogram_bucket_boundary(index);
 }
 
 /*
- * Given an index, return the lower histogram bucket boundary
+ * Given an index, return the upper histogram bucket boundary
  */
 static double
 histogram_bucket_boundary(int index)
@@ -3189,15 +3184,14 @@ histogram_bucket_boundary(int index)
 	int			b_count_user = hist_bucket_count_user;
 	double		bucket_size;
 
+	if (index == b_count - 1)
+		return INFINITY;
+
 	/*
 	 * Can't do exp(0) as that returns 1. So handling the case of first entry
 	 * specifically
 	 */
-	if (index == 0)
-		return 0;
-	if (index == b_count)
-		return INFINITY;
-	if (q_min > 0 && index == 1)
+	if (q_min > 0 && index == 0)
 		return q_min;
 
 	/*
@@ -3207,7 +3201,7 @@ histogram_bucket_boundary(int index)
 	 */
 	bucket_size = log(q_max - q_min) / (double) b_count_user;
 
-	return q_min + exp(bucket_size * (index - 1 + (q_min == 0)));
+	return q_min + exp(bucket_size * (index + (q_min == 0)));
 }
 
 /*
@@ -3218,7 +3212,7 @@ get_histogram_bucket(double q_time)
 {
 	for (int index = 0; index < hist_bucket_count_total - 1; index++)
 	{
-		if (q_time <= hist_bucket_timings[index].end)
+		if (q_time <= hist_bucket_timings[index])
 			return index;
 	}
 
@@ -3240,17 +3234,20 @@ get_histogram_timings(PG_FUNCTION_ARGS)
 
 	for (int index = 0; index < hist_bucket_count_total; index++)
 	{
+		double		b_start = index > 0 ? hist_bucket_timings[index - 1] : 0;
+		double		b_end = hist_bucket_timings[index];
+
 		if (index == 0)
 			appendStringInfoChar(&buf, '{');
 		else
 			appendStringInfoString(&buf, ", (");
 
-		appendStringInfo(&buf, "%.3f - ", hist_bucket_timings[index].start);
+		appendStringInfo(&buf, "%.3f - ", b_start);
 
-		if (hist_bucket_timings[index].end == INFINITY)
+		if (b_end == INFINITY)
 			appendStringInfoString(&buf, "...");
 		else
-			appendStringInfo(&buf, "%.3f", hist_bucket_timings[index].end);
+			appendStringInfo(&buf, "%.3f", b_end);
 
 		appendStringInfoChar(&buf, '}');
 	}
