@@ -24,6 +24,7 @@ env:
   OS: ${{ inputs.os }}
   CC: ${{ inputs.compiler }}
   BUILD_TYPE: ${{ inputs.build_type }}
+  PGPORT: 6432
 
 jobs:
   build:
@@ -71,14 +72,6 @@ jobs:
 
       - name: Build pg_stat_monitor
         run: src/.github/scripts/build.sh ${{ env.BUILD_TYPE }}
-
-      - name: Set permissions
-        if: startsWith(inputs.os, 'ubuntu-') && env.PG_PACKAGE != 'source'
-        run: sudo chown -R runner:runner /var/run/postgresql
-
-      - name: Stop existing PostgreSQL instances
-        if: startsWith(inputs.os, 'ubuntu-') && env.PG_PACKAGE != 'source'
-        run: sudo service postgresql stop
 
       - name: Run tests
         run: src/.github/scripts/test.sh ${{ env.BUILD_TYPE }}
