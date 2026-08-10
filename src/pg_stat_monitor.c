@@ -503,19 +503,15 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 
 	/* We should always have a valid query. */
 	query_text = CleanQuerytext(query_text, &location, &query_len);
-	Assert(query_text);
-
-	norm_query_len = query_len;
 
 	/* Generate a normalized query */
 	if (jstate && jstate->clocations_count > 0 && (pgsm_enable_pgsm_query_id || pgsm_normalized_query))
 	{
+		norm_query_len = query_len;
 		norm_query = generate_normalized_query(jstate,
 											   query_text,	/* query */
 											   location,	/* query location */
 											   &norm_query_len);
-
-		Assert(norm_query);
 	}
 
 	/*
