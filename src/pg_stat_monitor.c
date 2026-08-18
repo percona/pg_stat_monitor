@@ -234,22 +234,9 @@ typedef struct pgsmQueryStats
 	Counters	counters;		/* the statistics for this query */
 } pgsmQueryStats;
 
-/*
- * Structure to store information about the current statement execution.
- * This data may change during the execution of the query and for statistics
- * we need to know this data at the time when the statement execution started.
- */
-typedef struct pgsmQueryExecInfo
-{
-	Oid			userid;
-	char		appname[NAMEDATALEN];
-	char		username[NAMEDATALEN];
-} pgsmQueryExecInfo;
-
 static MemoryContext pgsm_memory_context(void);
-static void pgsm_fill_query_exec_info(pgsmQueryExecInfo *info);
 static pgsmQueryStats *pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, int query_len, CmdType cmd_type);
-static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
+static void pgsm_fill_query_stats(pgsmQueryStats *stats, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
 static pgsmQueryStats *pgsm_find_query_stats(int64 queryid);
 static void pgsm_delete_query_stats(uint64 queryid);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
@@ -1148,18 +1135,10 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		}
 		else
 		{
-			pgsmQueryExecInfo info;
-			const char *query_text;
+			const char *query_text = CleanQuerytext(queryString, &location,
+													&query_len);
 
-			/*
-			 * Create the entry before utility statement execution because the
-			 * statement may change the execution info itself and for statistics
-			 * we need to know this data at the statement execution start time.
-			 */
-			pgsm_fill_query_exec_info(&info);
-			query_text = CleanQuerytext(queryString, &location, &query_len);
-
-			pgsm_fill_query_stats(&stats, &info, queryId, 0,
+			pgsm_fill_query_stats(&stats, queryId, 0,
 								  get_pgsm_query_id_hash(query_text, query_len),
 								  pnstrdup(query_text, query_len),	/* null terminated */
 								  cmd_type);
@@ -1324,40 +1303,6 @@ pgsm_set_cached_info(void)
 		{
 			strlcpy(datname, name, NAMEDATALEN);
 			pfree(name);
-		}
-	}
-}
-
-/*
- * Fill the query execution info with the current statement execution data.
- * Some data may be changed by statement execution itself, but for
- * statistics we need this data state at the statement execution start time.
- */
-static void
-pgsm_fill_query_exec_info(pgsmQueryExecInfo *info)
-{
-	int			sec_ctx;
-
-	/*
-	 * Get the user ID. Let's use this instead of GetUserID as this won't
-	 * throw an assertion in case of an error.
-	 */
-	GetUserIdAndSecContext(&info->userid, &sec_ctx);
-
-	if (application_name)
-		strlcpy(info->appname, application_name, NAMEDATALEN);
-	else
-		strlcpy(info->appname, "", NAMEDATALEN);
-
-	info->username[0] = '\0';
-	if (IsTransactionState())
-	{
-		char	   *username = GetUserNameFromId(info->userid, true);
-
-		if (username)
-		{
-			strlcpy(info->username, username, NAMEDATALEN);
-			pfree(username);
 		}
 	}
 }
@@ -1619,11 +1564,9 @@ static void
 pgsm_store_error(const char *query, const ErrorData *edata)
 {
 	pgsmQueryStats stats = {0};
-	pgsmQueryExecInfo info;
 	int			len = strlen(query);
 
-	pgsm_fill_query_exec_info(&info);
-	pgsm_fill_query_stats(&stats, &info,
+	pgsm_fill_query_stats(&stats,
 						  pgsm_hash_string(query, len),
 						  0,
 						  get_pgsm_query_id_hash(query, len),
@@ -1675,18 +1618,15 @@ static pgsmQueryStats *
 pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, int query_len, CmdType cmd_type)
 {
 	pgsmQueryStats *stats;
-	pgsmQueryExecInfo info;
 	MemoryContext oldctx;
-	char	   *store_text;
-
-	pgsm_fill_query_exec_info(&info);
 
 	/* Create the stats and own the query text in the pgsm memory context */
 	oldctx = MemoryContextSwitchTo(pgsm_memory_context());
 	stats = palloc0_object(pgsmQueryStats);
-	store_text = pnstrdup(query_text, query_len);
 
-	pgsm_fill_query_stats(stats, &info, queryid, planid, pgsm_query_id, store_text, cmd_type);
+	pgsm_fill_query_stats(stats, queryid, planid, pgsm_query_id,
+						  pnstrdup(query_text, query_len),	/* null terminated */
+						  cmd_type);
 	lentries = lappend(lentries, stats);
 	MemoryContextSwitchTo(oldctx);
 
@@ -1697,27 +1637,48 @@ pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const cha
  * Populate non-counter fields of a pgsmQueryStats.
  */
 static void
-pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type)
+pgsm_fill_query_stats(pgsmQueryStats *stats, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type)
 {
+	int			sec_ctx;
+
 	pgsm_set_cached_info();
+
+	/*
+	 * Get the user ID. Let's use this instead of GetUserID as this won't
+	 * throw an assertion in case of an error.
+	 */
+	GetUserIdAndSecContext(&stats->key.userid, &sec_ctx);
+
+	if (application_name)
+		strlcpy(stats->appname, application_name, NAMEDATALEN);
+	else
+		stats->appname[0] = '\0';
+
+	stats->username[0] = '\0';
+	if (IsTransactionState())
+	{
+		char	   *username = GetUserNameFromId(stats->key.userid, true);
+
+		if (username)
+		{
+			strlcpy(stats->username, username, NAMEDATALEN);
+			pfree(username);
+		}
+	}
 
 	stats->subxid = IsTransactionState() ? GetCurrentSubTransactionId()
 		: InvalidSubTransactionId;
 
-	stats->key.appid = pgsm_hash_string(info->appname, strlen(info->appname));
+	stats->key.appid = pgsm_hash_string(stats->appname, strlen(stats->appname));
 	stats->key.ip = client_ip;
 	stats->key.planid = planid;
 	stats->key.dbid = MyDatabaseId;
 	stats->key.queryid = queryid;
 	stats->key.parentid = 0;
-	stats->key.userid = info->userid;
 
 	stats->pgsm_query_id = pgsm_query_id;
 	stats->counters.info.cmd_type = cmd_type;
 	stats->query = unconstify(char *, query_text);
-
-	strlcpy(stats->appname, info->appname, NAMEDATALEN);
-	strlcpy(stats->username, info->username, NAMEDATALEN);
 
 #if PG_VERSION_NUM >= 170000
 	stats->key.toplevel = (nesting_level == 0);
