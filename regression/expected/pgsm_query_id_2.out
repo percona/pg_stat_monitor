@@ -93,10 +93,10 @@ SELECT datname, pgsm_query_id, query, calls FROM pg_stat_monitor ORDER BY pgsm_q
  db1                | 1897482803466821995 | SELECT * /* x */ FROM t2                            |     4
  db1                | 1988437669671417938 | SELECT * FROM t1                                    |     1
  db2                | 1988437669671417938 | SELECT * FROM t1                                    |     1
+ db2                | 2230366555432676772 | set pg_stat_monitor.pgsm_enable_pgsm_query_id = off |     2
  db1                | 8828613017640075704 | SELECT *, add(1, 2) FROM t1                         |     1
  db2                | 8828613017640075704 | SELECT *, add(1, 2) FROM t1                         |     1
  db2                |                     | SELECT * FROM t3                                    |     1
- db2                |                     | set pg_stat_monitor.pgsm_enable_pgsm_query_id = off |     2
 (9 rows)
 
 SELECT pg_stat_monitor_reset();
