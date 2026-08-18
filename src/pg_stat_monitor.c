@@ -478,10 +478,17 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 	 */
 	if (query->utilityStmt)
 	{
-		if (pgsm_track_utility && IsA(query->utilityStmt, ExecuteStmt))
-			query->queryId = INT64CONST(0);
+		/* See pgsm_ProcessUtility for more details regarding this skip logic */
+		if (!pgsm_track_utility ||
+			IsA(query->utilityStmt, PrepareStmt) ||
+			IsA(query->utilityStmt, DeallocateStmt))
+			return;
 
-		return;
+		if (IsA(query->utilityStmt, ExecuteStmt))
+		{
+			query->queryId = INT64CONST(0);
+			return;
+		}
 	}
 
 	/*
@@ -504,6 +511,16 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 											   location,	/* query location */
 											   &norm_query_len);
 	}
+
+	/*
+	 * This is optimization. The only thing that we need here for utility
+	 * statements is normalized query. If we don't have it, we can skip entry
+	 * creation. It will be created in pgsm_ProcessUtility() if needed.
+	 */
+	if (query->utilityStmt && norm_query == NULL)
+		return;
+
+	Assert(query->queryId != INT64CONST(0));
 
 	/*
 	 * pgsm_query_id always groups by the normalized form when we have one.
@@ -1101,8 +1118,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		!IsA(parsetree, PrepareStmt) &&
 		!IsA(parsetree, DeallocateStmt))
 	{
-		const char *query_text;
-		char	   *store_text;
 		int			location = pstmt->stmt_location;
 		int			query_len = pstmt->stmt_len;
 		int			cmd_type = pstmt->commandType;
@@ -1112,21 +1127,47 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		struct rusage rusage_end;
 		SysInfo		sys_info;
 		BufferUsage bufusage;
-		BufferUsage bufusage_start = pgBufferUsage;
+		BufferUsage bufusage_start;
 		WalUsage	walusage;
-		WalUsage	walusage_start = pgWalUsage;
+		WalUsage	walusage_start;
 		pgsmQueryStats stats = {0};
-		pgsmQueryExecInfo info;
-
-		getrusage(RUSAGE_SELF, &rusage_start);
+		pgsmQueryStats *stashed;
 
 		/*
-		 * Create a query execution info before utility statement execution
-		 * because statement may change the data itself and for statistics we
-		 * need to know this data at the statement execution start time.
+		 * If there is an entry for the query in the list, use it as it has
+		 * normalized query text. We have to copy entry to the stack here as
+		 * statement execution may cleanup memory context that stores entries
+		 * list.
 		 */
-		pgsm_fill_query_exec_info(&info);
+		stashed = pgsm_find_query_stats(queryId);
+		if (stashed != NULL)
+		{
+			stats = *stashed;
+			stats.query = pstrdup(stashed->query);
+			pgsm_delete_query_stats(queryId);
+		}
+		else
+		{
+			pgsmQueryExecInfo info;
+			const char *query_text;
 
+			/*
+			 * Create the entry before utility statement execution because the
+			 * statement may change the execution info itself and for statistics
+			 * we need to know this data at the statement execution start time.
+			 */
+			pgsm_fill_query_exec_info(&info);
+			query_text = CleanQuerytext(queryString, &location, &query_len);
+
+			pgsm_fill_query_stats(&stats, &info, queryId, 0,
+								  get_pgsm_query_id_hash(query_text, query_len),
+								  pnstrdup(query_text, query_len),	/* null terminated */
+								  cmd_type);
+		}
+
+		getrusage(RUSAGE_SELF, &rusage_start);
+		bufusage_start = pgBufferUsage;
+		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 		nesting_level++;
 
@@ -1183,15 +1224,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		memset(&bufusage, 0, sizeof(BufferUsage));
 		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
 
-		query_text = CleanQuerytext(queryString, &location, &query_len);
-
-		/* Make it null terminated */
-		store_text = pnstrdup(query_text, query_len);
-
-		pgsm_fill_query_stats(&stats, &info, queryId, 0,
-							  get_pgsm_query_id_hash(query_text, query_len),
-							  store_text, cmd_type);
-
 		/* The plan details are captured when the query finishes */
 		pgsm_update_counters(&stats.counters,	/* counters */
 							 NULL,	/* PlanInfo */
@@ -1208,7 +1240,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		pgsm_store(&stats);
 
-		pfree(store_text);
+		pfree(stats.query);
 	}
 	else
 	{
