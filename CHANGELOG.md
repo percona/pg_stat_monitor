@@ -40,3 +40,39 @@
 - Do not acquire LWLock under spinlock
 - Race condition where we could leak memory for the parent query
 - `plans` now counts only actual planner invocations instead of every execution: utility statements and executions that reuse a cached plan no longer bump the counter
+
+## [2.3.2] - 2026-03-02
+
+### Fixed
+
+- Always truncate query strings at multi-byte character boundaries ([PG-2116](https://perconadev.atlassian.net/browse/PG-2116))
+- Fix buffer overflow with high `pgsm_max_buckets`
+- Silence some compialtion warnings (Andrei Lepikhov)
+
+## [2.3.1] - 2025-11-27
+
+### Added
+
+- PostgreSQL 18 support ([PG-1907](https://perconadev.atlassian.net/browse/PG-1907))
+  - Columns to track parallel worker activity
+  - Add tracking of `wal_buffers_full`
+  - Support constant lists squashing in query jumbling
+
+## Removed
+
+- PostgreSQL 12 support ([PG-1900](https://perconadev.atlassian.net/browse/PG-1900))
+
+### Fixed
+
+- Fix returned vaules from C function ([PG-1931](https://perconadev.atlassian.net/browse/PG-1931))
+- Reduce memory usage by deleteing unnecessary entires from the query stack ([PG-2005](https://perconadev.atlassian.net/browse/PG-2005))
+- Fix crash due to unitialized values on the query string stack ([PG-2014](https://perconadev.atlassian.net/browse/PG-2014))
+
+## [2.2.0] - 2025-06-30
+
+### Fixed
+
+- Fix comment removal in query hash calculation ([PG-1674](https://perconadev.atlassian.net/browse/PG-1674))
+- Fix performance issue in comment extraction in large queries ([PG-1674](https://perconadev.atlassian.net/browse/PG-1674))
+- Fix error levels in PostreSQL 17 ([PG-1313](https://perconadev.atlassian.net/browse/PG-1313))
+- Fix bug where `cmd_type` often was 0 ([PG-1621](https://perconadev.atlassian.net/browse/PG-1621))
