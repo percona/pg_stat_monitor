@@ -18,10 +18,10 @@ CLOSE cursor_stats_1;
 DECLARE cursor_stats_1 CURSOR WITH HOLD FOR SELECT 2;
 CLOSE cursor_stats_1;
 SELECT calls, rows, query FROM pg_stat_monitor ORDER BY query COLLATE "C";
- calls | rows |                        query                         
--------+------+------------------------------------------------------
+ calls | rows |                         query                         
+-------+------+-------------------------------------------------------
      2 |    0 | CLOSE cursor_stats_1
-     2 |    0 | DECLARE cursor_stats_1 CURSOR WITH HOLD FOR SELECT 1
+     2 |    0 | DECLARE cursor_stats_1 CURSOR WITH HOLD FOR SELECT $1
      1 |    1 | SELECT pg_stat_monitor_reset() IS NOT NULL AS t
 (3 rows)
 
@@ -51,14 +51,14 @@ CLOSE cursor_stats_1;
 CLOSE cursor_stats_2;
 COMMIT;
 SELECT calls, rows, query FROM pg_stat_monitor ORDER BY query COLLATE "C";
- calls | rows |                        query                         
--------+------+------------------------------------------------------
+ calls | rows |                         query                         
+-------+------+-------------------------------------------------------
      1 |    0 | BEGIN
      1 |    0 | CLOSE cursor_stats_1
      1 |    0 | CLOSE cursor_stats_2
      1 |    0 | COMMIT
-     1 |    0 | DECLARE cursor_stats_1 CURSOR WITH HOLD FOR SELECT 2
-     1 |    0 | DECLARE cursor_stats_2 CURSOR WITH HOLD FOR SELECT 3
+     1 |    0 | DECLARE cursor_stats_1 CURSOR WITH HOLD FOR SELECT $1
+     1 |    0 | DECLARE cursor_stats_2 CURSOR WITH HOLD FOR SELECT $1
      1 |    1 | FETCH 1 IN cursor_stats_1
      1 |    1 | FETCH 1 IN cursor_stats_2
      1 |    1 | SELECT pg_stat_monitor_reset() IS NOT NULL AS t
@@ -187,11 +187,11 @@ FETCH BACKWARD ALL pgsm_cursor;
 
 COMMIT;
 SELECT calls, query FROM pg_stat_monitor ORDER BY query COLLATE "C";
- calls |                               query                               
--------+-------------------------------------------------------------------
+ calls |                               query                                
+-------+--------------------------------------------------------------------
      1 | BEGIN
      1 | COMMIT
-     1 | DECLARE pgsm_cursor CURSOR FOR SELECT FROM generate_series(1, 10)
+     1 | DECLARE pgsm_cursor CURSOR FOR SELECT FROM generate_series($1, $2)
      2 | FETCH -1 pgsm_cursor
      2 | FETCH 2 pgsm_cursor
      1 | FETCH ABSOLUTE 2 pgsm_cursor

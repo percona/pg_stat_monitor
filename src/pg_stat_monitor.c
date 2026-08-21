@@ -234,24 +234,11 @@ typedef struct pgsmQueryStats
 	Counters	counters;		/* the statistics for this query */
 } pgsmQueryStats;
 
-/*
- * Structure to store information about the current statement execution.
- * This data may change during the execution of the query and for statistics
- * we need to know this data at the time when the statement execution started.
- */
-typedef struct pgsmQueryExecInfo
-{
-	Oid			userid;
-	char		appname[NAMEDATALEN];
-	char		username[NAMEDATALEN];
-} pgsmQueryExecInfo;
-
 static MemoryContext pgsm_memory_context(void);
-static void pgsm_fill_query_exec_info(pgsmQueryExecInfo *info);
 static pgsmQueryStats *pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, int query_len, CmdType cmd_type);
-static void pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
+static void pgsm_fill_query_stats(pgsmQueryStats *stats, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type);
+static pgsmQueryStats *pgsm_find_query_stats(int64 queryid);
 static void pgsm_delete_query_stats(uint64 queryid);
-static pgsmQueryStats *pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type);
 static int64 get_pgsm_query_id_hash(const char *norm_query, int len);
 
 static void pgsm_cleanup_callback(void *arg);
@@ -478,17 +465,23 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 	 */
 	if (query->utilityStmt)
 	{
-		if (pgsm_track_utility && IsA(query->utilityStmt, ExecuteStmt))
-			query->queryId = INT64CONST(0);
+		if (!pgsm_track_utility ||
+			IsA(query->utilityStmt, PrepareStmt) ||
+			IsA(query->utilityStmt, DeallocateStmt))
+			return;
 
-		return;
+		if (IsA(query->utilityStmt, ExecuteStmt))
+		{
+			query->queryId = INT64CONST(0);
+			return;
+		}
 	}
 
 	/*
 	 * If we are unlucky enough to get a hash of zero, use 1 instead, to
 	 * prevent confusion with the utility-statement case.
 	 */
-	if (query->queryId == INT64CONST(0))
+	if (query->queryId == INT64CONST(0) && !query->utilityStmt)
 		query->queryId = INT64CONST(1);
 
 	/*
@@ -511,6 +504,16 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 											   location,	/* query location */
 											   &norm_query_len);
 	}
+
+	/*
+	 * This is optimization. The only thing that we need here for utility
+	 * statements is normalized query. If we don't have it, we can skip entry
+	 * creation. It will be created in pgsm_ProcessUtility() if needed.
+	 */
+	if (query->utilityStmt && norm_query == NULL)
+		return;
+
+	Assert(query->queryId != INT64CONST(0));
 
 	/*
 	 * pgsm_query_id always groups by the normalized form when we have one.
@@ -576,8 +579,15 @@ pgsm_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		 * snapshot of the execution info (application_name, user) reflects
 		 * the state at statement start.
 		 */
-		(void) pgsm_get_query_stats(queryDesc->plannedstmt->queryId, 0,
-									queryDesc->sourceText, queryDesc->operation);
+		if (pgsm_find_query_stats(queryDesc->plannedstmt->queryId) == NULL)
+		{
+			int			query_len = strlen(queryDesc->sourceText);
+
+			pgsm_add_query_stats(queryDesc->plannedstmt->queryId, 0,
+								 get_pgsm_query_id_hash(queryDesc->sourceText, query_len),
+								 queryDesc->sourceText, query_len,
+								 queryDesc->operation);
+		}
 
 #if PG_VERSION_NUM < 190000
 
@@ -729,7 +739,16 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 		SysInfo		sys_info;
 		int64		planid = plan_ptr ? plan_ptr->planid : 0;
 
-		stats = pgsm_get_query_stats(queryId, planid, queryDesc->sourceText, queryDesc->operation);
+		stats = pgsm_find_query_stats(queryId);
+		if (stats == NULL)
+		{
+			int			query_len = strlen(queryDesc->sourceText);
+
+			stats = pgsm_add_query_stats(queryId, planid,
+										 get_pgsm_query_id_hash(queryDesc->sourceText, query_len),
+										 queryDesc->sourceText, query_len,
+										 queryDesc->operation);
+		}
 
 		if (stats->key.planid == 0 && planid != 0)
 			stats->key.planid = planid;
@@ -921,7 +940,16 @@ pgsm_planner_hook(Query *parse, const char *query_string, int cursorOptions, Par
 		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 
-		stats = pgsm_get_query_stats(queryId, 0, query_string, parse->commandType);
+		stats = pgsm_find_query_stats(queryId);
+		if (stats == NULL)
+		{
+			int			query_len = strlen(query_string);
+
+			stats = pgsm_add_query_stats(queryId, 0,
+										 get_pgsm_query_id_hash(query_string, query_len),
+										 query_string, query_len,
+										 parse->commandType);
+		}
 
 #if PG_VERSION_NUM >= 170000
 		nesting_level++;
@@ -1083,8 +1111,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		!IsA(parsetree, PrepareStmt) &&
 		!IsA(parsetree, DeallocateStmt))
 	{
-		const char *query_text;
-		char	   *store_text;
 		int			location = pstmt->stmt_location;
 		int			query_len = pstmt->stmt_len;
 		int			cmd_type = pstmt->commandType;
@@ -1094,21 +1120,39 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		struct rusage rusage_end;
 		SysInfo		sys_info;
 		BufferUsage bufusage;
-		BufferUsage bufusage_start = pgBufferUsage;
+		BufferUsage bufusage_start;
 		WalUsage	walusage;
-		WalUsage	walusage_start = pgWalUsage;
+		WalUsage	walusage_start;
 		pgsmQueryStats stats = {0};
-		pgsmQueryExecInfo info;
-
-		getrusage(RUSAGE_SELF, &rusage_start);
+		pgsmQueryStats *stashed;
 
 		/*
-		 * Create a query execution info before utility statement execution
-		 * because statement may change the data itself and for statistics we
-		 * need to know this data at the statement execution start time.
+		 * If there is an entry for the query in the list, use it as it has
+		 * normalized query text. We have to copy entry to the stack here as
+		 * statement execution may cleanup memory context that stores entries
+		 * list.
 		 */
-		pgsm_fill_query_exec_info(&info);
+		stashed = pgsm_find_query_stats(queryId);
+		if (stashed != NULL)
+		{
+			stats = *stashed;
+			stats.query = pstrdup(stashed->query);
+			pgsm_delete_query_stats(queryId);
+		}
+		else
+		{
+			const char *query_text = CleanQuerytext(queryString, &location,
+													&query_len);
 
+			pgsm_fill_query_stats(&stats, queryId, 0,
+								  get_pgsm_query_id_hash(query_text, query_len),
+								  pnstrdup(query_text, query_len),	/* null terminated */
+								  cmd_type);
+		}
+
+		getrusage(RUSAGE_SELF, &rusage_start);
+		bufusage_start = pgBufferUsage;
+		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 		nesting_level++;
 
@@ -1165,15 +1209,6 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		memset(&bufusage, 0, sizeof(BufferUsage));
 		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
 
-		query_text = CleanQuerytext(queryString, &location, &query_len);
-
-		/* Make it null terminated */
-		store_text = pnstrdup(query_text, query_len);
-
-		pgsm_fill_query_stats(&stats, &info, queryId, 0,
-							  get_pgsm_query_id_hash(query_text, query_len),
-							  store_text, cmd_type);
-
 		/* The plan details are captured when the query finishes */
 		pgsm_update_counters(&stats.counters,	/* counters */
 							 NULL,	/* PlanInfo */
@@ -1190,7 +1225,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 
 		pgsm_store(&stats);
 
-		pfree(store_text);
+		pfree(stats.query);
 	}
 	else
 	{
@@ -1274,40 +1309,6 @@ pgsm_set_cached_info(void)
 		{
 			strlcpy(datname, name, NAMEDATALEN);
 			pfree(name);
-		}
-	}
-}
-
-/*
- * Fill the query execution info with the current statement execution data.
- * Some data may be changed by statement execution itself, but for
- * statistics we need this data state at the statement execution start time.
- */
-static void
-pgsm_fill_query_exec_info(pgsmQueryExecInfo *info)
-{
-	int			sec_ctx;
-
-	/*
-	 * Get the user ID. Let's use this instead of GetUserID as this won't
-	 * throw an assertion in case of an error.
-	 */
-	GetUserIdAndSecContext(&info->userid, &sec_ctx);
-
-	if (application_name)
-		strlcpy(info->appname, application_name, NAMEDATALEN);
-	else
-		strlcpy(info->appname, "", NAMEDATALEN);
-
-	info->username[0] = '\0';
-	if (IsTransactionState())
-	{
-		char	   *username = GetUserNameFromId(info->userid, true);
-
-		if (username)
-		{
-			strlcpy(info->username, username, NAMEDATALEN);
-			pfree(username);
 		}
 	}
 }
@@ -1569,11 +1570,9 @@ static void
 pgsm_store_error(const char *query, const ErrorData *edata)
 {
 	pgsmQueryStats stats = {0};
-	pgsmQueryExecInfo info;
 	int			len = strlen(query);
 
-	pgsm_fill_query_exec_info(&info);
-	pgsm_fill_query_stats(&stats, &info,
+	pgsm_fill_query_stats(&stats,
 						  pgsm_hash_string(query, len),
 						  0,
 						  get_pgsm_query_id_hash(query, len),
@@ -1625,18 +1624,15 @@ static pgsmQueryStats *
 pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, int query_len, CmdType cmd_type)
 {
 	pgsmQueryStats *stats;
-	pgsmQueryExecInfo info;
 	MemoryContext oldctx;
-	char	   *store_text;
-
-	pgsm_fill_query_exec_info(&info);
 
 	/* Create the stats and own the query text in the pgsm memory context */
 	oldctx = MemoryContextSwitchTo(pgsm_memory_context());
 	stats = palloc0_object(pgsmQueryStats);
-	store_text = pnstrdup(query_text, query_len);
 
-	pgsm_fill_query_stats(stats, &info, queryid, planid, pgsm_query_id, store_text, cmd_type);
+	pgsm_fill_query_stats(stats, queryid, planid, pgsm_query_id,
+						  pnstrdup(query_text, query_len),	/* null terminated */
+						  cmd_type);
 	lentries = lappend(lentries, stats);
 	MemoryContextSwitchTo(oldctx);
 
@@ -1647,27 +1643,48 @@ pgsm_add_query_stats(int64 queryid, int64 planid, int64 pgsm_query_id, const cha
  * Populate non-counter fields of a pgsmQueryStats.
  */
 static void
-pgsm_fill_query_stats(pgsmQueryStats *stats, const pgsmQueryExecInfo *info, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type)
+pgsm_fill_query_stats(pgsmQueryStats *stats, int64 queryid, int64 planid, int64 pgsm_query_id, const char *query_text, CmdType cmd_type)
 {
+	int			sec_ctx;
+
 	pgsm_set_cached_info();
+
+	/*
+	 * Get the user ID. Let's use this instead of GetUserID as this won't
+	 * throw an assertion in case of an error.
+	 */
+	GetUserIdAndSecContext(&stats->key.userid, &sec_ctx);
+
+	if (application_name)
+		strlcpy(stats->appname, application_name, NAMEDATALEN);
+	else
+		stats->appname[0] = '\0';
+
+	stats->username[0] = '\0';
+	if (IsTransactionState())
+	{
+		char	   *username = GetUserNameFromId(stats->key.userid, true);
+
+		if (username)
+		{
+			strlcpy(stats->username, username, NAMEDATALEN);
+			pfree(username);
+		}
+	}
 
 	stats->subxid = IsTransactionState() ? GetCurrentSubTransactionId()
 		: InvalidSubTransactionId;
 
-	stats->key.appid = pgsm_hash_string(info->appname, strlen(info->appname));
+	stats->key.appid = pgsm_hash_string(stats->appname, strlen(stats->appname));
 	stats->key.ip = client_ip;
 	stats->key.planid = planid;
 	stats->key.dbid = MyDatabaseId;
 	stats->key.queryid = queryid;
 	stats->key.parentid = 0;
-	stats->key.userid = info->userid;
 
 	stats->pgsm_query_id = pgsm_query_id;
 	stats->counters.info.cmd_type = cmd_type;
 	stats->query = unconstify(char *, query_text);
-
-	strlcpy(stats->appname, info->appname, NAMEDATALEN);
-	strlcpy(stats->username, info->username, NAMEDATALEN);
 
 #if PG_VERSION_NUM >= 170000
 	stats->key.toplevel = (nesting_level == 0);
@@ -1712,39 +1729,31 @@ pgsm_delete_query_stats(uint64 queryid)
 }
 
 /*
- * Function to get a pgsmQueryStats structure from the local list.
+ * Find query stats by query id.
+ * Returns NULL if not found.
  */
 static pgsmQueryStats *
-pgsm_get_query_stats(int64 queryid, int64 planid, const char *query_text, CmdType cmd_type)
+pgsm_find_query_stats(int64 queryid)
 {
 	pgsmQueryStats *stats;
-	int			query_len;
+	ListCell   *lc;
 
-	Assert(query_text != NULL);
+	if (lentries == NIL)
+		return NULL;
 
-	if (lentries != NIL)
+	/* First bet is on the last item */
+	stats = (pgsmQueryStats *) llast(lentries);
+	if (stats->key.queryid == queryid)
+		return stats;
+
+	foreach(lc, lentries)
 	{
-		ListCell   *lc;
-
-		/* First bet is on the last item */
-		stats = (pgsmQueryStats *) llast(lentries);
+		stats = lfirst(lc);
 		if (stats->key.queryid == queryid)
 			return stats;
-
-		foreach(lc, lentries)
-		{
-			stats = lfirst(lc);
-			if (stats->key.queryid == queryid)
-				return stats;
-		}
 	}
 
-	query_len = strlen(query_text);
-	stats = pgsm_add_query_stats(queryid, planid,
-								 get_pgsm_query_id_hash(query_text, query_len),
-								 query_text, query_len, cmd_type);
-
-	return stats;
+	return NULL;
 }
 
 static void
