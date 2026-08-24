@@ -485,13 +485,6 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 	}
 
 	/*
-	 * If we are unlucky enough to get a hash of zero, use 1 instead, to
-	 * prevent confusion with the utility-statement case.
-	 */
-	if (query->queryId == INT64CONST(0))
-		query->queryId = INT64CONST(1);
-
-	/*
 	 * Let's save the normalized query so that we can save the data without in
 	 * hash later on without the need of jstate which wouldn't be available.
 	 */
