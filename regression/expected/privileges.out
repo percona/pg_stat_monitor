@@ -6,10 +6,21 @@
 CREATE EXTENSION pg_stat_monitor;
 SET pg_stat_monitor.pgsm_track_utility = off;
 SET pg_stat_monitor.pgsm_normalized_query = on;
+SET pg_stat_monitor.pgsm_track = 'all';
+SET pg_stat_monitor.pgsm_extract_comments = on;
+SET pg_stat_monitor.pgsm_enable_query_plan = on;
+CREATE FUNCTION regress_stats_nested(int) RETURNS int AS
+$$
+BEGIN
+    RETURN (SELECT $1 + 1);
+END
+$$ LANGUAGE plpgsql;
 CREATE ROLE regress_stats_superuser SUPERUSER;
 CREATE ROLE regress_stats_user1;
 CREATE ROLE regress_stats_user2;
+CREATE ROLE regress_stats_user3 NOINHERIT;
 GRANT pg_read_all_stats TO regress_stats_user2;
+GRANT pg_read_all_stats TO regress_stats_user3;
 SET ROLE regress_stats_superuser;
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
  t 
@@ -23,6 +34,12 @@ SELECT 1 AS "ONE";
    1
 (1 row)
 
+SELECT regress_stats_nested(1);
+ regress_stats_nested 
+----------------------
+                    2
+(1 row)
+
 SET ROLE regress_stats_user1;
 SELECT 1+1 AS "TWO";
  TWO 
@@ -30,66 +47,192 @@ SELECT 1+1 AS "TWO";
    2
 (1 row)
 
+SELECT regress_stats_nested(2) /* comment */;
+ regress_stats_nested 
+----------------------
+                    3
+(1 row)
+
+SELECT 1 / 0;
+ERROR:  division by zero
+--
+-- regress_stats_user1 has no privileges to read the query text of queries
+-- executed by others but can see statistics like calls and rows.
+--
+SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.top_query,
+       ss.message, ss.comments, ss.pgsm_query_id <> 0 AS pgsm_query_id_bool,
+       ss.planid <> 0 AS planid_bool,
+       ss.top_queryid <> 0 AS top_queryid_bool,
+       ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows
+    FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid
+    ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows;
+         rolname         | queryid_bool |                     query                     |                   top_query                   |         message          |         comments         | pgsm_query_id_bool | planid_bool | top_queryid_bool | client_ip_bool | calls | rows 
+-------------------------+--------------+-----------------------------------------------+-----------------------------------------------+--------------------------+--------------------------+--------------------+-------------+------------------+----------------+-------+------
+ regress_stats_superuser |              | <insufficient privilege>                      | <insufficient privilege>                      | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_superuser |              | <insufficient privilege>                      | <insufficient privilege>                      | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_superuser |              | <insufficient privilege>                      | <insufficient privilege>                      | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_superuser |              | <insufficient privilege>                      | <insufficient privilege>                      | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_user1     | t            | (SELECT $1 + 1)                               | SELECT regress_stats_nested(2) /* comment */; |                          |                          | t                  | t           | t                | t              |     1 |    1
+ regress_stats_user1     | t            | SELECT $1+$2 AS "TWO"                         |                                               |                          |                          | t                  | t           |                  | t              |     1 |    1
+ regress_stats_user1     | t            | SELECT 1 / 0;                                 |                                               | division by zero         |                          | t                  |             |                  | t              |     1 |    0
+ regress_stats_user1     | t            | SELECT regress_stats_nested($1) /* comment */ |                                               |                          | /* comment */            | t                  | t           |                  | t              |     1 |    1
+(8 rows)
+
 --
 -- A superuser can read all columns of queries executed by others,
 -- including query text.
 --
 SET ROLE regress_stats_superuser;
-SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.calls, ss.rows
+SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.top_query,
+       ss.message, ss.comments, ss.pgsm_query_id <> 0 AS pgsm_query_id_bool,
+       ss.planid <> 0 AS planid_bool,
+       ss.top_queryid <> 0 AS top_queryid_bool,
+       ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows
     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid
     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows;
-         rolname         | queryid_bool |                      query                      | calls | rows 
--------------------------+--------------+-------------------------------------------------+-------+------
- regress_stats_superuser | t            | SELECT $1 AS "ONE"                              |     1 |    1
- regress_stats_superuser | t            | SELECT pg_stat_monitor_reset() IS NOT NULL AS t |     1 |    1
- regress_stats_user1     | t            | SELECT $1+$2 AS "TWO"                           |     1 |    1
-(3 rows)
-
---
--- regress_stats_user1 has no privileges to read the query text of queries
--- executed by others but can see statistics like calls and rows.
---
-SET ROLE regress_stats_user1;
-SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.calls, ss.rows
-    FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid
-    ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows;
-         rolname         | queryid_bool |          query           | calls | rows 
--------------------------+--------------+--------------------------+-------+------
- regress_stats_superuser | t            | <insufficient privilege> |     1 |    1
- regress_stats_superuser | t            | <insufficient privilege> |     1 |    1
- regress_stats_superuser | t            | <insufficient privilege> |     1 |    3
- regress_stats_user1     | t            | SELECT $1+$2 AS "TWO"    |     1 |    1
-(4 rows)
+         rolname         | queryid_bool |                                     query                                     |                   top_query                   |     message      |   comments    | pgsm_query_id_bool | planid_bool | top_queryid_bool | client_ip_bool | calls | rows 
+-------------------------+--------------+-------------------------------------------------------------------------------+-----------------------------------------------+------------------+---------------+--------------------+-------------+------------------+----------------+-------+------
+ regress_stats_superuser | t            | (SELECT $1 + $2)                                                              | SELECT regress_stats_nested(1);               |                  |               | t                  | t           | t                | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT $1 AS "ONE"                                                            |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT pg_stat_monitor_reset() IS NOT NULL AS t                               |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT regress_stats_nested($1)                                               |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_user1     | t            | (SELECT $1 + 1)                                                               | SELECT regress_stats_nested(2) /* comment */; |                  |               | t                  | t           | t                | t              |     1 |    1
+ regress_stats_user1     | t            | SELECT $1+$2 AS "TWO"                                                         |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_user1     | t            | SELECT 1 / 0;                                                                 |                                               | division by zero |               | t                  |             |                  | t              |     1 |    0
+ regress_stats_user1     | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.top_query,  +|                                               |                  |               | t                  | t           |                  | t              |     1 |    8
+                         |              |        ss.message, ss.comments, ss.pgsm_query_id <> $2 AS pgsm_query_id_bool,+|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.planid <> $3 AS planid_bool,                                       +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.top_queryid <> $4 AS top_queryid_bool,                             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows         +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows               |                                               |                  |               |                    |             |                  |                |       | 
+ regress_stats_user1     | t            | SELECT regress_stats_nested($1) /* comment */                                 |                                               |                  | /* comment */ | t                  | t           |                  | t              |     1 |    1
+(9 rows)
 
 --
 -- regress_stats_user2, with pg_read_all_stats role privileges, can
 -- read all columns, including query text, of queries executed by others.
 --
 SET ROLE regress_stats_user2;
-SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.calls, ss.rows
+SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.top_query,
+       ss.message, ss.comments, ss.pgsm_query_id <> 0 AS pgsm_query_id_bool,
+       ss.planid <> 0 AS planid_bool,
+       ss.top_queryid <> 0 AS top_queryid_bool,
+       ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows
     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid
     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows;
-         rolname         | queryid_bool |                                      query                                      | calls | rows 
--------------------------+--------------+---------------------------------------------------------------------------------+-------+------
- regress_stats_superuser | t            | SELECT $1 AS "ONE"                                                              |     1 |    1
- regress_stats_superuser | t            | SELECT pg_stat_monitor_reset() IS NOT NULL AS t                                 |     1 |    1
- regress_stats_superuser | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.calls, ss.rows+|     1 |    3
-                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid               +|       | 
-                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows                 |       | 
- regress_stats_user1     | t            | SELECT $1+$2 AS "TWO"                                                           |     1 |    1
- regress_stats_user1     | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.calls, ss.rows+|     1 |    4
-                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid               +|       | 
-                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows                 |       | 
-(5 rows)
+         rolname         | queryid_bool |                                     query                                     |                   top_query                   |     message      |   comments    | pgsm_query_id_bool | planid_bool | top_queryid_bool | client_ip_bool | calls | rows 
+-------------------------+--------------+-------------------------------------------------------------------------------+-----------------------------------------------+------------------+---------------+--------------------+-------------+------------------+----------------+-------+------
+ regress_stats_superuser | t            | (SELECT $1 + $2)                                                              | SELECT regress_stats_nested(1);               |                  |               | t                  | t           | t                | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT $1 AS "ONE"                                                            |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT pg_stat_monitor_reset() IS NOT NULL AS t                               |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.top_query,  +|                                               |                  |               | t                  | t           |                  | t              |     1 |    9
+                         |              |        ss.message, ss.comments, ss.pgsm_query_id <> $2 AS pgsm_query_id_bool,+|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.planid <> $3 AS planid_bool,                                       +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.top_queryid <> $4 AS top_queryid_bool,                             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows         +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows               |                                               |                  |               |                    |             |                  |                |       | 
+ regress_stats_superuser | t            | SELECT regress_stats_nested($1)                                               |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_user1     | t            | (SELECT $1 + 1)                                                               | SELECT regress_stats_nested(2) /* comment */; |                  |               | t                  | t           | t                | t              |     1 |    1
+ regress_stats_user1     | t            | SELECT $1+$2 AS "TWO"                                                         |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_user1     | t            | SELECT 1 / 0;                                                                 |                                               | division by zero |               | t                  |             |                  | t              |     1 |    0
+ regress_stats_user1     | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.top_query,  +|                                               |                  |               | t                  | t           |                  | t              |     1 |    8
+                         |              |        ss.message, ss.comments, ss.pgsm_query_id <> $2 AS pgsm_query_id_bool,+|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.planid <> $3 AS planid_bool,                                       +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.top_queryid <> $4 AS top_queryid_bool,                             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows         +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows               |                                               |                  |               |                    |             |                  |                |       | 
+ regress_stats_user1     | t            | SELECT regress_stats_nested($1) /* comment */                                 |                                               |                  | /* comment */ | t                  | t           |                  | t              |     1 |    1
+(10 rows)
+
+--
+-- regress_stats_user3 is a member of pg_read_all_stats, but it is a NOINHERIT
+-- role, so the privilege does not apply until it does SET ROLE.
+--
+SET ROLE regress_stats_user3;
+SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.top_query,
+       ss.message, ss.comments, ss.pgsm_query_id <> 0 AS pgsm_query_id_bool,
+       ss.planid <> 0 AS planid_bool,
+       ss.top_queryid <> 0 AS top_queryid_bool,
+       ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows
+    FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid
+    ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows;
+         rolname         | queryid_bool |          query           |        top_query         |         message          |         comments         | pgsm_query_id_bool | planid_bool | top_queryid_bool | client_ip_bool | calls | rows 
+-------------------------+--------------+--------------------------+--------------------------+--------------------------+--------------------------+--------------------+-------------+------------------+----------------+-------+------
+ regress_stats_superuser |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_superuser |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_superuser |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_superuser |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_superuser |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    9
+ regress_stats_user1     |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    0
+ regress_stats_user1     |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_user1     |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_user1     |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    1
+ regress_stats_user1     |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |    8
+ regress_stats_user2     |              | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> | <insufficient privilege> |                    |             |                  | f              |     1 |   10
+(11 rows)
+
+SET ROLE pg_read_all_stats;
+SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.top_query,
+       ss.message, ss.comments, ss.pgsm_query_id <> 0 AS pgsm_query_id_bool,
+       ss.planid <> 0 AS planid_bool,
+       ss.top_queryid <> 0 AS top_queryid_bool,
+       ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows
+    FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid
+    ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows;
+         rolname         | queryid_bool |                                     query                                     |                   top_query                   |     message      |   comments    | pgsm_query_id_bool | planid_bool | top_queryid_bool | client_ip_bool | calls | rows 
+-------------------------+--------------+-------------------------------------------------------------------------------+-----------------------------------------------+------------------+---------------+--------------------+-------------+------------------+----------------+-------+------
+ regress_stats_superuser | t            | (SELECT $1 + $2)                                                              | SELECT regress_stats_nested(1);               |                  |               | t                  | t           | t                | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT $1 AS "ONE"                                                            |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT pg_stat_monitor_reset() IS NOT NULL AS t                               |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_superuser | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.top_query,  +|                                               |                  |               | t                  | t           |                  | t              |     1 |    9
+                         |              |        ss.message, ss.comments, ss.pgsm_query_id <> $2 AS pgsm_query_id_bool,+|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.planid <> $3 AS planid_bool,                                       +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.top_queryid <> $4 AS top_queryid_bool,                             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows         +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows               |                                               |                  |               |                    |             |                  |                |       | 
+ regress_stats_superuser | t            | SELECT regress_stats_nested($1)                                               |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_user1     | t            | (SELECT $1 + 1)                                                               | SELECT regress_stats_nested(2) /* comment */; |                  |               | t                  | t           | t                | t              |     1 |    1
+ regress_stats_user1     | t            | SELECT $1+$2 AS "TWO"                                                         |                                               |                  |               | t                  | t           |                  | t              |     1 |    1
+ regress_stats_user1     | t            | SELECT 1 / 0;                                                                 |                                               | division by zero |               | t                  |             |                  | t              |     1 |    0
+ regress_stats_user1     | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.top_query,  +|                                               |                  |               | t                  | t           |                  | t              |     1 |    8
+                         |              |        ss.message, ss.comments, ss.pgsm_query_id <> $2 AS pgsm_query_id_bool,+|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.planid <> $3 AS planid_bool,                                       +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.top_queryid <> $4 AS top_queryid_bool,                             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows         +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows               |                                               |                  |               |                    |             |                  |                |       | 
+ regress_stats_user1     | t            | SELECT regress_stats_nested($1) /* comment */                                 |                                               |                  | /* comment */ | t                  | t           |                  | t              |     1 |    1
+ regress_stats_user2     | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.top_query,  +|                                               |                  |               | t                  | t           |                  | t              |     1 |   10
+                         |              |        ss.message, ss.comments, ss.pgsm_query_id <> $2 AS pgsm_query_id_bool,+|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.planid <> $3 AS planid_bool,                                       +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.top_queryid <> $4 AS top_queryid_bool,                             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows         +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows               |                                               |                  |               |                    |             |                  |                |       | 
+ regress_stats_user3     | t            | SELECT r.rolname, ss.queryid <> $1 AS queryid_bool, ss.query, ss.top_query,  +|                                               |                  |               | t                  | t           |                  | t              |     1 |   11
+                         |              |        ss.message, ss.comments, ss.pgsm_query_id <> $2 AS pgsm_query_id_bool,+|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.planid <> $3 AS planid_bool,                                       +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.top_queryid <> $4 AS top_queryid_bool,                             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |        ss.client_ip IS NOT NULL AS client_ip_bool, ss.calls, ss.rows         +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     FROM pg_stat_monitor ss JOIN pg_roles r ON ss.userid = r.oid             +|                                               |                  |               |                    |             |                  |                |       | 
+                         |              |     ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows               |                                               |                  |               |                    |             |                  |                |       | 
+(12 rows)
 
 --
 -- cleanup
 --
 RESET ROLE;
+DROP FUNCTION regress_stats_nested(int);
 DROP ROLE regress_stats_superuser;
 DROP ROLE regress_stats_user1;
 REVOKE pg_read_all_stats FROM regress_stats_user2;
 DROP ROLE regress_stats_user2;
+REVOKE pg_read_all_stats FROM regress_stats_user3;
+DROP ROLE regress_stats_user3;
 SELECT pg_stat_monitor_reset() IS NOT NULL AS t;
  t 
 ---
