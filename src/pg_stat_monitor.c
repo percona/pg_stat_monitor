@@ -702,50 +702,49 @@ static void
 pgsm_ExecutorEnd(QueryDesc *queryDesc)
 {
 	int64		queryId = queryDesc->plannedstmt->queryId;
-	PlanInfo	plan_info;
-	PlanInfo   *plan_ptr = NULL;
-
-	/* Extract the plan information in case of SELECT statement */
-	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
-	{
-		int			plan_len;
-		MemoryContext oldctx;
-
-		/*
-		 * Run explain in a per query context so that there's no memory leak
-		 * when executor ends.
-		 */
-		oldctx = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
-
-		plan_len = strlcpy(plan_info.plan_text, pgsm_explain(queryDesc), PLAN_TEXT_LEN);
-
-		MemoryContextSwitchTo(oldctx);
-
-		plan_info.plan_len = plan_len < PLAN_TEXT_LEN ? plan_len : PLAN_TEXT_LEN - 1;
-		plan_info.planid = pgsm_hash_string(plan_info.plan_text, plan_info.plan_len);
-		plan_ptr = &plan_info;
-	}
 
 	if (queryId != INT64CONST(0) && pgsm_query_instr(queryDesc) && pgsm_enabled(nesting_level))
 	{
+		PlanInfo	plan_info;
+		PlanInfo   *plan_ptr = NULL;
 		pgsmQueryStats *stats;
 		struct rusage rusage_end;
 		SysInfo		sys_info;
-		int64		planid = plan_ptr ? plan_ptr->planid : 0;
+
+		/* Extract the plan information in case of SELECT statement */
+		if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
+		{
+			int			plan_len;
+			MemoryContext oldctx;
+			char	   *plan_text;
+
+			/*
+			 * Run explain in a per query context so that there's no memory
+			 * leak when executor ends.
+			 */
+			oldctx = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
+			plan_text = pgsm_explain(queryDesc);
+			MemoryContextSwitchTo(oldctx);
+
+			plan_len = strlcpy(plan_info.plan_text, plan_text, PLAN_TEXT_LEN);
+			plan_info.plan_len = plan_len < PLAN_TEXT_LEN ? plan_len : PLAN_TEXT_LEN - 1;
+			plan_info.planid = pgsm_hash_string(plan_info.plan_text, plan_info.plan_len);
+			plan_ptr = &plan_info;
+		}
 
 		stats = pgsm_find_query_stats(queryId);
 		if (stats == NULL)
 		{
 			int			query_len = strlen(queryDesc->sourceText);
 
-			stats = pgsm_add_query_stats(queryId, planid,
+			stats = pgsm_add_query_stats(queryId, plan_ptr ? plan_ptr->planid : 0,
 										 get_pgsm_query_id_hash(queryDesc->sourceText, query_len),
 										 queryDesc->sourceText, query_len,
 										 queryDesc->operation);
 		}
 
-		if (stats->key.planid == 0 && planid != 0)
-			stats->key.planid = planid;
+		if (stats->key.planid == 0 && plan_ptr != NULL)
+			stats->key.planid = plan_ptr->planid;
 
 #if PG_VERSION_NUM < 190000
 
