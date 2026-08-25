@@ -2060,7 +2060,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 						 bool showtext)
 {
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
-	bool		may_read_all_stats;
+	bool		is_allowed_role;
 	TupleDesc	tupdesc;
 	Tuplestorestate *tupstore;
 	MemoryContext per_query_ctx;
@@ -2072,7 +2072,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 	pgsmSharedState *pgsm;
 	int			expected_columns;
 
-	may_read_all_stats = is_member_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS);
+	is_allowed_role = has_privs_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS);
 
 	switch (api_version)
 	{
@@ -2169,6 +2169,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		char	   *query_text;
 		char	   *parent_query_text = NULL;
 		bool		toplevel = entry->key.toplevel;
+		bool		visible = is_allowed_role || userid == GetUserId();
 
 		/* Load the query text from dsa area */
 		if (DsaPointerIsValid(entry->query))
@@ -2226,62 +2227,69 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* datname at column number 4 */
 		values[i++] = CStringGetTextDatum(entry->datname);
 
-		/*
-		 * ip address at column number 5, Superusers or members of
-		 * pg_read_all_stats members are allowed
-		 */
-		if (may_read_all_stats || userid == GetUserId())
+		/* ip address at column number 5 */
+		if (visible)
 			values[i++] = UInt32GetDatum(ip);
 		else
 			nulls[i++] = true;
 
 		/* queryid at column number 6 */
-		values[i++] = Int64GetDatum(queryid);
+		if (visible)
+			values[i++] = Int64GetDatum(queryid);
+		else
+			nulls[i++] = true;
 
 		/* planid at column number 7 */
-		if (planid)
+		if (visible && planid)
 			values[i++] = Int64GetDatum(planid);
 		else
 			nulls[i++] = true;
 
-		if (may_read_all_stats || userid == GetUserId())
+		if (!showtext)
 		{
-			if (showtext)
-			{
-				/* query at column number 8 */
-				values[i++] = CStringGetTextDatum(query_text);
-				/* plan at column number 9 */
-				if (planid && tmp.planinfo.plan_text[0])
-					values[i++] = CStringGetTextDatum(tmp.planinfo.plan_text);
-				else
-					nulls[i++] = true;
-			}
+			/* query and plan at column number 8 and 9, text not requested */
+			nulls[i++] = true;
+			nulls[i++] = true;
+		}
+		else if (visible)
+		{
+			/* query at column number 8 */
+			values[i++] = CStringGetTextDatum(query_text);
+			/* plan at column number 9 */
+			if (planid && tmp.planinfo.plan_text[0])
+				values[i++] = CStringGetTextDatum(tmp.planinfo.plan_text);
 			else
-			{
-				/* query at column number 8 */
 				nulls[i++] = true;
-				/* plan at column number 9 */
-				nulls[i++] = true;
-			}
 		}
 		else
 		{
-			/* query text and plan at column number 8 and 9 */
+			/* query and plan at column number 8 and 9 */
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 			values[i++] = CStringGetTextDatum("<insufficient privilege>");
 		}
 
 		/* pgsm_query_id at column number 10 */
-		if (pgsm_query_id)
+		if (visible && pgsm_query_id)
 			values[i++] = Int64GetDatum(pgsm_query_id);
 		else
 			nulls[i++] = true;
 
-		/* parentid at column number 11 */
-		if (tmpkey.parentid != INT64CONST(0))
+		/* parentid and top_query at column number 11 and 12 */
+		if (!visible)
+		{
+			nulls[i++] = true;
+			if (showtext)
+				values[i++] = CStringGetTextDatum("<insufficient privilege>");
+			else
+				nulls[i++] = true;
+		}
+		else if (tmpkey.parentid != INT64CONST(0))
 		{
 			values[i++] = Int64GetDatum(tmpkey.parentid);
-			values[i++] = CStringGetTextDatum(parent_query_text);
+			if (showtext)
+				values[i++] = CStringGetTextDatum(parent_query_text);
+			else
+				nulls[i++] = true;
 		}
 		else
 		{
@@ -2331,10 +2339,12 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = CStringGetTextDatum(tmp.error.sqlcode);
 
 		/* message at column number 18 */
-		if (strlen(tmp.error.message) == 0)
-			nulls[i++] = true;
-		else
+		if (!visible)
+			values[i++] = CStringGetTextDatum("<insufficient privilege>");
+		else if (strlen(tmp.error.message) != 0)
 			values[i++] = CStringGetTextDatum(tmp.error.message);
+		else
+			nulls[i++] = true;
 
 		/* bucket_start_time at column number 19 */
 		values[i++] = TimestampTzGetDatum(pgsm->bucket_start_time[entry->key.bucket_id]);
@@ -2457,8 +2467,12 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Int64GetDatumFast(tmp.walusage.wal_buffers_full);
 		}
 
-		/* application_name at column number 56 */
-		if (strlen(tmp.info.comments) > 0)
+		/* comments at column number 56 */
+		if (!showtext)
+			nulls[i++] = true;
+		else if (!visible)
+			values[i++] = CStringGetTextDatum("<insufficient privilege>");
+		else if (strlen(tmp.info.comments) != 0)
 			values[i++] = CStringGetTextDatum(tmp.info.comments);
 		else
 			nulls[i++] = true;
