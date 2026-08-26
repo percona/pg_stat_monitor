@@ -41,6 +41,7 @@
 - Race condition where we could leak memory for the parent query
 - `plans` now counts only actual planner invocations instead of every execution: utility statements and executions that reuse a cached plan no longer bump the counter
 - Normalize the query text of utility statements ([PG-2623](https://perconadev.atlassian.net/browse/PG-2623))
+- Hide sensitive data for users who has no privileges ([PG-2624](https://perconadev.atlassian.net/browse/PG-2624)).
 
 ## [2.3.2] - 2026-03-02
 
@@ -77,4 +78,3 @@
 - Fix performance issue in comment extraction in large queries ([PG-1674](https://perconadev.atlassian.net/browse/PG-1674))
 - Fix error levels in PostreSQL 17 ([PG-1313](https://perconadev.atlassian.net/browse/PG-1313))
 - Fix bug where `cmd_type` often was 0 ([PG-1621](https://perconadev.atlassian.net/browse/PG-1621))
-- Hide sensitive date for users who has no priveleges ([PG-2624](https://perconadev.atlassian.net/browse/PG-2624)).
