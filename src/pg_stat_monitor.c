@@ -69,8 +69,8 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V2_0	64
 #define PG_STAT_MONITOR_COLS_V2_1	70
 #define PG_STAT_MONITOR_COLS_V2_3	73
-#define PG_STAT_MONITOR_COLS_NEXT	75
-#define PG_STAT_MONITOR_COLS		PG_STAT_MONITOR_COLS_NEXT	/* maximum of above */
+#define PG_STAT_MONITOR_COLS_V2_4	75
+#define PG_STAT_MONITOR_COLS		PG_STAT_MONITOR_COLS_V2_4	/* maximum of above */
 
 #define pgsm_enabled(level) \
     (!IsParallelWorker() && \
@@ -88,7 +88,7 @@ typedef enum pgsmVersion
 	PGSM_V2_0,
 	PGSM_V2_1,
 	PGSM_V2_3,
-	PGSM_NEXT,
+	PGSM_V2_4,
 } pgsmVersion;
 
 /*---- Initialization Function Declarations ----*/
@@ -206,7 +206,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_1_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_1);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_3);
-PG_FUNCTION_INFO_V1(pg_stat_monitor_NEXT);
+PG_FUNCTION_INFO_V1(pg_stat_monitor_2_4);
 PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(get_histogram_timings);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
@@ -2025,9 +2025,9 @@ pg_stat_monitor_2_3(PG_FUNCTION_ARGS)
 }
 
 Datum
-pg_stat_monitor_NEXT(PG_FUNCTION_ARGS)
+pg_stat_monitor_2_4(PG_FUNCTION_ARGS)
 {
-	pg_stat_monitor_internal(fcinfo, PGSM_NEXT, true);
+	pg_stat_monitor_internal(fcinfo, PGSM_V2_4, true);
 	return (Datum) 0;
 }
 
@@ -2088,8 +2088,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		case PGSM_V2_3:
 			expected_columns = PG_STAT_MONITOR_COLS_V2_3;
 			break;
-		case PGSM_NEXT:
-			expected_columns = PG_STAT_MONITOR_COLS_NEXT;
+		case PGSM_V2_4:
+			expected_columns = PG_STAT_MONITOR_COLS_V2_4;
 			break;
 		default:
 			Assert(false);
@@ -2486,7 +2486,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Int64GetDatumFast(tmp.parallel_workers_launched);
 		}
 
-		if (api_version >= PGSM_NEXT)
+		if (api_version >= PGSM_V2_4)
 		{
 			/* at column number 69 */
 			values[i++] = Int64GetDatumFast(tmp.generic_plan_calls);

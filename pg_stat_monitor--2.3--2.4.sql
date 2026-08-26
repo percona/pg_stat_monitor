@@ -151,7 +151,7 @@ RETURNS SETOF record
 STRICT
 PARALLEL SAFE
 LANGUAGE c
-AS 'MODULE_PATHNAME', 'pg_stat_monitor_NEXT';
+AS 'MODULE_PATHNAME', 'pg_stat_monitor_2_4';
 
 CREATE FUNCTION pgsm_create_19_view()
 RETURNS int
