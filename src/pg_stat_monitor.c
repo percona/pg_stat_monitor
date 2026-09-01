@@ -1588,7 +1588,7 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 static MemoryContext
 pgsm_memory_context(void)
 {
-	Assert(IsTransactionState());
+	Assert(TopTransactionContext != NULL);
 
 	if (PgsmMemoryContext == NULL)
 	{
@@ -1597,8 +1597,8 @@ pgsm_memory_context(void)
 		 * scenario. CurrentMemoryContext here is just a failsafe mechanism,
 		 * it should never happen.
 		 */
-		MemoryContext parent = IsTransactionState() ? TopTransactionContext
-			: CurrentMemoryContext;
+		MemoryContext parent = TopTransactionContext != NULL
+			? TopTransactionContext : CurrentMemoryContext;
 
 		PgsmMemoryContext = AllocSetContextCreate(parent,
 												  "pg_stat_monitor local store",

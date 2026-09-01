@@ -66,6 +66,53 @@ SELECT pg_stat_monitor_reset();
  
 (1 row)
 
+-- We still able to record ROLLBACK TO SAVEPOINT if subtransaction is aborted due an error.
+BEGIN;
+SAVEPOINT sp1;
+SELECT 1/0;
+ERROR:  division by zero
+ROLLBACK TO SAVEPOINT sp1;
+INSERT INTO t VALUES (3);
+COMMIT;
+SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
+             query              | username |      datname       
+--------------------------------+----------+--------------------
+ BEGIN                          | u        | contrib_regression
+ COMMIT                         | u        | contrib_regression
+ INSERT INTO t VALUES (3)       | u        | contrib_regression
+ ROLLBACK TO SAVEPOINT sp1      |          | contrib_regression
+ SAVEPOINT sp1                  | u        | contrib_regression
+ SELECT 1/0;                    | u        | contrib_regression
+ SELECT pg_stat_monitor_reset() | u        | contrib_regression
+(7 rows)
+
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
+-- We are still able to record PREPARE TRANSACTION issued in an aborted transaction, it rolls it back.
+BEGIN;
+INSERT INTO t VALUES (1);
+ERROR:  duplicate key value violates unique constraint "t_pkey"
+DETAIL:  Key (a)=(1) already exists.
+PREPARE TRANSACTION 'pgsm_aborted_transaction';
+SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
+                     query                      | username |      datname       
+------------------------------------------------+----------+--------------------
+ BEGIN                                          | u        | contrib_regression
+ INSERT INTO t VALUES (1);                      | u        | contrib_regression
+ PREPARE TRANSACTION 'pgsm_aborted_transaction' |          | contrib_regression
+ SELECT pg_stat_monitor_reset()                 | u        | contrib_regression
+(4 rows)
+
+SELECT pg_stat_monitor_reset();
+ pg_stat_monitor_reset 
+-----------------------
+ 
+(1 row)
+
 DROP TABLE t;
 SET ROLE NONE;
 DROP USER u;
