@@ -29,6 +29,25 @@ ROLLBACK;
 SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
 SELECT pg_stat_monitor_reset();
 
+-- We still able to record ROLLBACK TO SAVEPOINT if subtransaction is aborted due an error.
+BEGIN;
+SAVEPOINT sp1;
+SELECT 1/0;
+ROLLBACK TO SAVEPOINT sp1;
+INSERT INTO t VALUES (3);
+COMMIT;
+
+SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
+SELECT pg_stat_monitor_reset();
+
+-- We are still able to record PREPARE TRANSACTION issued in an aborted transaction, it rolls it back.
+BEGIN;
+INSERT INTO t VALUES (1);
+PREPARE TRANSACTION 'pgsm_aborted_transaction';
+
+SELECT query, username, datname FROM pg_stat_monitor ORDER BY query COLLATE "C";
+SELECT pg_stat_monitor_reset();
+
 DROP TABLE t;
 SET ROLE NONE;
 DROP USER u;
