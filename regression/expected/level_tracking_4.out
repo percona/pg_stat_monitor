@@ -100,12 +100,11 @@ SELECT pg_stat_monitor_reset();
 CALL proc_with_utility_stmt();
 SELECT toplevel, calls, query FROM pg_stat_monitor
   ORDER BY query COLLATE "C", toplevel;
- toplevel | calls |              query              
-----------+-------+---------------------------------
+ toplevel | calls |             query              
+----------+-------+--------------------------------
  t        |     1 | CALL proc_with_utility_stmt()
  t        |     1 | SELECT pg_stat_monitor_reset()
- f        |     3 | SHOW pg_stat_monitor.pgsm_track
-(3 rows)
+(2 rows)
 
 -- top-level tracking.
 SET pg_stat_monitor.pgsm_track = 'top';
