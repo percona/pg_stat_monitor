@@ -458,6 +458,13 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 		return;
 
 	/*
+	 * Nothing to do if compute_query_id isn't enabled and no other module
+	 * computed a query identifier.
+	 */
+	if (query->queryId == INT64CONST(0))
+		return;
+
+	/*
 	 * If it's EXECUTE, clear the queryId so that stats will accumulate for
 	 * the underlying PREPARE.  But don't do this if we're not tracking
 	 * utility statements, to avoid messing up another extension that might be
@@ -506,8 +513,6 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 	 */
 	if (query->utilityStmt && norm_query == NULL)
 		return;
-
-	Assert(query->queryId != INT64CONST(0));
 
 	/*
 	 * pgsm_query_id always groups by the normalized form when we have one.
@@ -1804,6 +1809,13 @@ pgsm_store(const pgsmQueryStats *stats)
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
+		return;
+
+	/*
+	 * Nothing to do if compute_query_id isn't enabled and no other module
+	 * computed a query identifier.
+	 */
+	if (key.queryid == INT64CONST(0))
 		return;
 
 	pgsm = pgsm_get_ss();

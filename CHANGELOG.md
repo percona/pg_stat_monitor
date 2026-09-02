@@ -41,6 +41,7 @@
 - Race condition where we could leak memory for the parent query
 - `plans` now counts only actual planner invocations instead of every execution: utility statements and executions that reuse a cached plan no longer bump the counter
 - Normalize the query text of utility statements ([PG-2623](https://perconadev.atlassian.net/browse/PG-2623))
+- Ignore statements that have no query id
 
 ## [2.3.2] - 2026-03-02
 
