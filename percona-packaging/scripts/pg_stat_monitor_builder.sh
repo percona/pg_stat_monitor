@@ -213,8 +213,8 @@ install_deps() {
 
         if [ x"$RHEL" = x8 ];
         then
-		    clang_version=$(yum list --showduplicates clang-devel | grep "20.1" | grep clang | awk '{print $2}' | head -n 1)
-            llvm_version=$(yum list --showduplicates llvm-devel | grep "20.1" | grep llvm | awk '{print $2}' | head -n 1)
+		    clang_version=$(yum list --showduplicates clang-devel | grep "21.1" | grep clang | awk '{print $2}' | head -n 1)
+            llvm_version=$(yum list --showduplicates llvm-devel | grep "21.1" | grep llvm | awk '{print $2}' | head -n 1)
             yum install -y clang-devel-${clang_version} clang-${clang_version} llvm-devel-${llvm_version}
             dnf module disable -y rust-toolset llvm-toolset
         else
@@ -224,7 +224,7 @@ install_deps() {
         PKGLIST="percona-postgresql${PG_RELEASE}-devel"
         PKGLIST+=" git rpmdevtools vim wget"
         PKGLIST+=" perl binutils gcc gcc-c++"
-        PKGLIST+=" git rpm-build rpmdevtools wget gcc make autoconf"
+        PKGLIST+=" git rpm-build rpmdevtools wget gcc make autoconf openssl-devel krb5-devel"
         if [[ "${RHEL}" -ge 8 ]]; then
             dnf config-manager --set-enabled ol${RHEL}_codeready_builder
             dnf -y module disable postgresql || true
@@ -241,24 +241,37 @@ install_deps() {
                 echo "waiting"
             done
         fi
-        if [[ "${RHEL}" -eq 9 ]]; then
+        if [[ "${RHEL}" -le 9 ]]; then
             PKGLIST+=" gcc-toolset-14"
         fi
         until yum -y install ${PKGLIST}; do
             echo "waiting"
             sleep 1
         done
-    else
+    else 
+        . /etc/os-release
+        export DEBIAN="${VERSION_CODENAME}"
+        if [[ "x${DEBIAN}" == "xbullseye" ]]; then
+    cat > /etc/apt/sources.list <<'EOF'
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260831T000000Z/ bullseye main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260831T000000Z/ bullseye-updates main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20260831T000000Z/ bullseye-security main
+EOF
+        fi
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
         apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg git wget curl
-		export DEBIAN=$(lsb_release -sc)
-
+        DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg git wget curl ca-certificates
+        export DEBIAN=$(lsb_release -sc)
+        
         wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
         dpkg -i percona-release_latest.generic_all.deb
         rm -f percona-release_latest.generic_all.deb
         percona-release enable ${PPG_REPO_NAME} testing
 
         PKGLIST="percona-postgresql-${PG_RELEASE} percona-postgresql-common percona-postgresql-server-dev-all"
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
         apt-get update
 
 		if [[ "x${DEBIAN}" == "xbullseye" ]]; then
@@ -266,6 +279,9 @@ install_deps() {
     		wget https://apt.llvm.org/llvm.sh
     		chmod +x llvm.sh
     		./llvm.sh 14 bullseye
+            sed -i 's|http://snapshot.debian.org|https://snapshot.debian.org|g' /etc/apt/sources.list
+            rm -rf /var/lib/apt/lists/*
+            apt-get update
 		else
 			wget http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7_7.0.1-12_amd64.deb http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/libllvm7_7.0.1-12_amd64.deb http://mirrors.edge.kernel.org/ubuntu/pool/universe/l/llvm-toolchain-7/llvm-7-runtime_7.0.1-12_amd64.deb
         	apt install ./libllvm7_7.0.1-12_amd64.deb ./llvm-7_7.0.1-12_amd64.deb ./llvm-7-runtime_7.0.1-12_amd64.deb
