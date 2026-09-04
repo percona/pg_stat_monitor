@@ -14,7 +14,11 @@ override_dh_builddeb:
 
 override_dh_auto_build:
 	+pg_buildext clean . build-%v
-	+pg_buildext build . build-%v
+	for v in $$(pg_buildext supported-versions); do \
+		echo "### Preparing PostgreSQL $$v build ###"; \
+		mkdir -p build-$$v/src; \
+		pg_buildext build-$$v . build-%v; \
+	done
 
 override_dh_auto_test:
 	# nothing to do here

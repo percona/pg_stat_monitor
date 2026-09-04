@@ -2,7 +2,7 @@
 %global pgrel @@PG_REL@@
 %global rpm_release @@RPM_RELEASE@@
 %global pginstdir /usr/pgsql-@@PG_REL@@/
-%if 0%{?rhel} && 0%{?rhel} == 9
+%if 0%{?rhel} && 0%{?rhel} <= 9
 %global gts_version 14
 %endif
 
@@ -70,7 +70,7 @@ sed -i 's:PG_CONFIG ?= pg_config:PG_CONFIG = /usr/pgsql-%{pgrel}/bin/pg_config:'
 %{pginstdir}/share/extension/pg_stat_monitor--*.sql
 %{pginstdir}/share/extension/pg_stat_monitor.control
 %{pginstdir}/lib/bitcode/pg_stat_monitor*.bc
-%{pginstdir}/lib/bitcode/pg_stat_monitor/*.bc
+%{pginstdir}/lib/bitcode/pg_stat_monitor/src/*.bc
 
 
 %changelog
