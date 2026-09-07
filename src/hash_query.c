@@ -236,8 +236,6 @@ hash_entry_alloc(pgsmSharedState *pgsm, const pgsmHashKey *key)
 		entry->counters.info.parent_query = InvalidDsaPointer;
 		entry->stats_since = GetCurrentTimestamp();
 
-		/* set the appropriate initial usage count */
-
 		/*
 		 * re-initialize the counters_lock each time ... we assume no one
 		 * using it
