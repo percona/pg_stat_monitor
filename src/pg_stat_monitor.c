@@ -2168,7 +2168,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		bool		nulls[PG_STAT_MONITOR_COLS] = {0};
 		int			i = 0;
 		Counters	tmp;
-		pgsmHashKey tmpkey;
 		double		stddev;
 		int64		queryid = entry->key.queryid;
 		int64		bucketid = entry->key.bucket_id;
@@ -2176,6 +2175,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		Oid			userid = entry->key.userid;
 		uint32		ip = entry->key.ip;
 		int64		planid = entry->key.planid;
+		int64		parentid = entry->key.parentid;
 		int64		pgsm_query_id = entry->pgsm_query_id;
 		char	   *query_text;
 		char	   *parent_query_text = NULL;
@@ -2196,7 +2196,6 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		/* copy counters to a local variable to keep locking time short */
 		SpinLockAcquire(&entry->counters_lock);
 		tmp = entry->counters;
-		tmpkey = entry->key;
 		SpinLockRelease(&entry->counters_lock);
 
 		/*
@@ -2210,7 +2209,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			continue;
 
 		/* read the parent query text if any */
-		if (tmpkey.parentid != INT64CONST(0))
+		if (parentid != INT64CONST(0))
 		{
 			if (DsaPointerIsValid(tmp.info.parent_query))
 			{
@@ -2294,9 +2293,9 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			else
 				nulls[i++] = true;
 		}
-		else if (tmpkey.parentid != INT64CONST(0))
+		else if (parentid != INT64CONST(0))
 		{
-			values[i++] = Int64GetDatum(tmpkey.parentid);
+			values[i++] = Int64GetDatum(parentid);
 			if (showtext)
 				values[i++] = CStringGetTextDatum(parent_query_text);
 			else
