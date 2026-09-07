@@ -183,10 +183,10 @@ typedef struct pgsmEntry
 	int64		pgsm_query_id;	/* pgsm generated normalized query hash */
 	char		datname[NAMEDATALEN];	/* database name */
 	char		username[NAMEDATALEN];	/* user name */
-	Counters	counters;		/* the statistics for this query */
-	TimestampTz stats_since;	/* timestamp of entry allocation */
-	slock_t		mutex;			/* protects the counters only */
 	dsa_pointer query;			/* query text location within query buffer */
+	TimestampTz stats_since;	/* timestamp of entry allocation */
+	slock_t		counters_lock;	/* protects the counters only */
+	Counters	counters;		/* the statistics for this query */
 } pgsmEntry;
 
 /*
