@@ -239,7 +239,6 @@ typedef struct pgsmQueryStats
 	double		plan_total_time;	/* planning time, in msec */
 	double		exec_total_time;	/* execution time, in msec */
 	int64		rows;			/* # of retrieved or affected rows */
-	ErrorInfo	error;			/* error reported by the statement, if any */
 	Blocks		blocks;
 	JitInfo		jitinfo;
 	Wal_Usage	walusage;
@@ -279,7 +278,8 @@ static void pgsm_update_query_stats(pgsmQueryStats *stats,
 									int parallel_workers_launched,
 									int plan_origin);
 static void pgsm_merge_stats(Counters *dst, const pgsmQueryStats *src);
-static void pgsm_store(const pgsmQueryStats *stats, const PlanInfo *plan_info);
+static void pgsm_store(const pgsmQueryStats *stats, const PlanInfo *plan_info,
+					   const ErrorInfo *error);
 
 static void pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 									 pgsmVersion api_version,
@@ -809,7 +809,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 								0); /* plan_origin */
 #endif
 
-		pgsm_store(stats, plan_ptr);
+		pgsm_store(stats, plan_ptr, NULL);
 	}
 
 	if (prev_ExecutorEnd)
@@ -1228,7 +1228,7 @@ pgsm_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 								0,	/* parallel_workers_launched */
 								0); /* plan_origin */
 
-		pgsm_store(&stats, NULL);
+		pgsm_store(&stats, NULL, NULL);
 
 		pfree(stats.query);
 	}
@@ -1496,11 +1496,6 @@ pgsm_merge_stats(Counters *dst, const pgsmQueryStats *src)
 	index = get_histogram_bucket(src->exec_total_time);
 	dst->resp_calls[index]++;
 
-	/* error info */
-	dst->error.elevel = src->error.elevel;
-	strlcpy(dst->error.sqlcode, src->error.sqlcode, SQLCODE_LEN);
-	strlcpy(dst->error.message, src->error.message, ERROR_MESSAGE_LEN);
-
 	/* additive counters */
 	dst->calls.rows += src->rows;
 
@@ -1558,6 +1553,7 @@ static void
 pgsm_store_error(const char *query, const ErrorData *edata)
 {
 	pgsmQueryStats stats = {0};
+	ErrorInfo	error;
 	int			len = strlen(query);
 
 	pgsm_fill_query_stats(&stats,
@@ -1566,11 +1562,11 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 						  get_pgsm_query_id_hash(query, len),
 						  query, CMD_UNKNOWN);
 
-	stats.error.elevel = edata->elevel;
-	strlcpy(stats.error.message, edata->message, ERROR_MESSAGE_LEN);
-	strlcpy(stats.error.sqlcode, unpack_sql_state(edata->sqlerrcode), SQLCODE_LEN);
+	error.elevel = edata->elevel;
+	strlcpy(error.message, edata->message, ERROR_MESSAGE_LEN);
+	strlcpy(error.sqlcode, unpack_sql_state(edata->sqlerrcode), SQLCODE_LEN);
 
-	pgsm_store(&stats, NULL);
+	pgsm_store(&stats, NULL, &error);
 }
 
 /*
@@ -1785,7 +1781,8 @@ pgsm_subxact_callback(SubXactEvent event, SubTransactionId mySubid,
  * Store some statistics for a statement.
  */
 static void
-pgsm_store(const pgsmQueryStats *stats, const PlanInfo *plan_info)
+pgsm_store(const pgsmQueryStats *stats, const PlanInfo *plan_info,
+		   const ErrorInfo *error)
 {
 	pgsmEntry  *entry;
 	pgsmSharedState *pgsm;
@@ -1953,6 +1950,13 @@ pgsm_store(const pgsmQueryStats *stats, const PlanInfo *plan_info)
 		entry->counters.planinfo.planid = plan_info->planid;
 		entry->counters.planinfo.plan_len = plan_info->plan_len;
 		strlcpy(entry->counters.planinfo.plan_text, plan_info->plan_text, PLAN_TEXT_LEN);
+	}
+
+	if (error)
+	{
+		entry->counters.error.elevel = error->elevel;
+		strlcpy(entry->counters.error.sqlcode, error->sqlcode, SQLCODE_LEN);
+		strlcpy(entry->counters.error.message, error->message, ERROR_MESSAGE_LEN);
 	}
 
 	if (pgsm_extract_comments && comments[0] && !entry->counters.info.comments[0])
