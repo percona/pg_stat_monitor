@@ -1953,7 +1953,7 @@ pgsm_store(const pgsmQueryStats *stats)
 		}
 	}
 
-	SpinLockAcquire(&entry->mutex);
+	SpinLockAcquire(&entry->counters_lock);
 
 	pgsm_merge_counters(&entry->counters, &stats->counters);
 
@@ -1978,7 +1978,7 @@ pgsm_store(const pgsmQueryStats *stats)
 	Assert(key.parentid != INT64CONST(0) ||
 		   !DsaPointerIsValid(entry->counters.info.parent_query));
 
-	SpinLockRelease(&entry->mutex);
+	SpinLockRelease(&entry->counters_lock);
 
 	if (DsaPointerIsValid(parent_query_pointer))
 		dsa_free(query_dsa_area, parent_query_pointer);
@@ -2194,10 +2194,10 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			query_text = "Query string not available";	/* Should never happen */
 
 		/* copy counters to a local variable to keep locking time short */
-		SpinLockAcquire(&entry->mutex);
+		SpinLockAcquire(&entry->counters_lock);
 		tmp = entry->counters;
 		tmpkey = entry->key;
-		SpinLockRelease(&entry->mutex);
+		SpinLockRelease(&entry->counters_lock);
 
 		/*
 		 * In case that query plan is enabled, there is no need to show 0
