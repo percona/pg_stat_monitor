@@ -69,8 +69,8 @@ PG_MODULE_MAGIC;
 #define PG_STAT_MONITOR_COLS_V2_0	64
 #define PG_STAT_MONITOR_COLS_V2_1	70
 #define PG_STAT_MONITOR_COLS_V2_3	73
-#define PG_STAT_MONITOR_COLS_NEXT	75
-#define PG_STAT_MONITOR_COLS		PG_STAT_MONITOR_COLS_NEXT	/* maximum of above */
+#define PG_STAT_MONITOR_COLS_V2_4	75
+#define PG_STAT_MONITOR_COLS		PG_STAT_MONITOR_COLS_V2_4	/* maximum of above */
 
 #define pgsm_enabled(level) \
     (!IsParallelWorker() && \
@@ -88,7 +88,7 @@ typedef enum pgsmVersion
 	PGSM_V2_0,
 	PGSM_V2_1,
 	PGSM_V2_3,
-	PGSM_NEXT,
+	PGSM_V2_4,
 } pgsmVersion;
 
 /*---- Initialization Function Declarations ----*/
@@ -206,7 +206,7 @@ PG_FUNCTION_INFO_V1(pg_stat_monitor_1_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_0);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_1);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_2_3);
-PG_FUNCTION_INFO_V1(pg_stat_monitor_NEXT);
+PG_FUNCTION_INFO_V1(pg_stat_monitor_2_4);
 PG_FUNCTION_INFO_V1(pg_stat_monitor);
 PG_FUNCTION_INFO_V1(get_histogram_timings);
 PG_FUNCTION_INFO_V1(pg_stat_monitor_hook_stats);
@@ -2036,9 +2036,9 @@ pg_stat_monitor_2_3(PG_FUNCTION_ARGS)
 }
 
 Datum
-pg_stat_monitor_NEXT(PG_FUNCTION_ARGS)
+pg_stat_monitor_2_4(PG_FUNCTION_ARGS)
 {
-	pg_stat_monitor_internal(fcinfo, PGSM_NEXT, true);
+	pg_stat_monitor_internal(fcinfo, PGSM_V2_4, true);
 	return (Datum) 0;
 }
 
@@ -2099,8 +2099,8 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 		case PGSM_V2_3:
 			expected_columns = PG_STAT_MONITOR_COLS_V2_3;
 			break;
-		case PGSM_NEXT:
-			expected_columns = PG_STAT_MONITOR_COLS_NEXT;
+		case PGSM_V2_4:
+			expected_columns = PG_STAT_MONITOR_COLS_V2_4;
 			break;
 		default:
 			Assert(false);
@@ -2511,7 +2511,7 @@ pg_stat_monitor_internal(FunctionCallInfo fcinfo,
 			values[i++] = Int64GetDatumFast(tmp.parallel_workers_launched);
 		}
 
-		if (api_version >= PGSM_NEXT)
+		if (api_version >= PGSM_V2_4)
 		{
 			/* at column number 69 */
 			values[i++] = Int64GetDatumFast(tmp.generic_plan_calls);
@@ -2798,17 +2798,26 @@ static char *
 generate_normalized_query(const JumbleState *jstate, const char *query,
 						  int query_loc, int *query_len_p)
 {
-	char	   *norm_query;
+	StringInfoData norm_query;
 	int			query_len = *query_len_p;
-	int			norm_query_buflen,	/* Space allowed for norm_query */
-				len_to_wrt,		/* Length (in bytes) to write */
+	int			len_to_wrt,		/* Length (in bytes) to write */
 				quer_loc = 0,	/* Source query byte location */
-				n_quer_loc = 0, /* Normalized query byte location */
 				last_off = 0,	/* Offset from start for previous tok */
 				last_tok_len = 0;	/* Length (in bytes) of that tok */
-	LocationLen *locs;
 #if PG_VERSION_NUM >= 180000
 	int			num_constants_replaced = 0;
+#endif
+	LocationLen *locs = NULL;
+
+	/*
+	 * Our output buffer is an expansible StringInfo, but avoid enlarging it
+	 * in most cases by reserving extra space for each constant location.
+	 */
+	Assert(jstate->clocations_count > 0);
+#if PG_VERSION_NUM >= 180000
+	initStringInfoExt(&norm_query, query_len + jstate->clocations_count * 10);
+#else
+	initStringInfo(&norm_query);
 #endif
 
 	/*
@@ -2817,18 +2826,6 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 	 * in.
 	 */
 	locs = ComputeConstantLengths(jstate, query, query_loc);
-
-	/*
-	 * Allow for $n symbols to be longer than the constants they replace.
-	 * Constants must take at least one byte in text form, while a $n symbol
-	 * certainly isn't more than 11 bytes, even if n reaches INT_MAX.  We
-	 * could refine that limit based on the max value of n for the current
-	 * query, but it hardly seems worth any extra effort to do so.
-	 */
-	norm_query_buflen = query_len + jstate->clocations_count * 10;
-
-	/* Allocate result buffer */
-	norm_query = palloc(norm_query_buflen + 1);
 
 	for (int i = 0; i < jstate->clocations_count; i++)
 	{
@@ -2849,6 +2846,7 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 #endif
 
 		off = locs[i].location;
+
 		/* Adjust recorded location if we're dealing with partial string */
 		off -= query_loc;
 
@@ -2860,10 +2858,8 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 		/* Copy next chunk (what precedes the next constant) */
 		len_to_wrt = off - last_off;
 		len_to_wrt -= last_tok_len;
-
 		Assert(len_to_wrt >= 0);
-		memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
-		n_quer_loc += len_to_wrt;
+		appendBinaryStringInfo(&norm_query, query + quer_loc, len_to_wrt);
 
 #if PG_VERSION_NUM >= 180000
 
@@ -2872,14 +2868,14 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 		 * we have a squashable list, insert a placeholder comment starting
 		 * from the list's second value.
 		 */
-		n_quer_loc += sprintf(norm_query + n_quer_loc, "$%d%s",
-							  num_constants_replaced + 1 + jstate->highest_extern_param_id,
-							  locs[i].squashed ? " /*, ... */" : "");
+		appendStringInfo(&norm_query, "$%d%s",
+						 num_constants_replaced + 1 + jstate->highest_extern_param_id,
+						 locs[i].squashed ? " /*, ... */" : "");
 		num_constants_replaced++;
 #else
 		/* And insert a param symbol in place of the constant token */
-		n_quer_loc += sprintf(norm_query + n_quer_loc, "$%d",
-							  i + 1 + jstate->highest_extern_param_id);
+		appendStringInfo(&norm_query, "$%d",
+						 i + 1 + jstate->highest_extern_param_id);
 #endif
 
 		/* move forward */
@@ -2899,15 +2895,10 @@ generate_normalized_query(const JumbleState *jstate, const char *query,
 	len_to_wrt = query_len - quer_loc;
 
 	Assert(len_to_wrt >= 0);
-	memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
-	n_quer_loc += len_to_wrt;
+	appendBinaryStringInfo(&norm_query, query + quer_loc, len_to_wrt);
 
-	Assert(n_quer_loc <= norm_query_buflen);
-	norm_query[n_quer_loc] = '\0';
-
-	*query_len_p = n_quer_loc;
-
-	return norm_query;
+	*query_len_p = norm_query.len;
+	return norm_query.data;
 }
 
 #if PG_VERSION_NUM < 190000
