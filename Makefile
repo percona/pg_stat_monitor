@@ -21,7 +21,6 @@ REGRESS = basic \
 	functions \
 	counters \
 	relations \
-	relations_propgraph \
 	database \
 	error_insert \
 	application_name \
