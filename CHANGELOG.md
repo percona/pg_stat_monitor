@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Ignore statements that have no query id
+
 ## [2.4.0]
 
 ### Added

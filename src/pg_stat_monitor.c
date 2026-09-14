@@ -458,6 +458,13 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 		return;
 
 	/*
+	 * Nothing to do if compute_query_id isn't enabled and no other module
+	 * computed a query identifier.
+	 */
+	if (query->queryId == INT64CONST(0))
+		return;
+
+	/*
 	 * If it's EXECUTE, clear the queryId so that stats will accumulate for
 	 * the underlying PREPARE.  But don't do this if we're not tracking
 	 * utility statements, to avoid messing up another extension that might be
@@ -506,8 +513,6 @@ pgsm_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 	 */
 	if (query->utilityStmt && norm_query == NULL)
 		return;
-
-	Assert(query->queryId != INT64CONST(0));
 
 	/*
 	 * pgsm_query_id always groups by the normalized form when we have one.
@@ -702,50 +707,49 @@ static void
 pgsm_ExecutorEnd(QueryDesc *queryDesc)
 {
 	int64		queryId = queryDesc->plannedstmt->queryId;
-	PlanInfo	plan_info;
-	PlanInfo   *plan_ptr = NULL;
-
-	/* Extract the plan information in case of SELECT statement */
-	if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
-	{
-		int			plan_len;
-		MemoryContext oldctx;
-
-		/*
-		 * Run explain in a per query context so that there's no memory leak
-		 * when executor ends.
-		 */
-		oldctx = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
-
-		plan_len = strlcpy(plan_info.plan_text, pgsm_explain(queryDesc), PLAN_TEXT_LEN);
-
-		MemoryContextSwitchTo(oldctx);
-
-		plan_info.plan_len = plan_len < PLAN_TEXT_LEN ? plan_len : PLAN_TEXT_LEN - 1;
-		plan_info.planid = pgsm_hash_string(plan_info.plan_text, plan_info.plan_len);
-		plan_ptr = &plan_info;
-	}
 
 	if (queryId != INT64CONST(0) && pgsm_query_instr(queryDesc) && pgsm_enabled(nesting_level))
 	{
+		PlanInfo	plan_info;
+		PlanInfo   *plan_ptr = NULL;
 		pgsmQueryStats *stats;
 		struct rusage rusage_end;
 		SysInfo		sys_info;
-		int64		planid = plan_ptr ? plan_ptr->planid : 0;
+
+		/* Extract the plan information in case of SELECT statement */
+		if (queryDesc->operation == CMD_SELECT && pgsm_enable_query_plan)
+		{
+			int			plan_len;
+			MemoryContext oldctx;
+			char	   *plan_text;
+
+			/*
+			 * Run explain in a per query context so that there's no memory
+			 * leak when executor ends.
+			 */
+			oldctx = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
+			plan_text = pgsm_explain(queryDesc);
+			MemoryContextSwitchTo(oldctx);
+
+			plan_len = strlcpy(plan_info.plan_text, plan_text, PLAN_TEXT_LEN);
+			plan_info.plan_len = plan_len < PLAN_TEXT_LEN ? plan_len : PLAN_TEXT_LEN - 1;
+			plan_info.planid = pgsm_hash_string(plan_info.plan_text, plan_info.plan_len);
+			plan_ptr = &plan_info;
+		}
 
 		stats = pgsm_find_query_stats(queryId);
 		if (stats == NULL)
 		{
 			int			query_len = strlen(queryDesc->sourceText);
 
-			stats = pgsm_add_query_stats(queryId, planid,
+			stats = pgsm_add_query_stats(queryId, plan_ptr ? plan_ptr->planid : 0,
 										 get_pgsm_query_id_hash(queryDesc->sourceText, query_len),
 										 queryDesc->sourceText, query_len,
 										 queryDesc->operation);
 		}
 
-		if (stats->key.planid == 0 && planid != 0)
-			stats->key.planid = planid;
+		if (stats->key.planid == 0 && plan_ptr != NULL)
+			stats->key.planid = plan_ptr->planid;
 
 #if PG_VERSION_NUM < 190000
 
@@ -1588,7 +1592,7 @@ pgsm_store_error(const char *query, const ErrorData *edata)
 static MemoryContext
 pgsm_memory_context(void)
 {
-	Assert(IsTransactionState());
+	Assert(TopTransactionContext != NULL);
 
 	if (PgsmMemoryContext == NULL)
 	{
@@ -1597,8 +1601,8 @@ pgsm_memory_context(void)
 		 * scenario. CurrentMemoryContext here is just a failsafe mechanism,
 		 * it should never happen.
 		 */
-		MemoryContext parent = IsTransactionState() ? TopTransactionContext
-			: CurrentMemoryContext;
+		MemoryContext parent = TopTransactionContext != NULL
+			? TopTransactionContext : CurrentMemoryContext;
 
 		PgsmMemoryContext = AllocSetContextCreate(parent,
 												  "pg_stat_monitor local store",
@@ -1805,6 +1809,13 @@ pgsm_store(const pgsmQueryStats *stats)
 
 	/* Safety check... */
 	if (!IsSystemInitialized())
+		return;
+
+	/*
+	 * Nothing to do if compute_query_id isn't enabled and no other module
+	 * computed a query identifier.
+	 */
+	if (key.queryid == INT64CONST(0))
 		return;
 
 	pgsm = pgsm_get_ss();

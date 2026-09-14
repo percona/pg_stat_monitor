@@ -17,6 +17,7 @@ REGRESS = basic \
 	version \
 	guc \
 	pgsm_query_id \
+	query_id \
 	functions \
 	counters \
 	relations \
