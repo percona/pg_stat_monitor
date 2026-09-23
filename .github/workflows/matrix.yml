@@ -28,6 +28,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
+        container: ghcr.io/percona-lab/pg_github_actions_images/psp:${{ matrix.pg_version }}
     secrets: inherit
 
   pgdg:
@@ -47,6 +48,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
+        container: ghcr.io/percona-lab/pg_github_actions_images/pgdg:${{ matrix.pg_version }}
     secrets: inherit
 
   source:
@@ -66,6 +68,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
+        container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:community-${{ matrix.pg_version }}-${{ matrix.compiler }}-debugoptimized
     secrets: inherit
 
   exec_backend:
@@ -85,6 +88,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
+        container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:community-${{ matrix.pg_version }}-gcc-exec-backend
     secrets: inherit
 
   macos:

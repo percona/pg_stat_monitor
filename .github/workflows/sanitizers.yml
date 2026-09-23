@@ -21,34 +21,25 @@ jobs:
   run:
     name: Run
     runs-on: ubuntu-22.04
+    # Built from percona/postgres with the same sanitize flags build-postgres.sh
+    # would have applied. Based on Ubuntu 22.04, which is where
+    # /usr/bin/llvm-symbolizer-14 (pinned above) comes from.
+    container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:psp-18-clang-sanitize
     timeout-minutes: 20
     steps:
-      - name: Remove existing PostgreSQL
-        run: sudo apt purge postgresql* libpq*
-
       - name: Clone repository
         uses: actions/checkout@v7
         with:
           path: src
 
-      - name: Clone postgres repository
-        uses: actions/checkout@v7
-        with:
-          path: postgres
-          repository: percona/postgres.git
-          ref: PSP_REL_${{ env.PG_VERSION }}_STABLE
-
-      - name: Install dependencies
-        run: src/.github/scripts/ubuntu-deps.sh dev
-
-      - name: Build postgres
-        run: src/.github/scripts/build-postgres.sh sanitize
-
       - name: Build pg_stat_monitor
         run: src/.github/scripts/build.sh sanitize
 
+      - name: Hand the workspace to the unprivileged user
+        run: chown -R ci:ci "$GITHUB_WORKSPACE"
+
       - name: Run pg_stat_monitor tests
-        run: src/.github/scripts/test.sh sanitize
+        run: run-as-ci src/.github/scripts/test.sh sanitize
 
       - name: Print sanitize logs
         if: ${{ !cancelled() }}
