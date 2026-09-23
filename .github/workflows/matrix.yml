@@ -128,7 +128,6 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: ghcr.io/percona-lab/pg_github_actions_images/psp:${{ matrix.pg_version }}
     secrets: inherit
 
   slack-notification:
