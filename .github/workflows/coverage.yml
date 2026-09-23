@@ -16,34 +16,28 @@ jobs:
   collect:
     name: Collect and upload
     runs-on: ubuntu-24.04
+    # Percona Server for PostgreSQL is preinstalled in the image. The tag is
+    # spelled out because the `env` context is not available here; keep it in
+    # step with PG_VERSION above.
+    container: ghcr.io/percona-lab/pg_github_actions_images/psp:18
     timeout-minutes: 20
     steps:
-      - name: Remove existing PostgreSQL
-        run: sudo apt purge postgresql* libpq*
-
       - name: Clone repository
         uses: actions/checkout@v7
         with:
           submodules: recursive
           ref: ${{ github.ref }}
 
-      - name: Install dependencies
-        run: .github/scripts/ubuntu-deps.sh dev
-
-      - name: Install PostgreSQL
-        run: .github/scripts/install-postgresql.sh ${{ env.PG_PACKAGE }} ${{ env.PG_VERSION }}
-
       - name: Build pg_stat_monitor
         run: .github/scripts/build.sh coverage
 
-      - name: Set permissions
-        run: sudo chown -R runner:runner /var/run/postgresql
-
-      - name: Stop existing PostgreSQL instances
-        run: sudo service postgresql stop
+      # The container has no running PostgreSQL service to stop and no
+      # /var/run/postgresql to re-own; test.sh puts its socket in /tmp.
+      - name: Hand the workspace to the unprivileged user
+        run: chown -R ci:ci "$GITHUB_WORKSPACE"
 
       - name: Run tests
-        run: .github/scripts/test.sh
+        run: run-as-ci .github/scripts/test.sh
 
       - name: Upload coverage data to codecov.io
         uses: codecov/codecov-action@v7

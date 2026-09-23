@@ -9,30 +9,21 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-24.04
+    # The image already provides PostgreSQL plus the pgindent/pg_bsd_indent/
+    # find_typedef/perltidyrc tooling this job exists to run. Previously the job
+    # compiled all of PostgreSQL (159s) purely to obtain them.
+    #
+    # The tag is spelled out because the `env` context is not available here;
+    # keep it in step with PG_VERSION above.
+    container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:psp-18-gcc-debug
     timeout-minutes: 5
     steps:
-      - name: Remove existing PostgreSQL
-        run: sudo apt purge postgresql* libpq*
-
       - name: Clone repository
         uses: actions/checkout@v7
         with:
           submodules: recursive
           path: src
           ref: ${{ github.ref }}
-
-      - name: Clone postgres repository
-        uses: actions/checkout@v7
-        with:
-          path: postgres
-          repository: percona/postgres.git
-          ref: PSP_REL_${{ env.PG_VERSION }}_STABLE
-
-      - name: Install dependencies
-        run: src/.github/scripts/ubuntu-deps.sh dev
-
-      - name: Build and install PostgreSQL
-        run: src/.github/scripts/build-postgres.sh debug
 
       - name: Build pg_stat_monitor
         run: src/.github/scripts/build.sh debug

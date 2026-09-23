@@ -5,7 +5,11 @@ set -e
 ARGS=
 
 SCRIPT_DIR=$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)
-PSP_DIR=$SCRIPT_DIR/../../../postgres
+# Prebuilt CI images keep the PostgreSQL tree at a fixed path rather than next
+# to the checkout, so allow the location to be overridden.
+PSP_DIR=${PG_SOURCE_DIR:-$SCRIPT_DIR/../../../postgres}
+# Absent when running as root in a container.
+SUDO=$(command -v sudo || true)
 
 case "$1" in
     debug)
@@ -56,5 +60,5 @@ cd "$PSP_DIR"
    --enable-tap-tests \
    $ARGS
 
-sudo make install-world -j "$NCPU"
-echo "/usr/local/pgsql/bin" >> $GITHUB_PATH
+$SUDO make install-world -j "$NCPU"
+echo "/usr/local/pgsql/bin" >> "${GITHUB_PATH:-/dev/null}"

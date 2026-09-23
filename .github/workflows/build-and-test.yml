@@ -17,6 +17,13 @@ on:
       build_type:
         type: string
         required: true
+      container:
+        description: >-
+          Prebuilt CI image providing the dependencies and PostgreSQL.
+          Empty string runs directly on the runner, as before.
+        type: string
+        required: false
+        default: ''
 
 env:
   PG_PACKAGE: ${{ inputs.pg_package }}
@@ -25,15 +32,23 @@ env:
   CC: ${{ inputs.compiler }}
   BUILD_TYPE: ${{ inputs.build_type }}
   PGPORT: 6432
+  # Container jobs run as root, but PostgreSQL refuses to run as root, so the
+  # test step drops to the image's unprivileged `ci` user. Empty when running
+  # directly on the runner, which is already unprivileged.
+  RUN_AS: ${{ inputs.container != '' && 'run-as-ci' || '' }}
 
 jobs:
   build:
     name: Build
     runs-on: ${{ inputs.os }}
+    container: ${{ inputs.container }}
     timeout-minutes: 15
     steps:
+      # The steps below are skipped when a prebuilt image supplies the
+      # environment. The runner images ship PostgreSQL preinstalled, which is
+      # what this purge exists for; the CI images never contain it.
       - name: Remove existing PostgreSQL
-        if: startsWith(inputs.os, 'ubuntu-')
+        if: inputs.container == '' && startsWith(inputs.os, 'ubuntu-')
         run: sudo apt purge postgresql* libpq*
 
       - name: Clone repository
@@ -43,23 +58,24 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Install dependencies for Ubuntu
-        if: startsWith(inputs.os, 'ubuntu-')
+        if: inputs.container == '' && startsWith(inputs.os, 'ubuntu-')
         run: src/.github/scripts/ubuntu-deps.sh
 
       - name: Install dev dependencies for Ubuntu
-        if: startsWith(inputs.os, 'ubuntu-') && env.PG_PACKAGE == 'source'
+        if: inputs.container == '' && startsWith(inputs.os, 'ubuntu-') && env.PG_PACKAGE == 'source'
         run: src/.github/scripts/ubuntu-deps.sh dev
 
+      # macOS runners cannot use containers, so this path is unchanged.
       - name: Install dependencies for MacOS
         if: startsWith(inputs.os,  'macos-')
         run: src/.github/scripts/macos-deps.sh
 
       - name: Install PostgreSQL
-        if: env.PG_PACKAGE != 'source'
+        if: inputs.container == '' && env.PG_PACKAGE != 'source'
         run: src/.github/scripts/install-postgresql.sh ${{ env.PG_PACKAGE }} ${{ env.PG_VERSION }}
 
       - name: Clone postgres repository
-        if: env.PG_PACKAGE == 'source'
+        if: inputs.container == '' && env.PG_PACKAGE == 'source'
         uses: actions/checkout@v7
         with:
           path: postgres
@@ -67,14 +83,18 @@ jobs:
           ref: REL_${{ env.PG_VERSION }}_STABLE
 
       - name: Build PostgreSQL
-        if: env.PG_PACKAGE == 'source'
+        if: inputs.container == '' && env.PG_PACKAGE == 'source'
         run: src/.github/scripts/build-postgres.sh ${{ env.BUILD_TYPE }}
 
       - name: Build pg_stat_monitor
         run: src/.github/scripts/build.sh ${{ env.BUILD_TYPE }}
 
+      - name: Hand the workspace to the unprivileged user
+        if: inputs.container != ''
+        run: chown -R ci:ci "$GITHUB_WORKSPACE"
+
       - name: Run tests
-        run: src/.github/scripts/test.sh ${{ env.BUILD_TYPE }}
+        run: $RUN_AS src/.github/scripts/test.sh ${{ env.BUILD_TYPE }}
 
       - name: Report on test fail
         uses: actions/upload-artifact@v4

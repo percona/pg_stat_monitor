@@ -4,6 +4,8 @@ set -e
 
 SCRIPT_DIR=$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)
 PG_CFLAGS=-Werror
+# Absent when running as root in a container.
+SUDO=$(command -v sudo || true)
 
 cd "$SCRIPT_DIR/../.."
 
@@ -40,4 +42,4 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     NCPU=$(sysctl -n hw.ncpu)
 fi
 
-sudo env "PATH=$PATH" PG_CFLAGS="$PG_CFLAGS" make install -j $NCPU
+$SUDO env "PATH=$PATH" PG_CFLAGS="$PG_CFLAGS" make install -j $NCPU
