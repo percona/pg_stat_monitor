@@ -17,6 +17,7 @@ $node->append_conf(
 	'postgresql.conf', qq(
 shared_preload_libraries = 'pg_stat_monitor'
 pg_stat_monitor.pgsm_normalized_query = off
+pg_stat_monitor.pgsm_bucket_time = 3600
 ));
 
 # Start server
