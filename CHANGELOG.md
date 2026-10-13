@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.4.1]
 
 ### Fixed
 - Ignore statements that have no query id
