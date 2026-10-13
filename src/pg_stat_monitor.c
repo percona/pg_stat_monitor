@@ -56,7 +56,7 @@
 #include "guc.h"
 #include "hash_query.h"
 
-#define BUILD_VERSION "2.4.0"
+#define BUILD_VERSION "2.4.1"
 
 #if PG_VERSION_NUM >= 180000
 PG_MODULE_MAGIC_EXT(.name = "pg_stat_monitor",.version = BUILD_VERSION);
