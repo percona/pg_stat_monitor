@@ -817,7 +817,7 @@ pgsm_ExecutorEnd(QueryDesc *queryDesc)
 	else
 		standard_ExecutorEnd(queryDesc);
 
-	pgsm_delete_query_stats(queryDesc->plannedstmt->queryId);
+	pgsm_delete_query_stats(queryId);
 
 	num_relations = 0;
 }
