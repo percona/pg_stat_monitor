@@ -17,7 +17,13 @@ jobs:
   run:
     name: Run
     runs-on: ubuntu-22.04
-    container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:psp-18-clang-sanitize-ubuntu22.04
+    container:
+      image: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:psp-18-clang-sanitize-ubuntu22.04
+      # Reaps orphaned processes, e.g. a postmaster that a test SIGKILLs;
+      # otherwise its PID stays taken and the restart fails.
+      # The tests set max_stack_depth=8MB, which needs a stack limit above
+      # Docker's default 8MB.
+      options: --init --ulimit stack=67108864:67108864
     timeout-minutes: 20
     steps:
       - name: Clone repository

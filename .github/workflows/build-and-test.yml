@@ -49,8 +49,10 @@ jobs:
         && format('postgres-source:pgdg-{0}-{1}-{2}', inputs.pg_version, inputs.compiler, inputs.build_type)
         || format('{0}:{1}', inputs.pg_package, inputs.pg_version),
         fromJSON('{"ubuntu-22.04": "22.04", "ubuntu-24.04": "24.04", "ubuntu-24.04-arm": "24.04"}')[inputs.os]) || '' }}
-      # EXEC_BACKEND requires ASLR to be turned off.
-      options: ${{ inputs.build_type == 'exec-backend' && '--security-opt seccomp=unconfined' || '' }}
+      # Reaps orphaned processes, e.g. a postmaster that a test SIGKILLs;
+      # otherwise its PID stays taken and the restart fails.
+      # EXEC_BACKEND also requires ASLR to be turned off.
+      options: --init ${{ inputs.build_type == 'exec-backend' && '--security-opt seccomp=unconfined' || '' }}
     timeout-minutes: 15
     steps:
       - name: Remove existing PostgreSQL
