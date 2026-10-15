@@ -3,7 +3,7 @@
 set -e
 
 SCRIPT_DIR=$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)
-INSTALL_DIR=$SCRIPT_DIR/../../pginst
+INSTALL_DIR=${PG_INSTALL_DIR:-/usr/local/pgsql}
 PG_SOURCE_DIR=${PG_SOURCE_DIR:-$SCRIPT_DIR/../../../postgres}
 cd "$SCRIPT_DIR/../.."
 
@@ -12,9 +12,11 @@ if ! test -f typedefs-full.list; then
   exit 1
 fi
 
-sudo make -C "$PG_SOURCE_DIR"/src/tools/pg_bsd_indent install
-
-cd "$SCRIPT_DIR/../.."
+# Prebuilt CI images already ship pg_bsd_indent, so only build it when it is
+# actually missing.
+if ! test -x "$INSTALL_DIR/bin/pg_bsd_indent"; then
+  sudo make -C "$PG_SOURCE_DIR"/src/tools/pg_bsd_indent install
+fi
 
 export PATH=$PG_SOURCE_DIR/src/tools/pgindent/:$INSTALL_DIR/bin/:$PATH
 

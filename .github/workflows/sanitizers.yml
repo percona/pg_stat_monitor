@@ -9,10 +9,6 @@ env:
   PG_VERSION: 18
   CC: clang
   LD: clang
-  UBSAN_OPTIONS: log_path=${{ github.workspace }}/sanitize.log print_suppressions=0 print_stacktrace=1 print_summary=1 halt_on_error=1
-  ASAN_OPTIONS: log_path=${{ github.workspace }}/sanitize.log print_suppressions=0 abort_on_error=1
-  LSAN_OPTIONS: log_path=${{ github.workspace }}/sanitize.log print_suppressions=0 suppressions=${{ github.workspace }}/src/suppressions/lsan.supp
-  ASAN_SYMBOLIZER_PATH: /usr/bin/llvm-symbolizer-14
   # Avoid failures on slow recovery
   PGCTLTIMEOUT: 120
   PG_TEST_TIMEOUT_DEFAULT: 300
@@ -28,6 +24,16 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: src
+
+      # ${{ github.workspace }} is the runner's path, not the container's, so
+      # the sanitizer options are set from $GITHUB_WORKSPACE instead.
+      - name: Configure sanitizers
+        run: |
+          {
+            echo "UBSAN_OPTIONS=log_path=$GITHUB_WORKSPACE/sanitize.log print_suppressions=0 print_stacktrace=1 print_summary=1 halt_on_error=1"
+            echo "ASAN_OPTIONS=log_path=$GITHUB_WORKSPACE/sanitize.log print_suppressions=0 abort_on_error=1"
+            echo "LSAN_OPTIONS=log_path=$GITHUB_WORKSPACE/sanitize.log print_suppressions=0 suppressions=$GITHUB_WORKSPACE/src/suppressions/lsan.supp"
+          } >> "$GITHUB_ENV"
 
       - name: Build pg_stat_monitor
         run: src/.github/scripts/build.sh sanitize

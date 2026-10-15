@@ -28,7 +28,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: ghcr.io/percona-lab/pg_github_actions_images/psp:${{ matrix.pg_version }}-ubuntu24.04
+        container: true
     secrets: inherit
 
   pgdg:
@@ -48,7 +48,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: ghcr.io/percona-lab/pg_github_actions_images/pgdg:${{ matrix.pg_version }}-ubuntu24.04
+        container: true
     secrets: inherit
 
   source:
@@ -68,7 +68,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:pgdg-${{ matrix.pg_version }}-${{ matrix.compiler }}-debugoptimized-ubuntu24.04
+        container: true
     secrets: inherit
 
   exec_backend:
@@ -88,7 +88,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:pgdg-${{ matrix.pg_version }}-gcc-exec-backend-ubuntu24.04
+        container: true
     secrets: inherit
 
   macos:
@@ -128,6 +128,7 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
+        container: true
     secrets: inherit
 
   slack-notification:
