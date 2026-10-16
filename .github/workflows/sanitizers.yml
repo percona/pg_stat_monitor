@@ -6,7 +6,6 @@ on:
       - main
 
 env:
-  PG_VERSION: 18
   CC: clang
   LD: clang
   # Avoid failures on slow recovery

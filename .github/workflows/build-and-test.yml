@@ -17,15 +17,6 @@ on:
       build_type:
         type: string
         required: true
-      container:
-        description: >-
-          Run in the prebuilt CI image (percona-lab/pg_github_actions_images)
-          that provides the dependencies and PostgreSQL matching pg_package,
-          pg_version, compiler and build_type. Otherwise PostgreSQL is
-          installed on the runner.
-        type: boolean
-        required: false
-        default: false
 
 env:
   PG_PACKAGE: ${{ inputs.pg_package }}
@@ -40,41 +31,36 @@ jobs:
     name: Build
     runs-on: ${{ inputs.os }}
     container:
-      # The image is the one matching the job's inputs, e.g. psp:18-ubuntu24.04
-      # or postgres-source:pgdg-18-gcc-debugoptimized-ubuntu24.04, or none.
+      # Ubuntu jobs run in the prebuilt CI image matching the job's inputs,
+      # e.g. psp:18-ubuntu24.04 or
+      # postgres-source:pgdg-18-gcc-debugoptimized-ubuntu24.04, which provides
+      # PostgreSQL and the dependencies. macOS jobs install PostgreSQL on the
+      # runner.
       image: >-
-        ${{ inputs.container && format(
+        ${{ startsWith(inputs.os, 'ubuntu-') && format(
         'ghcr.io/percona-lab/pg_github_actions_images/{0}-ubuntu{1}',
         inputs.pg_package == 'source'
         && format('postgres-source:pgdg-{0}-{1}-{2}', inputs.pg_version, inputs.compiler, inputs.build_type)
         || format('{0}:{1}', inputs.pg_package, inputs.pg_version),
-        fromJSON('{"ubuntu-22.04": "22.04", "ubuntu-24.04": "24.04", "ubuntu-24.04-arm": "24.04"}')[inputs.os]) || '' }}
+        fromJSON('{"ubuntu-24.04": "24.04", "ubuntu-24.04-arm": "24.04"}')[inputs.os]) || '' }}
       # Reaps orphaned processes, e.g. a postmaster that a test SIGKILLs;
       # otherwise its PID stays taken and the restart fails.
       # EXEC_BACKEND also requires ASLR to be turned off.
       options: --init ${{ inputs.build_type == 'exec-backend' && '--security-opt seccomp=unconfined' || '' }}
     timeout-minutes: 15
     steps:
-      - name: Remove existing PostgreSQL
-        if: ${{ !inputs.container && startsWith(inputs.os, 'ubuntu-') }}
-        run: sudo apt purge postgresql* libpq*
-
       - name: Clone repository
         uses: actions/checkout@v7
         with:
           path: src
           ref: ${{ github.ref }}
 
-      - name: Install dependencies for Ubuntu
-        if: ${{ !inputs.container && startsWith(inputs.os, 'ubuntu-') }}
-        run: src/.github/scripts/ubuntu-deps.sh
-
       - name: Install dependencies for MacOS
         if: startsWith(inputs.os,  'macos-')
         run: src/.github/scripts/macos-deps.sh
 
       - name: Install PostgreSQL
-        if: ${{ !inputs.container }}
+        if: startsWith(inputs.os, 'macos-')
         run: src/.github/scripts/install-postgresql.sh ${{ env.PG_PACKAGE }} ${{ env.PG_VERSION }}
 
       - name: Build pg_stat_monitor

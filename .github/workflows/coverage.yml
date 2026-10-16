@@ -6,8 +6,6 @@ on:
       - main
 
 env:
-  PG_VERSION: 18
-  PG_PACKAGE: psp
   # Avoid failures on slow recovery
   PGCTLTIMEOUT: 120
   PG_TEST_TIMEOUT_DEFAULT: 300

@@ -28,7 +28,6 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: true
     secrets: inherit
 
   pgdg:
@@ -48,7 +47,6 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: true
     secrets: inherit
 
   source:
@@ -68,7 +66,6 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: true
     secrets: inherit
 
   exec_backend:
@@ -88,7 +85,6 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: true
     secrets: inherit
 
   macos:
@@ -128,7 +124,6 @@ jobs:
         os: ${{ matrix.os }}
         compiler: ${{ matrix.compiler }}
         build_type: ${{ matrix.build_type }}
-        container: true
     secrets: inherit
 
   slack-notification:
