@@ -19,7 +19,9 @@ case "$1" in
 
     sanitize)
         echo "Building with sanitize option"
-        PG_CFLAGS+=" -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -fno-inline-functions"
+        # Since LLVM 17 -fsanitize=function also checks C, and PostgreSQL calls
+        # functions through pointers of a different type by design.
+        PG_CFLAGS+=" -fsanitize=address -fsanitize=undefined -fno-sanitize=function -fno-omit-frame-pointer -fno-inline-functions"
         ;;
 
     coverage)
@@ -40,4 +42,8 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     NCPU=$(sysctl -n hw.ncpu)
 fi
 
-sudo env "PATH=$PATH" PG_CFLAGS="$PG_CFLAGS" make install -j $NCPU
+# sudo resets the environment, so pass on what the build needs, including the
+# sanitizer options for a sanitized pg_config.
+sudo env "PATH=$PATH" PG_CFLAGS="$PG_CFLAGS" \
+    ASAN_OPTIONS="${ASAN_OPTIONS:-}" LSAN_OPTIONS="${LSAN_OPTIONS:-}" UBSAN_OPTIONS="${UBSAN_OPTIONS:-}" \
+    make install -j $NCPU
