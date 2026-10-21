@@ -46,14 +46,13 @@ SELECT run_pg_sleep(5);
 (1 row)
 
 SELECT substr(query, 0, 50) as query, calls, resp_calls FROM pg_stat_monitor
-WHERE query NOT LIKE '%pg_stat_monitor_reset%'
+WHERE query LIKE '%sleep%'
 ORDER BY query COLLATE "C";
-                 query                  | calls |                  resp_calls                   
-----------------------------------------+-------+-----------------------------------------------
- SELECT pg_sleep(0.4 * i)               |     5 | {0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0,0,0}
- SELECT run_pg_sleep(5)                 |     1 | {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}
- SET pg_stat_monitor.pgsm_track = 'all' |     1 | {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
-(3 rows)
+          query           | calls |                  resp_calls                   
+--------------------------+-------+-----------------------------------------------
+ SELECT pg_sleep(0.4 * i) |     5 | {0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0,0,0}
+ SELECT run_pg_sleep(5)   |     1 | {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}
+(2 rows)
 
 SELECT * FROM generate_histogram();
            range           | freq |              bar               
