@@ -13,10 +13,11 @@ PGSM::setup_files_dir(basename($0));
 # Create new PostgreSQL node and do initdb
 my $node = PGSM->pgsm_init_pg();
 
+my $bucket_time = 3;
 $node->append_conf(
 	'postgresql.conf', qq(
 shared_preload_libraries = 'pg_stat_monitor'
-pg_stat_monitor.pgsm_bucket_time = 3
+pg_stat_monitor.pgsm_bucket_time = $bucket_time
 pg_stat_monitor.pgsm_max_buckets = 3
 pg_stat_monitor.pgsm_normalized_query = on
 pg_stat_monitor.pgsm_track = 'all'
@@ -48,6 +49,9 @@ PGSM::append_to_debug_file($stdout);
 	extra_params => [ '-a', '-Pformat=aligned', '-Ptuples_only=off' ]);
 is($cmdret, 0, "Reset PGSM EXTENSION");
 PGSM::append_to_debug_file($stdout);
+
+# Buckets are aligned to the wall clock, so start at a bucket boundary.
+sleep($bucket_time - (time() % $bucket_time));
 
 ($cmdret, $stdout, $stderr) = $node->psql(
 	'postgres',
