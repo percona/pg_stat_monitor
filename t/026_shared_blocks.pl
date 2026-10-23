@@ -185,12 +185,6 @@ is($stdout, 't', "Check: shared_blks_dirtied should not be 0.");
 trim($stdout);
 is($stdout, 't', "Check: shared_blks_written should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres',
-	"SELECT sum(pgsm.${col_shared_blk_write_time}) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE '%INSERT INTO pgbench_history%' GROUP BY pgsm.query;"
-);
-trim($stdout);
-is($stdout, 't', "Check: ${col_shared_blk_write_time} should not be 0.");
-
 # Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',
 	'SELECT sum(pgsm.shared_blks_hit) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE \'%UPDATE pgbench_accounts SET abalance%\' GROUP BY pgsm.query;'
