@@ -185,11 +185,26 @@ is($stdout, 't', "Check: shared_blks_dirtied should not be 0.");
 trim($stdout);
 is($stdout, 't', "Check: shared_blks_written should not be 0.");
 
-($cmdret, $stdout, $stderr) = $node->psql('postgres',
-	"SELECT sum(pgsm.${col_shared_blk_write_time}) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE '%INSERT INTO pgbench_history%' GROUP BY pgsm.query;"
-);
-trim($stdout);
-is($stdout, 't', "Check: ${col_shared_blk_write_time} should not be 0.");
+# PostgreSQL 15 and older do not count write time for relation extension.
+# That was fixed in commit d17ffc734da), but this fix only applies to PostgreSQL 16 and newer.
+if ($PGSM::PG_MAJOR_VERSION >= 16)
+{
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		"SELECT sum(pgsm.${col_shared_blk_write_time}) <> 0 FROM pg_stat_monitor AS pgsm WHERE pgsm.query LIKE '%INSERT INTO pgbench_history%' GROUP BY pgsm.query;"
+	);
+	trim($stdout);
+	is($stdout, 't', "Check: ${col_shared_blk_write_time} should not be 0.");
+}
+else
+{
+	# Compare instead with pg_stat_statements for PostgreSQL versions older than 16.
+	($cmdret, $stdout, $stderr) = $node->psql('postgres',
+		"SELECT abs((SELECT sum(${col_shared_blk_write_time}) FROM pg_stat_monitor WHERE query LIKE '%INSERT INTO pgbench_history%') - (SELECT sum(${col_shared_blk_write_time}) FROM pg_stat_statements WHERE query LIKE '%INSERT INTO pgbench_history%')) < 0.001;"
+	);
+	trim($stdout);
+	is($stdout, 't',
+		"Check: ${col_shared_blk_write_time} should match pg_stat_statements.");
+}
 
 # Compare values for query 'UPDATE pgbench_accounts SET abalance = abalance + $1 WHERE aid = $2'
 ($cmdret, $stdout, $stderr) = $node->psql('postgres',

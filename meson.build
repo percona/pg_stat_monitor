@@ -55,7 +55,10 @@ tests += {
       'user',
       'version'
     ],
-    'regress_args': ['--temp-config', files('pg_stat_monitor.conf')],
+    'regress_args': [
+      '--temp-config', files('pg_stat_monitor.conf'),
+      '--launcher', files('regression/wait_for_bucket.sh'),
+    ],
     # Disabled because these tests require
     # "shared_preload_libraries=pg_stat_monitor", which typical
     # runningcheck users do not have (e.g. buildfarm clients).

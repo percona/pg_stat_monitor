@@ -17,21 +17,7 @@ BEGIN
     END LOOP;
 END
 $$ LANGUAGE plpgsql;
-CREATE FUNCTION wait_for_new_bucket() RETURNS void AS $$
-BEGIN
-    -- If the bucket lifetime is less than 8 seconds, we would not fit.
-    IF extract(SECOND FROM now()) > 52 THEN
-        PERFORM pg_sleep(60 - extract(SECOND FROM now()));
-    END IF;
-END
-$$ LANGUAGE plpgsql;
 CREATE EXTENSION pg_stat_monitor;
-SELECT wait_for_new_bucket();
- wait_for_new_bucket 
----------------------
- 
-(1 row)
-
 SELECT pg_stat_monitor_reset();
  pg_stat_monitor_reset 
 -----------------------
@@ -46,14 +32,13 @@ SELECT run_pg_sleep(5);
 (1 row)
 
 SELECT substr(query, 0, 50) as query, calls, resp_calls FROM pg_stat_monitor
-WHERE query NOT LIKE '%pg_stat_monitor_reset%'
+WHERE query LIKE '%sleep%'
 ORDER BY query COLLATE "C";
-                 query                  | calls |                  resp_calls                   
-----------------------------------------+-------+-----------------------------------------------
- SELECT pg_sleep(0.4 * i)               |     5 | {0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0,0,0}
- SELECT run_pg_sleep(5)                 |     1 | {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}
- SET pg_stat_monitor.pgsm_track = 'all' |     1 | {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
-(3 rows)
+          query           | calls |                  resp_calls                   
+--------------------------+-------+-----------------------------------------------
+ SELECT pg_sleep(0.4 * i) |     5 | {0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0,0,0}
+ SELECT run_pg_sleep(5)   |     1 | {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}
+(2 rows)
 
 SELECT * FROM generate_histogram();
            range           | freq |              bar               

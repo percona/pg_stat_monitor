@@ -19,23 +19,13 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION wait_for_new_bucket() RETURNS void AS $$
-BEGIN
-    -- If the bucket lifetime is less than 8 seconds, we would not fit.
-    IF extract(SECOND FROM now()) > 52 THEN
-        PERFORM pg_sleep(60 - extract(SECOND FROM now()));
-    END IF;
-END
-$$ LANGUAGE plpgsql;
-
 CREATE EXTENSION pg_stat_monitor;
-SELECT wait_for_new_bucket();
 SELECT pg_stat_monitor_reset();
 SET pg_stat_monitor.pgsm_track = 'all';
 SELECT run_pg_sleep(5);
 
 SELECT substr(query, 0, 50) as query, calls, resp_calls FROM pg_stat_monitor
-WHERE query NOT LIKE '%pg_stat_monitor_reset%'
+WHERE query LIKE '%sleep%'
 ORDER BY query COLLATE "C";
 
 SELECT * FROM generate_histogram();

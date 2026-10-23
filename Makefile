@@ -12,7 +12,8 @@ PGFILEDESC = "pg_stat_monitor - Query Performance Monitoring Tool for PostgreSQL
 LDFLAGS_SL += $(filter -lm, $(LIBS))
 
 TAP_TESTS = 1
-REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/pg_stat_monitor/pg_stat_monitor.conf --inputdir=regression
+REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/pg_stat_monitor/pg_stat_monitor.conf --inputdir=regression \
+	--launcher=$(srcdir)/regression/wait_for_bucket.sh
 REGRESS = basic \
 	version \
 	guc \
