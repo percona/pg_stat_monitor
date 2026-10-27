@@ -41,4 +41,8 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     NCPU=$(sysctl -n hw.ncpu)
 fi
 
-sudo env "PATH=$PATH" PG_CFLAGS="$PG_CFLAGS" make install -j $NCPU
+if [ -f "$PG_SOURCE_DIR/.git-revision" ]; then
+    echo "PostgreSQL revision: $(cat "$PG_SOURCE_DIR/.git-revision")"
+fi
+
+make -j $NCPU PG_CFLAGS="$PG_CFLAGS" install
