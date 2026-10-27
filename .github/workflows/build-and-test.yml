@@ -26,7 +26,6 @@ env:
   PG_PACKAGE: ${{ inputs.pg_package }}
   PG_VERSION: ${{ inputs.pg_version }}
   OS: ${{ inputs.runs-on }}
-  CC: ${{ inputs.compiler }}
   BUILD_TYPE: ${{ inputs.build_type }}
   PGPORT: 6432
 
@@ -71,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ failure() }}
         with:
-          name: log-test-${{ env.PG_PACKAGE }}-${{ env.PG_VERSION }}-${{ env.OS }}-${{ env.CC }}-${{ env.BUILD_TYPE }}
+          name: log-test-${{ env.PG_PACKAGE }}-${{ env.PG_VERSION }}-${{ env.OS }}-${{ inputs.compiler }}-${{ env.BUILD_TYPE }}
           path: |
             src/regression_install
             src/regression_install.log

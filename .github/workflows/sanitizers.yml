@@ -10,8 +10,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CC: clang
-  LD: clang
   # Avoid failures on slow recovery
   PGCTLTIMEOUT: 120
   PG_TEST_TIMEOUT_DEFAULT: 300
