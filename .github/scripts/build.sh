@@ -19,7 +19,7 @@ case "$1" in
 
     sanitize)
         echo "Building with sanitize option"
-        PG_CFLAGS+=" -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -fno-inline-functions"
+        PG_CFLAGS+=" -fsanitize=address -fsanitize=undefined -fno-sanitize=function -fno-omit-frame-pointer -fno-inline-functions"
         ;;
 
     coverage)
@@ -40,4 +40,4 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     NCPU=$(sysctl -n hw.ncpu)
 fi
 
-sudo env "PATH=$PATH" PG_CFLAGS="$PG_CFLAGS" make install -j $NCPU
+make -j $NCPU PG_CFLAGS="$PG_CFLAGS" install
