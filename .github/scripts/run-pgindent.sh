@@ -12,11 +12,6 @@ if ! test -f typedefs-full.list; then
   exit 1
 fi
 
-cd "$PG_SOURCE_DIR"/src/tools/pg_bsd_indent
-sudo make install
-
-cd "$SCRIPT_DIR/../.."
-
 export PATH=$PG_SOURCE_DIR/src/tools/pgindent/:$INSTALL_DIR/bin/:$PATH
 
 # Check pg_stat_monitor with the fresh list extraxted from the object file

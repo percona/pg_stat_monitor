@@ -8,9 +8,13 @@ on:
       pg_version:
         type: string
         required: true
-      os:
+      runs-on:
         type: string
         required: true
+      image-os:
+        type: string
+        required: false
+        default: ''
       compiler:
         type: string
         required: true
@@ -21,7 +25,7 @@ on:
 env:
   PG_PACKAGE: ${{ inputs.pg_package }}
   PG_VERSION: ${{ inputs.pg_version }}
-  OS: ${{ inputs.os }}
+  OS: ${{ inputs.runs-on }}
   CC: ${{ inputs.compiler }}
   BUILD_TYPE: ${{ inputs.build_type }}
   PGPORT: 6432
@@ -29,46 +33,33 @@ env:
 jobs:
   build:
     name: Build
-    runs-on: ${{ inputs.os }}
+    runs-on: ${{ inputs.runs-on }}
+    container:
+      image: >-
+        ${{ inputs.image-os && format(
+        'ghcr.io/percona-lab/pg_github_actions_images/{0}-{1}',
+        inputs.pg_package == 'source'
+        && format('postgres-source:pgdg-{0}-{1}-{2}', inputs.pg_version, inputs.compiler, inputs.build_type)
+        || format('{0}:{1}', inputs.pg_package, inputs.pg_version),
+        inputs.image-os) }}
+      options: --init ${{ inputs.build_type == 'exec-backend' && '--security-opt seccomp=unconfined' || '' }}
     timeout-minutes: 15
     steps:
-      - name: Remove existing PostgreSQL
-        if: startsWith(inputs.os, 'ubuntu-')
-        run: sudo apt purge postgresql* libpq*
-
       - name: Clone repository
         uses: actions/checkout@v7
         with:
           path: src
           ref: ${{ github.ref }}
 
-      - name: Install dependencies for Ubuntu
-        if: startsWith(inputs.os, 'ubuntu-')
-        run: src/.github/scripts/ubuntu-deps.sh
-
-      - name: Install dev dependencies for Ubuntu
-        if: startsWith(inputs.os, 'ubuntu-') && env.PG_PACKAGE == 'source'
-        run: src/.github/scripts/ubuntu-deps.sh dev
-
       - name: Install dependencies for MacOS
-        if: startsWith(inputs.os,  'macos-')
+        if: startsWith(inputs.runs-on,  'macos-')
         run: src/.github/scripts/macos-deps.sh
 
       - name: Install PostgreSQL
-        if: env.PG_PACKAGE != 'source'
-        run: src/.github/scripts/install-postgresql.sh ${{ env.PG_PACKAGE }} ${{ env.PG_VERSION }}
-
-      - name: Clone postgres repository
-        if: env.PG_PACKAGE == 'source'
-        uses: actions/checkout@v7
-        with:
-          path: postgres
-          repository: postgres/postgres.git
-          ref: REL_${{ env.PG_VERSION }}_STABLE
-
-      - name: Build PostgreSQL
-        if: env.PG_PACKAGE == 'source'
-        run: src/.github/scripts/build-postgres.sh ${{ env.BUILD_TYPE }}
+        if: startsWith(inputs.runs-on, 'macos-')
+        run: |
+          brew install postgresql@${{ inputs.pg_version }}
+          brew link postgresql@${{ inputs.pg_version }}
 
       - name: Build pg_stat_monitor
         run: src/.github/scripts/build.sh ${{ env.BUILD_TYPE }}
