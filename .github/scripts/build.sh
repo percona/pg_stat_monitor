@@ -19,7 +19,7 @@ case "$1" in
 
     sanitize)
         echo "Building with sanitize option"
-        PG_CFLAGS+=" -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -fno-inline-functions"
+        PG_CFLAGS+=" -fsanitize=address -fsanitize=undefined -fno-sanitize=function -fno-omit-frame-pointer -fno-inline-functions"
         ;;
 
     coverage)
