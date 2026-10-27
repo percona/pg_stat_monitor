@@ -14,8 +14,10 @@ DEPS=(
 
     # Run pgperltidy
     perltidy
+
+    # Perl dependencies
+    cpanminus
 )
 
 brew install "${DEPS[@]}"
-
-cpan -T IPC::Run Text::Trim JSON
+cpanm --notest --quiet IPC::Run Text::Trim JSON
