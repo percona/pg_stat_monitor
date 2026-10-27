@@ -20,6 +20,7 @@ case "$1" in
     sanitize)
         echo "Building with sanitize option"
         PG_CFLAGS+=" -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -fno-inline-functions"
+        case "$CC" in *clang*) PG_CFLAGS+=" -fno-sanitize=function" ;; esac
         ;;
 
     coverage)
