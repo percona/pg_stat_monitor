@@ -20,4 +20,4 @@ cd "$SCRIPT_DIR/../.."
 export PATH=$PG_SOURCE_DIR/src/tools/pgindent/:$INSTALL_DIR/bin/:$PATH
 
 # Check pg_stat_monitor with the fresh list extraxted from the object file
-pgindent --typedefs=typedefs-full.list --excludes=<(echo "src/libkmip") "$@" .
+pgindent --typedefs=typedefs-full.list "$@" .
