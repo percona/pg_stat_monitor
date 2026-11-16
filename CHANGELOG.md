@@ -2,8 +2,18 @@
 
 ## [2.4.1]
 
+### Changed
+
+- Build the query plan text only when it is going to be stored
+
+### Removed
+
+- Property graphs support removed, since it was reverted in PostgreSQL 19 ([PG-2424](https://perconadev.atlassian.net/browse/PG-2424))
+
 ### Fixed
-- Ignore statements that have no query id
+
+- Ignore statements that have no query id, matching `pg_stat_statements`. Previously, all such statements were merged into a single entry
+- Improve tests stability
 
 ## [2.4.0]
 
