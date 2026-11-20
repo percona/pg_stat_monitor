@@ -101,21 +101,23 @@ To install `pg_stat_monitor` from Percona repositories, you need to use the `per
 1. [Install percona-release](https://docs.percona.com/percona-software-repositories/installing.html) following the instructions relevant to your operating system
 2. Enable Percona repository:
 
-``` sh
-percona-release setup ppg-XX
-```
+    ``` sh
+    percona-release setup ppg-XX
+    ```
 
-Replace XX with the desired PostgreSQL version. For example, to install `pg_stat_monitor ` for PostgreSQL 17, specify `ppg-17`.
+    Replace XX with your PostgreSQL major version. For example, for PostgreSQL 19, use `ppg-19`.
 
 3.  Install `pg_stat_monitor` package
     * For DEB:
       ``` sh
-      apt-get install percona-pg-stat-monitor17
+      apt-get install percona-pg-stat-monitorXX
       ```
     * For RPM:
       ``` sh
-      yum install percona-pg-stat-monitor17
+      yum install percona-pg-stat-monitorXX
       ```
+
+    Replace XX with your PostgreSQL major version. For example, for PostgreSQL 19, use `percona-pg-stat-monitor19`.
 
 #### Installing from PostgreSQL `yum` repositories
 
@@ -124,10 +126,10 @@ Install the PostgreSQL repositories following the instructions in the [Linux dow
 Install `pg_stat_monitor`:
 
 ```
-dnf install -y pg_stat_monitor_<VERSION>
+dnf install -y pg_stat_monitor_XX
 ```
 
-Replace the `VERSION` variable with the PostgreSQL version you are using (e.g. specify `pg_stat_monitor_17` for PostgreSQL 17)
+Replace XX with your PostgreSQL major version. For example, for PostgreSQL 19, use `pg_stat_monitor_19`.
 
 #### Installing from PGXN
 
@@ -172,7 +174,7 @@ sudo systemctl restart postgresql.service
 * On RPM-based systems:
 
 ```sh
-sudo systemctl restart postgresql-17
+sudo systemctl restart postgresql-19
 ```
 
 Create the extension using the [CREATE EXTENSION](https://www.postgresql.org/docs/current/sql-createextension.html) command. Using this command requires the privileges of a superuser or a database owner. Connect to `psql` as a superuser for a database and run the following command:
@@ -243,7 +245,7 @@ To uninstall `pg_stat_monitor`, do the following:
 
     **Important**: If the `shared_preload_libraries` parameter includes other modules, specify them all for the `ALTER SYSTEM SET` command to keep using them.
 
-3. Restart the `postgresql` instance to apply the changes. The following command restarts PostgreSQL 17. Replace the version value with the one you are using.
+3. Restart the `postgresql` instance to apply the changes. The following command restarts PostgreSQL 19. Replace the version value with the one you are using.
 
     * On DEB-based systems:
 
@@ -254,7 +256,7 @@ To uninstall `pg_stat_monitor`, do the following:
     * On RPM-based systems:
 
     ```sh
-    sudo systemctl restart postgresql-17
+    sudo systemctl restart postgresql-19
     ```
 
 ### How we work
