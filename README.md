@@ -1,9 +1,4 @@
-[![postgresql-14-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-14-pgdg-package.yml)
-[![postgresql-15-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-15-pgdg-package.yml)
-[![postgresql-16-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-16-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-16-pgdg-package.yml)
-[![postgresql-17-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-17-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-17-pgdg-package.yml)
-[![postgresql-18-pgdg-package](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-18-pgdg-package.yml/badge.svg)](https://github.com/percona/pg_stat_monitor/actions/workflows/postgresql-18-pgdg-package.yml)
-
+[![Build and Test](https://github.com/percona/pg_stat_monitor/actions/workflows/matrix.yml/badge.svg?branch=main)](https://github.com/percona/pg_stat_monitor/actions/workflows/matrix.yml)
 [![PGXN version](https://badge.fury.io/pg/pg_stat_monitor.svg)](https://badge.fury.io/pg/pg_stat_monitor)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/percona/pg_stat_monitor/badge)](https://scorecard.dev/viewer/?uri=github.com/percona/pg_stat_monitor)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9703/badge)](https://www.bestpractices.dev/projects/9703)
