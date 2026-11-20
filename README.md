@@ -47,7 +47,7 @@ To learn about other features, available in `pg_stat_monitor`, see the [Features
 
 `pg_stat_monitor` supports PostgreSQL versions 14 and above. It is compatible with both PostgreSQL provided by PostgreSQL Global Development Group (PGDG) and [Percona Distribution for PostgreSQL](https://www.percona.com/postgresql/software/).
 
-The `RPM` (for RHEL and CentOS) and the `DEB` (for Debian and Ubuntu) packages are available from Percona repositories for PostgreSQL versions [14](https://docs.percona.com/postgresql/14/), [15](https://docs.percona.com/postgresql/15/), [16](https://docs.percona.com/postgresql/16/), [17](https://docs.percona.com/postgresql/17/), [18](https://docs.percona.com/postgresql/18/) and [19](https://docs.percona.com/postgresql/19/).
+The `RPM` and the `DEB` packages are available from Percona repositories for PostgreSQL versions [14](https://docs.percona.com/postgresql/14/), [15](https://docs.percona.com/postgresql/15/), [16](https://docs.percona.com/postgresql/16/), [17](https://docs.percona.com/postgresql/17/), [18](https://docs.percona.com/postgresql/18/) and [19](https://docs.percona.com/postgresql/19/).
 
 The RPM packages are also available in the official PostgreSQL (PGDG) yum repositories.
 
@@ -83,12 +83,7 @@ The following are useful links in [`pg_stat_monitor` documentation](https://docs
 
 ### Supported platforms
 
-The PostgreSQL YUM repository supports `pg_stat_monitor` for all [supported versions](#supported-versions) for the following platforms:
-
-* Red Hat Enterprise/Rocky/CentOS/Oracle Linux 7, 8 and 9
-* Fedora 33 and 34
-
-Find the list of supported platforms for `pg_stat_monitor` within [Percona Distribution for PostgreSQL](https://www.percona.com/postgresql/software/) on the [Percona Release Lifecycle Overview](https://www.percona.com/services/policies/percona-software-support-lifecycle#pgsql) page.
+Find the list of supported platforms for `pg_stat_monitor` on the [Percona Release Lifecycle Overview](https://www.percona.com/release-lifecycle-of-percona-software-for-postgresql/) page.
 
 ### Installation guidelines
 
@@ -113,11 +108,11 @@ percona-release setup ppg-XX
 Replace XX with the desired PostgreSQL version. For example, to install `pg_stat_monitor ` for PostgreSQL 17, specify `ppg-17`.
 
 3.  Install `pg_stat_monitor` package
-    * For Debian and Ubuntu:
+    * For DEB:
       ``` sh
       apt-get install percona-pg-stat-monitor17
       ```
-    * For RHEL and CentOS:
+    * For RPM:
       ``` sh
       yum install percona-pg-stat-monitor17
       ```
@@ -168,13 +163,13 @@ ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_monitor';
 
 Start or restart the `postgresql` instance to apply the changes.
 
-* On Debian and Ubuntu:
+* On DEB-based systems:
 
 ```sh
 sudo systemctl restart postgresql.service
 ```
 
-* On Red Hat Enterprise Linux and CentOS:
+* On RPM-based systems:
 
 ```sh
 sudo systemctl restart postgresql-17
@@ -250,13 +245,13 @@ To uninstall `pg_stat_monitor`, do the following:
 
 3. Restart the `postgresql` instance to apply the changes. The following command restarts PostgreSQL 17. Replace the version value with the one you are using.
 
-    * On Debian and Ubuntu:
+    * On DEB-based systems:
 
     ```sh
     sudo systemctl restart postgresql.service
     ```
 
-    * On Red Hat Enterprise Linux and CentOS:
+    * On RPM-based systems:
 
     ```sh
     sudo systemctl restart postgresql-17
