@@ -293,6 +293,6 @@ This project is licensed under the same open liberal terms and conditions as the
 
 ### Copyright notice
 
-* Portions Copyright © 2018-2025, Percona LLC and/or its affiliates
-* Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+* Portions Copyright © 2018-2026, Percona LLC and/or its affiliates
+* Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group
 * Portions Copyright (c) 1994, The Regents of the University of California
