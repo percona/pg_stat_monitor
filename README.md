@@ -45,19 +45,19 @@ While `pg_stat_statements` provides ever-increasing metrics, `pg_stat_monitor` a
 
 To learn about other features, available in `pg_stat_monitor`, see the [Features](#features) section and the [User Guide](https://docs.percona.com/pg-stat-monitor/user_guide.html).
 
-`pg_stat_monitor` supports PostgreSQL versions 14 and above. It is compatible with both PostgreSQL provided by PostgreSQL Global Development Group (PGDG) and [Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution).
+`pg_stat_monitor` supports PostgreSQL versions 14 and above. It is compatible with both PostgreSQL provided by PostgreSQL Global Development Group (PGDG) and [Percona Distribution for PostgreSQL](https://www.percona.com/postgresql/software/).
 
-The `RPM` (for RHEL and CentOS) and the `DEB` (for Debian and Ubuntu) packages are available from Percona repositories for PostgreSQL versions [14](https://www.percona.com/downloads/postgresql-distribution-14/LATEST/), [15](https://www.percona.com/downloads/postgresql-distribution-15/LATEST/), [16](https://www.percona.com/downloads/postgresql-distribution-16/LATEST/), [17](https://www.percona.com/downloads/postgresql-distribution-17/LATEST/), [18](https://www.percona.com/downloads/postgresql-distribution-18/LATEST/) and [19](https://www.percona.com/downloads/postgresql-distribution-19/LATEST/).
+The `RPM` (for RHEL and CentOS) and the `DEB` (for Debian and Ubuntu) packages are available from Percona repositories for PostgreSQL versions [14](https://docs.percona.com/postgresql/14/), [15](https://docs.percona.com/postgresql/15/), [16](https://docs.percona.com/postgresql/16/), [17](https://docs.percona.com/postgresql/17/), [18](https://docs.percona.com/postgresql/18/) and [19](https://docs.percona.com/postgresql/19/).
 
 The RPM packages are also available in the official PostgreSQL (PGDG) yum repositories.
 
 ### Supported versions
 
-The `pg_stat_monitor` should work on the latest version of both [Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution) and PostgreSQL, but is only tested with these versions:
+The `pg_stat_monitor` should work on the latest version of both [Percona Distribution for PostgreSQL](https://www.percona.com/postgresql/software/) and PostgreSQL, but is only tested with these versions:
 
 | **Distribution** | **Version**     | **Provider** |
 | ---------------- | --------------- | ------------ |
-|[Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution)| [14](https://www.percona.com/downloads/postgresql-distribution-14/LATEST/),  [15](https://www.percona.com/downloads/postgresql-distribution-15/LATEST/), [16](https://www.percona.com/downloads/postgresql-distribution-16/LATEST/), [17](https://www.percona.com/downloads/postgresql-distribution-17/LATEST/), [18](https://www.percona.com/downloads/postgresql-distribution-18/LATEST/) and [19](https://www.percona.com/downloads/postgresql-distribution-19/LATEST/)| Percona|
+|[Percona Distribution for PostgreSQL](https://www.percona.com/postgresql/software/)| [14](https://docs.percona.com/postgresql/14/),  [15](https://docs.percona.com/postgresql/15/), [16](https://docs.percona.com/postgresql/16/), [17](https://docs.percona.com/postgresql/17/), [18](https://docs.percona.com/postgresql/18/) and [19](https://docs.percona.com/postgresql/19/)| Percona|
 | PostgreSQL       | 14, 15, 16, 17, 18 and 19 | PostgreSQL Global Development Group (PGDG) |
 
 ### Features
@@ -79,7 +79,7 @@ The following are useful links in [`pg_stat_monitor` documentation](https://docs
 2. [Comparing `pg_stat_monitor` and `pg_stat_statements`](https://docs.percona.com/pg-stat-monitor/comparison.html)
 3. [pg_stat_monitor view reference](https://docs.percona.com/pg-stat-monitor/reference.html)
 4. [Release notes](https://docs.percona.com/pg-stat-monitor/release-notes/release_notes.html)
-5. [Contributing guide](https://github.com/percona/pg_stat_monitor/blob/master/CONTRIBUTING.md)
+5. [Contributing guide](https://github.com/percona/pg_stat_monitor/blob/main/CONTRIBUTING.md)
 
 ### Supported platforms
 
@@ -88,7 +88,7 @@ The PostgreSQL YUM repository supports `pg_stat_monitor` for all [supported vers
 * Red Hat Enterprise/Rocky/CentOS/Oracle Linux 7, 8 and 9
 * Fedora 33 and 34
 
-Find the list of supported platforms for `pg_stat_monitor` within [Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution) on the [Percona Release Lifecycle Overview](https://www.percona.com/services/policies/percona-software-support-lifecycle#pgsql) page.
+Find the list of supported platforms for `pg_stat_monitor` within [Percona Distribution for PostgreSQL](https://www.percona.com/postgresql/software/) on the [Percona Release Lifecycle Overview](https://www.percona.com/services/policies/percona-software-support-lifecycle#pgsql) page.
 
 ### Installation guidelines
 
@@ -278,13 +278,13 @@ What branches do exist?
 
 We welcome and strongly encourage community participation and contributions, and are always looking for new members that are as dedicated to serving the community as we are.
 
-The [Contributing Guide](https://github.com/percona/pg_stat_monitor/blob/master/CONTRIBUTING.md) contains the guidelines on how you can contribute.
+The [Contributing Guide](https://github.com/percona/pg_stat_monitor/blob/main/CONTRIBUTING.md) contains the guidelines on how you can contribute.
 
 ### Report a bug
 
-If you would like to suggest a new feature / an improvement or you found a bug in `pg_stat_monitor`, please submit the report to the [Percona Jira issue tracker](https://jira.percona.com/projects/PG).
+If you would like to suggest a new feature / an improvement or you found a bug in `pg_stat_monitor`, please submit the report to the [Percona Jira issue tracker](https://perconadev.atlassian.net/jira/software/c/projects/PG/list).
 
-Refer to the [Submit a bug report or a feature request](https://github.com/percona/pg_stat_monitor/blob/master/CONTRIBUTING.md#submit-a-bug-report-or-a-feature-request) section for bug reporting guidelines.
+Refer to the [Submit a bug report or a feature request](https://github.com/percona/pg_stat_monitor/blob/main/CONTRIBUTING.md#submit-a-bug-report-or-a-feature-request) section for bug reporting guidelines.
 
 ### Support, discussions and forums
 
@@ -292,7 +292,7 @@ We welcome your feedback on your experience with `pg_stat_monitor`. Join our [te
 
 ### License
 
-This project is licensed under the same open liberal terms and conditions as the PostgreSQL project itself. Please refer to the [LICENSE](https://github.com/percona/pg_stat_monitor/blob/master/LICENSE) file for more details.
+This project is licensed under the same open liberal terms and conditions as the PostgreSQL project itself. Please refer to the [LICENSE](https://github.com/percona/pg_stat_monitor/blob/main/LICENSE) file for more details.
 
 ### Copyright notice
 
