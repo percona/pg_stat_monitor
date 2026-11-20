@@ -43,7 +43,7 @@ While `pg_stat_statements` provides ever-increasing metrics, `pg_stat_monitor` a
 
 >**NOTE**: Because of these differences in data processing, memory blocks and WAL (Write Ahead Logs) related statistics data are displayed inconsistently when both `pg_stat_monitor` and `pg_stat_statements` are used together.
 
-To learn about other features, available in `pg_stat_monitor`, see the [Features](#pg_stat_monitor-features) section and the [User Guide](https://docs.percona.com/pg-stat-monitor/user_guide.html).
+To learn about other features, available in `pg_stat_monitor`, see the [Features](#features) section and the [User Guide](https://docs.percona.com/pg-stat-monitor/user_guide.html).
 
 `pg_stat_monitor` supports PostgreSQL versions 14 and above. It is compatible with both PostgreSQL provided by PostgreSQL Global Development Group (PGDG) and [Percona Distribution for PostgreSQL](https://www.percona.com/software/postgresql-distribution).
 
@@ -78,7 +78,7 @@ The following are useful links in [`pg_stat_monitor` documentation](https://docs
 1. [User guide](https://docs.percona.com/pg-stat-monitor/user_guide.html)
 2. [Comparing `pg_stat_monitor` and `pg_stat_statements`](https://docs.percona.com/pg-stat-monitor/comparison.html)
 3. [pg_stat_monitor view reference](https://docs.percona.com/pg-stat-monitor/reference.html)
-4. [Release notes](https://github.com/percona/pg_stat_monitor/blob/master/docs/RELEASE_NOTES.md)
+4. [Release notes](https://docs.percona.com/pg-stat-monitor/release-notes/release_notes.html)
 5. [Contributing guide](https://github.com/percona/pg_stat_monitor/blob/master/CONTRIBUTING.md)
 
 ### Supported platforms
@@ -103,7 +103,7 @@ You can install `pg_stat_monitor` from the following sources:
 
 To install `pg_stat_monitor` from Percona repositories, you need to use the `percona-release` repository management tool.
 
-1. [Install percona-release](https://www.percona.com/doc/percona-repo-config/installing.html) following the instructions relevant to your operating system
+1. [Install percona-release](https://docs.percona.com/percona-software-repositories/installing.html) following the instructions relevant to your operating system
 2. Enable Percona repository:
 
 ``` sh
@@ -216,10 +216,10 @@ To build `pg_stat_monitor` from source code, you require the following:
 * gcc
 * postgresql-devel | postgresql-server-dev-all
 
-You can download the source code of the latest release of `pg_stat_monitor` from [the releases page on GitHub](https://github.com/Percona/pg_stat_monitor/releases) or using git:
+You can download the source code of the latest release of `pg_stat_monitor` from [the releases page on GitHub](https://github.com/percona/pg_stat_monitor/releases) or using git:
 
 ```
-git clone git://github.com/Percona/pg_stat_monitor.git
+git clone https://github.com/percona/pg_stat_monitor.git
 ```
 
 Compile and install the extension
